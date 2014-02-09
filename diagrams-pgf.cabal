@@ -1,0 +1,53 @@
+Name:                diagrams-pgf
+Version:             1.0
+Synopsis:            PGF backend for diagrams drawing EDSL.
+Homepage:            http://code.haskell.org/diagrams/
+License:             BSD3
+License-file:        LICENSE
+Author:              Christopher Chalmers
+Maintainer:          c.chalmers@me.com
+Stability:           Experimental
+Category:            Graphics
+Build-type:          Simple
+Cabal-version:       >=1.10
+Description:
+  This package provides a modular backend for rendering
+  diagrams created with the diagrams EDSL using the 
+  TeX library PGF.
+
+  Support for rendering LaTeX, ConTeXt and plain TeX files.
+
+Library
+  Exposed-modules:     Diagrams.Backend.PGF
+                       Diagrams.Backend.PGF.CmdLine
+                       Diagrams.Backend.PGF.Surface
+                       Diagrams.Backend.PGF.Render
+                       Graphics.Rendering.PGF
+  Hs-source-dirs:      src
+  Build-depends:       base          >= 4.4 && < 4.8
+                     , lens          >= 3.8 && < 4.1
+                     , mtl           >= 2.1 && < 2.2
+                     , time          >= 1.2 && < 1.6
+                     , process       >= 1.0 && < 1.3
+                     , directory     >= 1.0 && < 1.4
+                     , filepath      >= 1.2 && < 1.4
+                     , vector-space  >= 0.7 && < 0.9
+                     , colour
+                     , data-default
+                     , diagrams-core >= 1     && < 1.1
+                     , diagrams-lib  >= 1     && < 1.2
+                     , split         >= 0.1.2 && < 0.3
+                     , blaze-builder >= 0.3   && < 0.4
+                     , bytestring    >= 0.9   && < 1.0
+                     , double-conversion >= 0.2 && < 0.3
+                     , optparse-applicative >= 0.7 && < 0.8
+                     , hashable >= 1.1 && < 1.3
+
+
+  if !os(windows)
+    cpp-options: -DCMDLINELOOP
+    Build-depends:     unix >= 2.4 && < 2.8
+
+  Ghc-options:         -Wall
+  default-language:    Haskell2010
+
