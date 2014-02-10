@@ -5,6 +5,8 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE OverlappingInstances  #-}
+{-# LANGUAGE OverloadedStrings     #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF
@@ -51,21 +53,25 @@ module Diagrams.Backend.PGF
     , renderDia
     , renderPGF
     , renderPDF
+    , renderPDF'
     , sizeSpecToBounds
     ) where
 
-import           Control.Lens ((^.))
-import           Data.Default
-import           Diagrams.Prelude              hiding (r2, view)
-import           System.Exit
-import           System.FilePath
-import           System.Process
-import           System.IO
+import Control.Lens ((^.))
+import Control.Monad (when)
+import Data.Default
+import Diagrams.Prelude     hiding (r2, view)
+import System.Directory     hiding (readable)
+import System.Exit
+import System.FilePath
+import System.Process
+import System.IO
+
 import qualified Blaze.ByteString.Builder      as Blaze
 import qualified Data.ByteString.Char8         as B
 
-import           Diagrams.Backend.PGF.Render
-import           Diagrams.Backend.PGF.Surface
+import Diagrams.Backend.PGF.Render
+import Diagrams.Backend.PGF.Surface
 
 
 type B = PGF
@@ -86,6 +92,59 @@ renderPGF filePath sizeSp surf dia = do
     Blaze.toByteStringIO (B.hPutStr h) rendered
     hClose h
 
+-- | This is an experimental function that pipes directly to pdfTeX. It's a 
+--   little hacky and might not always work. It should be faster as pdfTeX can 
+--   load as diagrams output is generated. If this doesn't work or you want to 
+--   save the .tex file aswell, use @renderPDF'@.
+renderPDF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
+renderPDF filePath sizeSp surf dia = do
+  tmp <- getTemporaryDirectory
+
+  let (cmd,args) = case surf^.texFormat of
+        LaTeX    -> ("pdflatex", ["-jobname=texput"])
+        ConTeXt  -> ("context", ["--pipe"])
+        PlainTeX -> ("pdftex", ["-jobname=texput"])
+   
+      p = (proc cmd args)
+           { cwd     = Just tmp
+           , std_in  = CreatePipe
+           , std_out = CreatePipe
+           }
+
+  (Just inH, Just outH, _, pHandle) <- createProcess p
+
+  -- this is important, TeX doesn't work unless you gobble it's output
+  _ <- hGetContents outH
+
+  -- this is important, each \n must be followed by a flush or TeX breaks
+  hSetBuffering inH LineBuffering
+
+  let rendered = renderDia PGF (def & template .~ surf & sizeSpec .~ sizeSp & readable .~ False) dia
+  Blaze.toByteStringIO (B.hPutStr inH) rendered
+  hClose inH
+  exitC <- waitForProcess pHandle
+  hClose outH
+
+  case exitC of
+    ExitSuccess -> do
+      copyFile (tmp </> "texput.pdf") filePath
+      when (surf^.texFormat == ConTeXt) $ pdfcrop filePath
+    ExitFailure n -> do
+      putStrLn $ "tex failed with exit code " ++ show n
+              ++ "\ncheck log file"
+      copyFile (tmp </> "texput.pdf") (replaceExtension filePath "log")
+
+-- | Tempory solution to crop ConTeXt document, makes generation slow.
+pdfcrop :: FilePath -> IO ()
+pdfcrop path = do
+  (eCode, _,err) <-readProcessWithExitCode "pdfcrop" [path, path] ""
+
+  case eCode of
+    ExitFailure _ -> putStrLn $ "pdfcrop failed: " ++ err
+    _             -> return ()
+-- TODO: Externalizing Graphics p. 1070 sec 107 PGF Manual 3.0
+
+
 -- | Render PGF and save to output.tex and run:
 --
 -- > pdflatex -interaction=batchmode "output.tex"
@@ -100,8 +159,8 @@ renderPGF filePath sizeSp surf dia = do
 --
 --   stdout is hidden but errors are notified and "output.log" is kept.
 --
-renderPDF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
-renderPDF filePath sizeSp surf dia = do
+renderPDF' :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
+renderPDF' filePath sizeSp surf dia = do
     let texFilePath = replaceExtension filePath "tex"
         outDir      = dropFileName filePath
     renderPGF texFilePath sizeSp surf dia
@@ -121,6 +180,4 @@ renderPDF filePath sizeSp surf dia = do
               ++ replaceExtension filePath "log"
               ++ " and report if this is a bug."
       ExitSuccess   -> return ()
-
-
 

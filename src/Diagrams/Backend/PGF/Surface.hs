@@ -116,7 +116,7 @@ latexStandaloneSurface = Surface LaTeX True c
     c bounds = (h,f)
       where
         h = latexDocHeader
-            ++ pdfPageBounds bounds (-2.712, 1.85) -- obtained from trial and error
+            ++ pdfPageBounds bounds (-2.712, -1.85) -- obtained from trial and error
             ++ "\\begin{document}\n"
             ++ latexPGFHeader bounds
         f = latexPGFFooter
@@ -151,7 +151,8 @@ latexPreviewSurface = Surface LaTeX True c
 -- * ConTeXt surfaces
 
 contextDocHeader :: String
-contextDocHeader = "\\usemodule[pgfcore]"
+contextDocHeader = "\\usemodule[pgf]\n" -- pgfcore doesn't work with ConTeXt
+                ++ "\\setuppagenumbering[location=]"
 
 contextPGFHeader :: (Double,Double) -> String
 contextPGFHeader bounds = "\\startpgfpicture\n" ++ rectangleBoundingBox bounds
@@ -241,13 +242,8 @@ plaintexStandaloneSurface = Surface PlainTeX True c
   where
     c bounds = (h,f)
       where
-        h = unlines
-          [ plaintexDocHeader
-          , pdfPageBounds bounds (-0.712, 0.02)
-          , plaintexPGFHeader bounds
-          ]
-        f = unlines
-          [ "\\endpgfpicture"
-          , "\\bye"
-          ]
+        h = plaintexDocHeader
+         ++ pdfPageBounds bounds (-0.712, 0.02)
+         ++ plaintexPGFHeader bounds
+        f = "\\endpgfpicture" ++ "\\bye\n"
 

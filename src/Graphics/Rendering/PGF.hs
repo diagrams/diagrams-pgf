@@ -342,7 +342,6 @@ defineColour name r g b = do
     ConTeXt  -> do
       raw "\\definecolor"
       brackets $ raw name
-      brackets $ raw "rgb"
       brackets $ contextColor r g b
     _        -> do
       raw "\\definecolor"
