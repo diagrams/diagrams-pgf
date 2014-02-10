@@ -11,7 +11,7 @@ _diagrams-pgf_ is a work in progress, it supports the basic features of diagrams
 - LaTeX, ConTeXt and plain TeX support
 - direct PDF generation using _pdflatex_, _context_ and _pdftex_
 
-# Usage
+## Usage
 
 A simple example that uses _diagrams-pgf_ to draw a square.
 
@@ -74,7 +74,7 @@ $ cat ./square.tex
 \end{pgfpicture}
 ```
 
-## Missing feature / Shortcomings
+## Missing features / Shortcomings
 
 The following features are not currently supported:
 
