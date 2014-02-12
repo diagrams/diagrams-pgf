@@ -1,4 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE GADTs             #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Puting.PGF.Sys
@@ -9,13 +14,14 @@
 -- with it. Currently incomplete.
 --
 ------------------------------------------------------------------------------
-module Graphics.Puting.PGF.Sys
+module Graphics.Rendering.PGF.Sys
   ( render
   , PutM
   , Put
   , raw
   , rawString
   -- * Environments
+  , picture
   , scope
   , epsilon
   -- * Paths
@@ -32,8 +38,8 @@ module Graphics.Puting.PGF.Sys
   , cap
   , join
   , miterLimit
-  , strokeColor
-  , strokeOpacity
+  , lineColor
+  , lineOpacity
   -- * Fill Options
   , fillColor
   , eoRule
@@ -46,18 +52,33 @@ module Graphics.Puting.PGF.Sys
   -- * images
   -- * Text
   , paperSize
+    -- * Diagrams primitves
+  , path
+  , locTrail
+  -- , trail
+  , segment
   ) where
 
 import Data.Monoid
+import Control.Monad (when, zipWithM_)
 import Blaze.ByteString.Builder as Blaze
 import Blaze.ByteString.Builder.Char.Utf8 as Blaze
 import Data.Double.Conversion.ByteString
 import Data.ByteString.Char8 (ByteString)
 import Data.List (intersperse)
+import Data.AdditiveGroup ((^+^))
 
-import Diagrams.Attributes (LineCap(..), LineJoin(..), Dashing(..))
-import Diagrams.TwoD.Path (FillRule(..))
-import Diagrams.TwoD.Types (R2, unr2)
+import Diagrams.Core.Transform (Transformation, apply, transl)
+
+import Diagrams.Attributes (LineCap(..), LineJoin(..), Dashing(..),
+                            colorToSRGBA, Color (..))
+import Diagrams.TwoD.Path (FillRule(..), Clip (..))
+import Diagrams.TwoD.Vector (unitX, unitY)
+import Diagrams.Trail (Trail, trailSegments, isLoop, trailVertices)
+import Diagrams.Path (Path (..))
+import Diagrams.Located (Located, viewLoc)
+import Diagrams.Segment -- (Segment, OffsetClosed (..))
+import Diagrams.TwoD.Types (R2, P2, unr2, unp2, r2)
 -- import Diagrams.TwoD.Text
 -- import Diagrams.TwoD.Image
 
@@ -73,32 +94,32 @@ newtype PutM a = Put { unPut :: PairS a }
 type Put = PutM ()
 
 instance Functor PutM where
-        fmap f m = Put $ let PairS a w = unPut m in PairS (f a) w
-        {-# INLINE fmap #-}
+  fmap f m = Put $ let PairS a w = unPut m in PairS (f a) w
+  {-# INLINE fmap #-}
 
 -- instance Applicative PutM where
---         pure    = return
---         m <*> k = Put $
---             let PairS f w  = unPut m
---                 PairS x w' = unPut k
---             in PairS (f x) (w `mappend` w')
+--   pure    = return
+--   m <*> k = Put $
+--       let PairS f w  = unPut m
+--           PairS x w' = unPut k
+--       in PairS (f x) (w `mappend` w')
 
 -- Standard Writer monad, with aggressive inlining
 instance Monad PutM where
-    return a = Put $ PairS a mempty
-    {-# INLINE return #-}
+  return a = Put $ PairS a mempty
+  {-# INLINE return #-}
 
-    m >>= k  = Put $
-        let PairS a w  = unPut m
-            PairS b w' = unPut (k a)
-        in PairS b (w `mappend` w')
-    {-# INLINE (>>=) #-}
+  m >>= k  = Put $
+      let PairS a w  = unPut m
+          PairS b w' = unPut (k a)
+      in PairS b (w `mappend` w')
+  {-# INLINE (>>=) #-}
 
-    m >> k  = Put $
-        let PairS _ w  = unPut m
-            PairS b w' = unPut k
-        in PairS b (w `mappend` w')
-    {-# INLINE (>>) #-}
+  m >> k  = Put $
+      let PairS _ w  = unPut m
+          PairS b w' = unPut k
+      in PairS b (w `mappend` w')
+  {-# INLINE (>>) #-}
 
 
 render :: PutM a -> Builder
@@ -164,6 +185,18 @@ epsilon = 0.0001
 
 -- * PGF environments
 
+picture :: Put -> Put
+picture r = do
+  beginPicture
+  r
+  endPicture
+
+beginPicture :: Put
+beginPicture = ln $ sys "beginpicture"
+
+endPicture :: Put
+endPicture = ln $ sys "endpicture"
+
 -- | Wrap the Puting in a scope.
 scope :: Put -> Put
 scope r = do
@@ -181,8 +214,19 @@ endScope = ln $ sys "endscope"
 
 -- transformations
 
-transform :: (Double,Double,Double,Double,Double,Double) -> Put
-transform (a,b,c,d,e,f) = ln $ do
+transform :: Transformation R2 -> Put
+transform = transform' . getMatrix
+
+getMatrix :: Transformation R2
+          -> (Double, Double, Double, Double, Double, Double)
+getMatrix t = (a1,a2,b1,b2,c1,c2)
+ where
+  (unr2 -> (a1,a2)) = apply t unitX
+  (unr2 -> (b1,b2)) = apply t unitY
+  (unr2 -> (c1,c2)) = transl t
+
+transform' :: (Double,Double,Double,Double,Double,Double) -> Put
+transform' (a,b,c,d,e,f) = ln $ do
   sys "transformcm"
   mapM_ n [a,b,c,d]
   p' (e,f)
@@ -218,7 +262,7 @@ curveTo v2 v3 v4 = ln $ do
 -- using paths
 
 closePath :: Put
-closePath = ln $ sys "pathclose"
+closePath = ln $ sys "closepath"
 
 stroke :: Put
 stroke = ln $ sys "stroke"
@@ -229,8 +273,16 @@ stroke = ln $ sys "stroke"
 fill :: Put
 fill = ln $ sys "fill"
 
-clip :: Put
-clip = ln $ do
+clip :: Clip -> Put
+clip (Clip paths) = mapM_ clipPath paths
+
+clipPath :: Path R2 -> Put
+clipPath (Path locTrails) = do
+  mapM_ locTrail locTrails
+  clipNext
+
+clipNext :: Put
+clipNext = ln $ do
   sys "clipnext"
   sys "discardpath"
   -- this is the only way diagrams spcifies clips
@@ -276,26 +328,71 @@ fillRule _       = return ()
 
 -- * Colours
 
-strokeColor :: Double -> Double -> Double -> Put
-strokeColor r g b = ln $ do
-  sys "color@rgb@stroke"
-  mapM_ n [r,g,b]
+lineColor :: (Color c) => c -> Put
+lineColor c = ln $ do
+  lineColor' r g b
+  when (a /= 1) $ lineOpacity a
+  where (r,g,b,a) = colorToSRGBA c
 
-fillColor :: Double -> Double -> Double -> Put
-fillColor r g b = do
-  sys "color@rgb@stroke"
-  mapM_ n [r,g,b]
-
-strokeOpacity :: Double -> Put
-strokeOpacity o = ln $ do
+lineOpacity :: Double -> Put
+lineOpacity o = ln $ do
   sys "stroke@opacity"
   n o
+
+lineColor' :: Double -> Double -> Double -> Put
+lineColor' r g b = ln $ do
+  sys "color@rgb@stroke"
+  mapM_ n [r,g,b]
+
+fillColor :: (Color c) => c -> Put
+fillColor c = ln $ do
+  fillColor' r g b
+  when (a /= 1) $ fillOpacity a
+  where (r,g,b,a) = colorToSRGBA c
 
 fillOpacity :: Double -> Put
 fillOpacity o = ln $ do
   sys "fill@opacity"
   n o
 
+fillColor' :: Double -> Double -> Double -> Put
+fillColor' r g b = do
+  sys "color@rgb@fill"
+  mapM_ n [r,g,b]
+
 paperSize :: (Double, Double) -> Put
-paperSize s = ln $ p' s
+paperSize s = ln $ do
+  sys "papersize"
+  p' s
+
+-- * Diagram primitves
+
+path :: Path R2 -> Put
+path (Path trs) = mapM_ locTrail trs
+
+-- locTrail :: Located (Trail R2) -> Put
+-- locTrail (viewLoc -> (unp2 -> p2, t)) = do
+--   moveTo (r2 p2)
+--   trail t
+-- 
+-- trail :: Trail R2 -> Put
+-- trail t@(trailSegments -> segs) = do
+--   mapM_ segment segs
+--   when (isLoop t) closePath
+
+locTrail :: Located (Trail R2) -> Put
+locTrail lT@(viewLoc -> (unp2 -> p2, t@(trailSegments -> segs))) = do
+  moveTo (r2 p2)
+  let verts = trailVertices lT
+  zipWithM_ moveSeg segs verts
+  when (isLoop t) closePath
+
+moveSeg :: Segment Closed R2 -> P2 -> Put
+moveSeg (Linear (OffsetClosed v)) p2       = lineTo (v ^+^ (r2 . unp2) p2)
+moveSeg (Cubic v1 v2 (OffsetClosed v3)) p2 = curveTo v1' v2' v3'
+  where [v1',v2',v3'] = map (^+^ (r2 . unp2) p2) [v1,v2,v3]
+
+segment :: Segment Closed R2 -> Put
+segment (Linear (OffsetClosed v))       = lineTo v
+segment (Cubic v1 v2 (OffsetClosed v3)) = curveTo v1 v2 v3
 

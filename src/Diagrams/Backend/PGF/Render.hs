@@ -113,7 +113,7 @@ sizeSpec = lens getSize setSize
 --   where getter (PGFOptions { _transformText = s }) = s
 --         setter o s = o { _transformText = s }
 
--- | Pretty print the output with indented lines, default is true
+-- | Pretty print the output with indented lines, default is true.
 readable :: Lens' (Options PGF R2) Bool
 readable = lens getR setR
   where
@@ -245,7 +245,6 @@ instance Renderable Text PGF where
 
 -- | Renders text. Colour is set by fill colour. Opacity is inheritied from 
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
---   Implimentation incomplete.
 renderText :: Text -> P.Render
 renderText (Text tr tAlign str) = do
   setFillColor' <~ getFillColor
