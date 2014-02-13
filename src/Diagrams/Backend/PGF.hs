@@ -119,7 +119,10 @@ renderPDF filePath sizeSp surf dia = do
   -- this is important, each \n must be followed by a flush or TeX breaks
   hSetBuffering inH LineBuffering
 
-  let rendered = renderDia PGF (def & template .~ surf & sizeSpec .~ sizeSp & readable .~ False) dia
+  let rendered = renderDia PGF (def & template .~ surf
+                                    & sizeSpec .~ sizeSp
+                                    & readable .~ False)
+                               dia
   Blaze.toByteStringIO (B.hPutStr inH) rendered
   hClose inH
   exitC <- waitForProcess pHandle

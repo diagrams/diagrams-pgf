@@ -21,8 +21,10 @@ Library
   Exposed-modules:     Diagrams.Backend.PGF
                        Diagrams.Backend.PGF.CmdLine
                        Diagrams.Backend.PGF.Surface
-                       Diagrams.Backend.PGF.Render
+                       Diagrams.Backend.PGF.Render.Sys
                        Graphics.Rendering.PGF
+                       Graphics.Rendering.PGF.Sys
+                       Diagrams.TwoD.Typeset
   Hs-source-dirs:      src
   Build-depends:       base          >= 4.4 && < 4.8
                      , lens          >= 3.8 && < 4.1

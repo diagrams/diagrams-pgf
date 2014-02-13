@@ -31,6 +31,7 @@ import           Diagrams.TwoD.Image
 import           Diagrams.TwoD.Adjust      (adjustDiaSize2D)
 import           Diagrams.TwoD.Path
 import           Diagrams.TwoD.Text
+import           Diagrams.TwoD.Typeset
 import qualified Blaze.ByteString.Builder  as Blaze
 
 import qualified Graphics.Rendering.PGF        as P
@@ -243,6 +244,9 @@ instance Renderable (Path R2) PGF where
 instance Renderable Text PGF where
   render _ = P . renderText
 
+instance Renderable Typeset PGF where
+  render _ = P . renderTypeset
+
 -- | Renders text. Colour is set by fill colour. Opacity is inheritied from 
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
 renderText :: Text -> P.Render
@@ -260,6 +264,25 @@ renderText (Text tr tAlign str) = do
     P.setFontWeight <~ getFontWeight
     P.setFontSlant  <~ getFontSlant
     P.rawString str
+
+renderTypeset :: Typeset -> P.Render
+renderTypeset (Typeset str tpsSize angle tpsAlign tr) = do
+  setFillColor' <~ getFillColor
+  P.applyTransform tr
+  --
+  case tpsSize of
+    DiagramsSize x -> P.applyScale (x/8)
+    _              -> P.resetNonTranslations
+    -- TODO Typeset sizes
+  --
+  let ops = P.setTextAlign tpsAlign
+         ++ P.setTextRotation angle
+  P.renderText ops $ do
+    P.setFontWeight <~ getFontWeight
+    P.setFontSlant  <~ getFontSlant
+    P.rawString str
+
+
 
 instance Renderable Image PGF where
   render _ (Image file _{-size-} _{-tr-}) = P $ P.image file

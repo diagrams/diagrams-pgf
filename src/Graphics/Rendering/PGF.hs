@@ -78,6 +78,7 @@ module Graphics.Rendering.PGF
   -- * Text
   , renderText
   , setTextAlign
+  , setTextRotation
   , setFontWeight
   , setFontSlant
   ) where
@@ -610,6 +611,11 @@ setTextAlign a = case a of
       yt' | yt > 0.75 = Just $ raw "top"
           | yt < 0.25 = Just $ raw "bottom"
           | otherwise = Nothing
+
+setTextRotation :: Angle -> [Render]
+setTextRotation a = case a^.deg of
+                      0 -> [] -- is this OK for doubles?
+                      θ -> [raw "rotate=" >> show4 θ]
  
 -- | Set the font weight by rendering @\bf @. Nothing is done for normal 
 --   weight.

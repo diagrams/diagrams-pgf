@@ -166,7 +166,7 @@ chooseRender opts format d = case splitOn "." (opts^.output) of
          let surf = case format of
                          LaTeX    -> latexSurface
                          ConTeXt  -> contextSurface
-                         PlainTeX -> plaintexStandaloneSurface
+                         PlainTeX -> plaintexSurface
          renderPGF (opts^.output) size surf d
        --
        | last ps == "pdf" -> do
