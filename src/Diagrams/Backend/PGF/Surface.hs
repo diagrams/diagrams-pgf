@@ -77,7 +77,7 @@ contextSurface = Surface
   , _command   = "context"
   , _arguments = ["--pipe"]
   , _jobArg    = \jobname -> "--dummyfile"++jobname
-  , _preamble  = "\\usepackage[pgf]" -- pgfcore doesn't work
+  , _preamble  = "\\usemodule[pgf]\n\\setuppagenumbering[location=]" -- pgfcore doesn't work
   , _beginDoc  = "\\starttext"
   , _endDoc    = "\\stoptext"
   , _pdfOrigin = Nothing
