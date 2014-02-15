@@ -21,6 +21,7 @@ Library
   Exposed-modules:     Diagrams.Backend.PGF
                        Diagrams.Backend.PGF.CmdLine
                        Diagrams.Backend.PGF.Surface
+                       Diagrams.Backend.PGF.Render
                        Diagrams.Backend.PGF.Render.Sys
                        Graphics.Rendering.PGF
                        Graphics.Rendering.PGF.Sys
@@ -37,7 +38,7 @@ Library
                      , colour
                      , data-default
                      , diagrams-core >= 1     && < 1.1
-                     , diagrams-lib  >= 1     && < 1.2
+                     , diagrams-lib  >= 1.1   && < 1.2
                      , split         >= 0.1.2 && < 0.3
                      , blaze-builder >= 0.3   && < 0.4
                      , bytestring    >= 0.9   && < 1.0

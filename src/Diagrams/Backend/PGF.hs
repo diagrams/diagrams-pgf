@@ -52,6 +52,7 @@ module Diagrams.Backend.PGF
       -- * Rendering functions
     , renderDia
     , renderPGF
+    , renderPGF'
     , renderPDF
     , renderPDF'
     , sizeSpecToBounds
@@ -60,7 +61,7 @@ module Diagrams.Backend.PGF
 import Control.Lens ((^.))
 import Control.Monad (when)
 import Data.Default
-import Diagrams.Prelude     hiding (r2, view)
+import Diagrams.Prelude     hiding (r2, view, (<.>))
 import System.Directory     hiding (readable)
 import System.Exit
 import System.FilePath
@@ -84,28 +85,30 @@ defaultSurface :: Surface
 defaultSurface = def
 
 -- | Render a diagram as a PGF code, writing to the specified output
---   file and using the requested size and surface.
+--   file and using the requested size and surface, ready for inclusion in a 
+--   TeX document.
 renderPGF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
-renderPGF filePath sizeSp surf dia = do
+renderPGF filePath sizeSp surf
+  = renderPGF' filePath (def & template .~ surf & sizeSpec .~ sizeSp)
+
+-- | Similar to 'renderPDF' but takes PGFOptions instead.
+renderPGF' :: FilePath -> Options PGF R2 -> Diagram PGF R2 -> IO ()
+renderPGF' filePath ops dia = do
     h <- openFile filePath WriteMode
-    let rendered = renderDia PGF (def & template .~ surf & sizeSpec .~ sizeSp ) dia
+    let rendered = renderDia PGF ops dia
     Blaze.toByteStringIO (B.hPutStr h) rendered
     hClose h
 
 -- | This is an experimental function that pipes directly to pdfTeX. It's a 
 --   little hacky and might not always work. It should be faster as pdfTeX can 
---   load as diagrams output is generated. If this doesn't work or you want to 
---   save the .tex file aswell, use @renderPDF'@.
+--   load as diagrams output is generated. If you want to save the .tex file 
+--   aswell, use @renderPDF'@.
 renderPDF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
 renderPDF filePath sizeSp surf dia = do
   tmp <- getTemporaryDirectory
-
-  let (cmd,args) = case surf^.texFormat of
-        LaTeX    -> ("pdflatex", ["-jobname=texput"])
-        ConTeXt  -> ("context", ["--pipe"])
-        PlainTeX -> ("pdftex", ["-jobname=texput"])
-   
-      p = (proc cmd args)
+  let jobName = "texput" -- TODO make a random one
+      args = (surf^.jobArg) jobName : surf^.arguments
+      p = (proc (surf^.command) args)
            { cwd     = Just tmp
            , std_in  = CreatePipe
            , std_out = CreatePipe
@@ -119,68 +122,67 @@ renderPDF filePath sizeSp surf dia = do
   -- this is important, each \n must be followed by a flush or TeX breaks
   hSetBuffering inH LineBuffering
 
-  let rendered = renderDia PGF (def & template .~ surf
-                                    & sizeSpec .~ sizeSp
-                                    & readable .~ False)
+  let rendered = renderDia PGF (def & surface    .~ surf
+                                    & sizeSpec   .~ sizeSp
+                                    & readable   .~ True
+                                    & standalone .~ True)
                                dia
   Blaze.toByteStringIO (B.hPutStr inH) rendered
   hClose inH
   exitC <- waitForProcess pHandle
+  -- must't be closed before process has finished
   hClose outH
+
+  let logFile = tmp </> jobName <.> "log"
+  logExists <- doesFileExist logFile
 
   case exitC of
     ExitSuccess -> do
-      copyFile (tmp </> "texput.pdf") filePath
+      copyFile (tmp </> jobName <.> "pdf") filePath
       when (surf^.texFormat == ConTeXt) $ pdfcrop filePath
-    ExitFailure n -> do
-      putStrLn $ "tex failed with exit code " ++ show n
-              ++ "\ncheck log file"
-      copyFile (tmp </> "texput.pdf") (replaceExtension filePath "log")
+      when logExists $ removeFile logFile
+      removeFile (tmp </> jobName <.> "pdf")
+    ExitFailure _ -> do
+      putStrLn $ "An error occured while processing TeX file"
+              ++ if logExists
+                   then "please check " ++ logFile
+                   else "and no log file was found"
+      when logExists $ copyFile logFile (replaceExtension filePath "log")
 
 -- | Tempory solution to crop ConTeXt document, makes generation slow.
 pdfcrop :: FilePath -> IO ()
 pdfcrop path = do
-  (eCode, _,err) <-readProcessWithExitCode "pdfcrop" [path, path] ""
+  (eCode, _,err) <- readProcessWithExitCode "pdfcrop" [path, path] ""
 
   case eCode of
     ExitFailure _ -> putStrLn $ "pdfcrop failed: " ++ err
     _             -> return ()
--- TODO: Externalizing Graphics p. 1070 sec 107 PGF Manual 3.0
 
 
--- | Render PGF and save to output.tex and run:
---
--- > pdflatex -interaction=batchmode "output.tex"
---
---   for LaTeX or
---
--- > context --batch --once "output.tex"
---
---   for ConTeXt or
---
--- > pdftex -interaction=batchmode "output.tex"
---
---   stdout is hidden but errors are notified and "output.log" is kept.
---
+-- | Render PGF and save to output.tex and run surface command on output.tex. 
+--   All auxillery files are kept.
 renderPDF' :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
 renderPDF' filePath sizeSp surf dia = do
-    let texFilePath = replaceExtension filePath "tex"
-        outDir      = dropFileName filePath
-    renderPGF texFilePath sizeSp surf dia
+    let (outDir,fileName) = splitFileName filePath
+        texFileName       = replaceExtension fileName "tex"
+    oldDir <- getCurrentDirectory
+    setCurrentDirectory outDir
     --
-    let (cmd,args) = case surf^.texFormat of
-          LaTeX    -> ("pdflatex", [ "--output-directory=" ++ outDir
-                                   , "--batch"
-                                   , texFilePath])
-          ConTeXt  -> ("context", ["--batch", "--noconsole", texFilePath])
-          PlainTeX -> ("pdftex", [texFilePath])
-    --
-    (ecode, _{- out -}, _{- err -}) <- readProcessWithExitCode cmd args ""
-    
+    renderPGF' texFileName (def & sizeSpec .~ sizeSp
+                                & surface .~ surf
+                                & standalone .~ True)
+                           dia
+    (ecode, _, _)
+      <- readProcessWithExitCode (surf^.command) (texFileName : surf^.arguments) ""
+    setCurrentDirectory oldDir
+
     case ecode of
-      ExitFailure _ ->
-        putStrLn $ "An error occured while processing tex file, please check "
-              ++ replaceExtension filePath "log"
-              ++ " and report if this is a bug."
+      ExitFailure _ -> do
+        let logFile = replaceExtension filePath "log"
+        logExists <- doesFileExist logFile
+        putStrLn $ "An error occured while processing TeX file"
+                ++ if logExists
+                     then "please check " ++ logFile
+                     else "and no log file was found"
       ExitSuccess   -> return ()
 

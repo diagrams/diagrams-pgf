@@ -17,6 +17,7 @@ module Diagrams.Backend.PGF.Render
   , sizeSpecToBounds
   -- , preserveLineWidth
   , readable
+  , standalone
   ) where
 
 import           Control.Lens              (lens, (.=), (%=), (^.), op, view, 
@@ -44,16 +45,14 @@ data PGF = PGF
 
 
 instance Backend PGF R2 where
-  data Render  PGF R2 = P (P.RenderM ())
+  data Render  PGF R2 = P (P.Render)
   type Result  PGF R2 = Blaze.Builder
   data Options PGF R2 = PGFOptions
-      { _template          :: Surface    -- ^ Surface you want to use.
-      , _sizeSpec          :: SizeSpec2D -- ^ The requested size.
-      , _readable          :: Bool       -- ^ Pretty print output.
-      , _preserveLineWidth :: Bool       -- ^ Do not freeze before rendering.
-      , _preserveDashing   :: Bool       -- ^ Adjust dashing widths.
-      , _lineWidthAdjust   :: Double     -- ^ lineWidthFactor
-      , _dashingAdjust     :: Double     -- ^ lineWidthFactor
+      { _surface    :: Surface    -- ^ Surface you want to use.
+      , _sizeSpec   :: SizeSpec2D -- ^ The requested size.
+      , _readable   :: Bool       -- ^ Pretty print output.
+      , _standalone :: Bool       -- ^ Should .tex output be standalone 
+                                  --   ('renderPDF' sets this to true)
       }
 
   withStyle _ s t (P r) = P . P.scope $ do
@@ -62,9 +61,9 @@ instance Backend PGF R2 where
     setClipPaths <~ op Clip
     r
 
-  doRender _ options (P r) =
-      P.renderWith (options^.surface) (options^.readable) bounds r
-      where bounds = sizeSpecToBounds (options^.sizeSpec)
+  doRender _ ops (P r) =
+      P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
+      where bounds = sizeSpecToBounds (ops^.sizeSpec)
   
   adjustDia =
       adjustDiaSize2D (view sizeSpec) (set sizeSpec)
@@ -78,22 +77,24 @@ sizeSpecToBounds spec = case spec of
 
 instance Default (Options PGF R2) where
   def = PGFOptions
-          { _template          = def
-          , _sizeSpec          = Absolute
-          , _readable          = True
-          , _preserveLineWidth = True
-          , _preserveDashing   = True
-          -- , _transformText     = True
-          , _dashingAdjust     = 1
-          , _lineWidthAdjust   = 1
+          { _surface    = def
+          , _sizeSpec   = Absolute
+          , _readable   = True
+          , _standalone = False
           }
 
 -- | Lens to change the template, aka surface defined in Diagrams.Backend.PGF.Surface
 template :: Lens' (Options PGF R2) Surface
-template = lens getTemplate setTemplate
+template = lens getter setter
   where
-    getTemplate (PGFOptions { _template = t }) = t
-    setTemplate o t = o { _template = t }
+    getter (PGFOptions { _surface = s }) = s
+    setter o s = o { _surface = s }
+
+standalone :: Lens' (Options PGF R2) Bool
+standalone = lens getter setter
+  where
+    getter (PGFOptions { _standalone = s }) = s
+    setter o s = o { _standalone = s }
 
 surface :: Lens' (Options PGF R2) Surface
 surface = template
@@ -166,10 +167,10 @@ draw = do
 
 -- helper function to easily get options and set them
 (<~) :: (AttributeClass a) => (b -> P.RenderM ()) -> (a -> b) -> P.RenderM ()
-command <~ getF = do
+renderF <~ getF = do
   s <- use P.style
   let mAttr = (getF <$>) . getAttr $ s
-  maybe (return ()) command mAttr
+  maybe (return ()) renderF mAttr
 
 setFillColor' :: (Color c) => c -> P.RenderM ()
 setFillColor' c = do
@@ -253,12 +254,12 @@ renderText :: Text -> P.Render
 renderText (Text tr tAlign str) = do
   setFillColor' <~ getFillColor
   --
-  doTxtTrans <- view P.txtTrans
+  -- doTxtTrans <- view P.txtTrans
   P.applyTransform tr
-  if doTxtTrans
-    then (P.applyScale . (/8))  <~ getFontSize
+  -- if doTxtTrans
+  (P.applyScale . (/8)) <~ getFontSize
       -- (/8) was obtained from trail and error
-    else P.resetNonTranslations
+    -- else P.resetNonTranslations
   --
   P.renderText (P.setTextAlign tAlign) $ do
     P.setFontWeight <~ getFontWeight

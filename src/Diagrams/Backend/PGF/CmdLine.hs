@@ -155,27 +155,10 @@ instance Mainable (Diagram PGF R2) where
 
 chooseRender :: DiagramOpts -> TeXFormat -> Diagram PGF R2 -> IO ()
 chooseRender opts format d = case splitOn "." (opts^.output) of
-    [""] -> do
-         let surf = case format of
-                         LaTeX    -> latexSurface
-                         ConTeXt  -> contextSurface
-                         PlainTeX -> plaintexSurface
-         Blaze.toByteStringIO B.putStr $ 
-           renderDia PGF (def & template .~ surf & sizeSpec .~ size) d
-    ps | last ps == "tex" -> do
-         let surf = case format of
-                         LaTeX    -> latexSurface
-                         ConTeXt  -> contextSurface
-                         PlainTeX -> plaintexSurface
-         renderPGF (opts^.output) size surf d
-       --
-       | last ps == "pdf" -> do
-         let surf = case format of
-                         LaTeX    -> latexStandaloneSurface 
-                         ConTeXt  -> contextStandaloneSurface
-                         PlainTeX -> plaintexStandaloneSurface
-         renderPDF (opts^.output) size surf d
-       --
+    [""] -> Blaze.toByteStringIO B.putStr $ 
+              renderDia PGF (def & template .~ surf & sizeSpec .~ size) d
+    ps | last ps == "tex" -> renderPGF (opts^.output) size surf d
+       | last ps == "pdf" -> renderPDF (opts^.output) size surf d
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
                               ++ "\nSupported file types are .tex or .pdf"
   where
@@ -184,6 +167,10 @@ chooseRender opts format d = case splitOn "." (opts^.output) of
              (Just w, Nothing)  -> Width (fromIntegral w)
              (Nothing, Just h)  -> Height (fromIntegral h)
              (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
+    surf = case format of
+                         LaTeX    -> latexSurface
+                         ConTeXt  -> contextSurface
+                         PlainTeX -> plaintexSurface
 
 
 -- | @multiMain@ is like 'defaultMain', except instead of a single

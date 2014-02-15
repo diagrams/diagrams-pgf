@@ -4,7 +4,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Puting.PGF
+-- Module      :  Graphics.Rendering.PGF
 -- Maintainer  :  c.chalmers@me.com
 --
 -- Interface to PGF. RenderM monad is a little messy, it will probably be 
@@ -29,10 +29,9 @@ module Graphics.Rendering.PGF
   -- , fillRule
   , ignoreFill
   , style
-  , txtTrans
+  -- , txtTrans
   -- * RenderM commands
-  , startBlock
-  , endBlock
+  , block
   , emitLn
   , emit
   , raw
@@ -97,7 +96,7 @@ import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as B
 import Data.Maybe (catMaybes)
 import Data.List (intersperse)
-import           Diagrams.TwoD.Types
+import Diagrams.TwoD.Types
 
 
 import Diagrams.Backend.PGF.Surface
@@ -125,9 +124,8 @@ data RenderInfo = RenderInfo
 makeLenses ''RenderInfo
 
 -- | Type wrapper for render monad.
--- newtype RenderM m = RenderM {
---     runRender :: RWS RenderInfo Blaze.Builder RenderState m }
-newtype RenderM m = RenderM (RWS RenderInfo Blaze.Builder RenderState m)
+newtype RenderM m = RenderM { runRender :: RWS RenderInfo Blaze.Builder RenderState m }
+-- newtype RenderM m = RenderM (RWS RenderInfo Blaze.Builder RenderState m)
   deriving ( Functor, Monad  
            , MonadWriter Blaze.Builder
            , MonadState RenderState 
@@ -141,9 +139,9 @@ type Render = RenderM ()
 initialState :: RenderState
 initialState = RenderState
   { _pos     = r2 (0,0)
-  , _indent  = 2
+  , _indent  = 0
   , _ignoreFill = False
-  , _style = lc black mempty -- dirty hack until I think of something better
+  , _style = lc black mempty -- Until I think of something better:
                              -- (square 1 # opacity 0.5) doesn't work otherwise
   }
 
@@ -163,19 +161,29 @@ initialReader s = RenderInfo s False
 format :: Lens' RenderInfo TeXFormat
 format = surface . texFormat
 
-txtTrans :: Lens' RenderInfo Bool
-txtTrans = surface . textTransforms
+-- txtTrans :: Lens' RenderInfo Bool
+-- txtTrans = surface . textTransforms
 
-renderWith :: Surface -> Bool -> (Double,Double) -> RenderM a -> Builder
-renderWith s readable bounds (RenderM r) =
-    Blaze.fromString header
- <> builder
- <> Blaze.fromString footer
+pdfPageBounds :: (Double,Double) -> (Double, Double) -> Render
+pdfPageBounds (x,y) (x0,y0) = do
+  emitLn $ raw "\\pdfpagewidth="  >> show4px x
+  emitLn $ raw "\\pdfpageheight=" >> show4px y
+  emitLn $ raw "\\pdfhorigin="    >> show4cm x0
+  emitLn $ raw "\\pdfvorigin="    >> show4cm y0
+
+renderWith :: Surface -> Bool -> Bool -> (Double,Double) -> Render -> Builder
+renderWith s readable standalone bounds r = builder
   where
-    (header,footer) = s^.content $ bounds
-    (_,builder) = evalRWS r 
-                          (initialReader s & pprint .~ readable)
+    (_,builder) = evalRWS r'
+                          (RenderInfo s readable)
                           initialState
+    r' = runRender $ do
+      when standalone $ do
+        emitLn . rawString $ s^.preamble
+        maybe (return ()) (pdfPageBounds bounds) (s^.pdfOrigin)
+        emitLn . rawString $ s^.beginDoc
+      picture $ rectangleBoundingBox bounds >> r
+      when standalone $ rawString $ s^.endDoc
 
 ----------------------------------------------------------------------
 
@@ -249,14 +257,12 @@ commaIntersperce = sequence_ . intersperse (rawChar ',')
 
 -- state stuff
 
--- | Increase indent by 2.
-startBlock :: Render
-startBlock = indent += 2
-
--- | Decrease indent by 2.
-endBlock :: Render
-endBlock = indent -= 2
-
+-- | Place a render in an indented block
+inBlock :: Render -> Render
+inBlock r = do
+  indent += 2
+  r
+  indent -= 2
 
 -- * number and points
 
@@ -285,14 +291,44 @@ epsilon = 0.0001
 
 -- * PGF environments
 
+picture :: Render -> Render
+picture r = do
+  beginPicture
+  inBlock r
+  endPicture
+
+beginPicture :: Render
+beginPicture = do
+  f <- view format
+  emitLn . raw $ case f of
+    LaTeX ->    "\\begin{pgfpicture}"
+    ConTeXt ->  "\\startpgfpicture"
+    PlainTeX -> "\\pgfpicture"
+
+endPicture :: Render
+endPicture = do
+  f <- view format
+  emitLn' . raw $ case f of
+    LaTeX ->    "\\end{pgfpicture}" 
+    ConTeXt ->  "\\stoppgfpicture"
+    PlainTeX -> "\\endpgfpicture"
+
+rectangleBoundingBox :: (Double,Double) -> Render
+rectangleBoundingBox bounds = do
+  emitLn $ do
+    pgf "pathrectangle"
+    bracers $ pgf "pointorigin"
+    bracers $ pgfP' bounds
+  emitLn $ do
+    pgf "usepath"
+    bracers $ raw "use as bounding box"
+
 -- | Wrap the rendering in a scope.
 scope :: Render -> Render
 scope r = do
   scopeHeader
   resetState
-  startBlock
-  r
-  endBlock
+  inBlock r
   scopeFooter
 
 -- | Header for starting a scope.

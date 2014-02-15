@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -23,6 +24,7 @@ import Diagrams.TwoD.Text
 import Diagrams.TwoD.Types
 import Data.Monoid
 import Data.Colour
+import Data.Typeable
 
 import Control.Lens (makeLenses, (%~), (&))
 
@@ -50,7 +52,7 @@ data Typeset = Typeset
   , _tAlign    :: TextAlignment
   , _tTrans    :: Transformation R2
   -- , _boxWidth :: Maybe Double
-  }
+  } deriving Typeable
 
 makeLenses ''Typeset
 
