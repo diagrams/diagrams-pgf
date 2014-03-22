@@ -225,6 +225,26 @@ renderPath (Path trs) = do
       P.moveTo (D.r2 p)
       renderP tr
 
+-- | Escapes some common charcters in a string. Lots of things don't work in 
+--   plain TeX.
+escapeString :: String -> String
+escapeString = concatMap escapeChar
+  where
+    escapeChar ch = case ch of
+      '$' -> "\\$"
+      '%' -> "\\letterpercent{}"
+      '&' -> "\\&"
+      '#' -> "\\#"
+      '_' -> "\\_"
+      '{' -> "$\\{$"
+      '}' -> "$\\}$"
+      '\\'-> "$\\backslash{}$"
+      '~' -> "\\~{}"
+      '^' -> "\\^{}"
+      '[' -> "{[}"
+      ']' -> "{]}"
+      '^' -> "\\^{}"
+      x      -> [x]
 
 --------------------------------------------------
 -- Renderable instances
@@ -264,7 +284,7 @@ renderText (Text tr tAlign str) = do
   P.renderText (P.setTextAlign tAlign) $ do
     P.setFontWeight <~ getFontWeight
     P.setFontSlant  <~ getFontSlant
-    P.rawString str
+    P.rawString $ escapeString str
 
 renderTypeset :: Typeset -> P.Render
 renderTypeset (Typeset str tpsSize angle tpsAlign tr) = do
