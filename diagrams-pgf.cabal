@@ -27,30 +27,32 @@ Library
                        Graphics.Rendering.PGF.Sys
                        Diagrams.TwoD.Typeset
   Hs-source-dirs:      src
-  Build-depends:       base          >= 4.4 && < 4.8
-                     , lens          >= 3.8 && < 4.1
-                     , mtl           >= 2.1 && < 2.2
-                     , time          >= 1.2 && < 1.6
-                     , process       >= 1.0 && < 1.3
-                     , directory     >= 1.0 && < 1.4
-                     , filepath      >= 1.2 && < 1.4
-                     , vector-space  >= 0.7 && < 0.9
+  Build-depends:       attoparsec           >= 0.10  && < 1.1
+                     , base                 >= 4.4   && < 4.8
+                     , blaze-builder        >= 0.3   && < 0.4
+                     , bytestring           >= 0.9   && < 1.1
                      , colour
                      , data-default
-                     , diagrams-core >= 1     && < 1.1
-                     , diagrams-lib  >= 1.1   && < 1.2
-                     , split         >= 0.1.2 && < 0.3
-                     , blaze-builder >= 0.3   && < 0.4
-                     , bytestring    >= 0.9   && < 1.0
-                     , double-conversion >= 0.2 && < 0.3
-                     , optparse-applicative >= 0.7 && < 0.8
-                     , hashable >= 1.1 && < 1.3
-
-
+                     , diagrams-core        >= 1.1   && < 1.2
+                     , diagrams-lib         >= 1.1   && < 1.2
+                     , directory            >= 1.0   && < 1.4
+                     , double-conversion    >= 0.2   && < 0.3
+                     , filepath             >= 1.2   && < 1.4
+                     , hashable             >= 1.1   && < 1.3
+                     , lens                 >= 3.8   && < 4.2
+                     , mtl                  >= 2.1   && < 2.2
+                     , optparse-applicative >= 0.7   && < 0.9
+                     , process              >= 1.0   && < 1.3
+                     , split                >= 0.1.2 && < 0.3
+                     , time                 >= 1.2   && < 1.6
+                     , vector-space         >= 0.7   && < 0.9
+  if impl(ghc < 7.6)
+    build-depends:     ghc-prim
   if !os(windows)
     cpp-options: -DCMDLINELOOP
     Build-depends:     unix >= 2.4 && < 2.8
 
   Ghc-options:         -Wall
+
   default-language:    Haskell2010
 
