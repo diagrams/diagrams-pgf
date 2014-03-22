@@ -8,8 +8,7 @@
 -- Maintainer  :  c.chalmers@me.com
 --
 -- Interface to PGF. RenderM monad is a little messy, it will probably be 
--- rewritten. See the manual http://pgfplots.sourceforge.net/pgfplots.pdf for 
--- details.
+-- rewritten. See the manual http://www.ctan.org/pkg/pgf for details.
 --
 ------------------------------------------------------------------------------
 module Graphics.Rendering.PGF
@@ -85,10 +84,11 @@ module Graphics.Rendering.PGF
 import Control.Lens         (Lens', view, makeLenses, use,
                              (^.), (+=), (-=), (.=))
 import Control.Monad.RWS
+import Control.Applicative
 import Diagrams.Core.Transform
-import Diagrams.Prelude hiding (Render, opacity, (<>), view, moveTo, stroke, image) -- (unitX, unitY, Style, (<$>))
+import Diagrams.Prelude hiding (Render, opacity, (<>), view, moveTo, stroke, image)
 import Diagrams.TwoD.Text
--- import Diagrams.TwoD.Image
+import Diagrams.TwoD.Image (Image (..))
 import Blaze.ByteString.Builder as Blaze
 import Blaze.ByteString.Builder.Char.Utf8 as Blaze
 import Data.Double.Conversion.ByteString
@@ -126,7 +126,7 @@ makeLenses ''RenderInfo
 -- | Type wrapper for render monad.
 newtype RenderM m = RenderM { runRender :: RWS RenderInfo Blaze.Builder RenderState m }
 -- newtype RenderM m = RenderM (RWS RenderInfo Blaze.Builder RenderState m)
-  deriving ( Functor, Monad  
+  deriving ( Functor, Monad, Applicative
            , MonadWriter Blaze.Builder
            , MonadState RenderState 
            , MonadReader RenderInfo
@@ -181,6 +181,7 @@ renderWith s readable standalone bounds r = builder
       when standalone $ do
         emitLn . rawString $ s^.preamble
         maybe (return ()) (pdfPageBounds bounds) (s^.pdfOrigin)
+        maybe (return ()) (rawString . ($ bounds)) (s^.pageSize)
         emitLn . rawString $ s^.beginDoc
       picture $ rectangleBoundingBox bounds >> r
       when standalone $ rawString $ s^.endDoc
@@ -506,8 +507,8 @@ setDash (Dashing ds offs) = setDash' ds offs
 setDash' :: [Double] -> Double -> Render
 setDash' ds off = emitLn $ do
   pgf "setdash"
-  bracers . bracersL $ map show4cm ds
-  bracers $ show4cm off
+  bracers . bracersL $ map (show4cm . (*0.8822)) ds
+  bracers $ show4cm (0.8822*off)
 
 -- | Sets the stroke colour in current scope. If colour has opacity < 1, the 
 --   scope opacity is set accordingly. Must be done before stroking.
@@ -592,9 +593,9 @@ applyTransform t
 
 -- | Resets the transform and sets it. Must be set before the path is used.
 setTransform :: Transformation R2 -> Render
-setTransform t = emitLn $ do
+setTransform t = do
   pgf "settransformentries"
-  bracersL $ map show4 [a, b, c, d, e, f]
+  bracersL $ map show4 [a, b, c, d] ++ map show4px [e, f]
   where
     (a,b,c,d,e,f) = getMatrix t
 
@@ -609,21 +610,68 @@ resetNonTranslations = emitLn $ pgf "transformresetnontranslations"
 -- | Base transforms are applied by the document reader.
 baseTransform :: Transformation R2 -> Render
 baseTransform t = do
-  emitLn $ pgf "lowlevel"
+  pgf "lowlevel"
   bracers $ setTransform t
+
+
+-- shading
+
+-- linearGradient :: Render
+-- linearGradient (LGradient stops g0 g1 gt sp) = do
+--   emitLn $ do
+--     pgf "declarehorizontalshading"
+--     bracers $ raw "ft"
+--     bracers $ show4cm 1
+--     bracers $ colorSpec stops
+--   shadePath $ raw "ft"
+-- 
+-- radialGradient :: RGradient -> Render
+-- radialGradient (RGradient stops c0 r0 c1 r1 gt sm) = emitLn $ do
+--   pgf "decareradialshading"
+--   bracers $ raw "ft"
+--   point center
+--   bracers $ colorSpec stops
+-- 
+-- colorSpec :: [GradientStop] -> Render
+-- colorSpec = sequence_ . intersperse (raw "; ")
+--                       . map mkColor
+--   where
+--     mkColor (GradientStop sc sf) = do
+--       raw "rgb"
+--       brackets $ show4px sf
+--       raw "="
+--       brackets sc
+-- 
+-- shadePath :: Render -> Render
+-- shadePath name = emitLn $ do
+--   pgf "usepath"
+--   bracers name
+
 
 
 -- images
 
--- \pgfdeclareimage[⟨options⟩]{⟨image name⟩}{⟨filename⟩}
-
 -- \pgfimage[⟨options ⟩]{⟨filename ⟩}
 
-image :: String -> Render
-image s = do
-  pgf "image"
-  -- TODO: add options (p. 1067 of PGF 3.0 manual)
-  bracers $ rawString s
+-- | Images are wraped in a \pgftext.
+image :: Image -> Render
+image (Image path sizeSpec t2) = do
+  applyTransform t2
+  emitLn $ do
+    pgf "text"
+    bracers $ do
+      pgf "image"
+      brackets $ case sizeSpec of
+                   Width w  ->
+                     raw "width=" >> show4px w
+                   Height h ->
+                     raw "height=" >> show4px h
+                   Dims w h -> do
+                     raw "width=" >> show4px w
+                     rawChar ','
+                     raw "height=" >> show4px h
+                   Absolute -> return ()
+      bracers $ rawString path
 
 
 -- text
@@ -650,7 +698,7 @@ setTextAlign a = case a of
 
 setTextRotation :: Angle -> [Render]
 setTextRotation a = case a^.deg of
-                      0 -> [] -- is this OK for doubles?
+                      0 -> []
                       θ -> [raw "rotate=" >> show4 θ]
  
 -- | Set the font weight by rendering @\bf @. Nothing is done for normal 
@@ -663,6 +711,5 @@ setFontWeight FontWeightBold   = raw "\\bf "
 setFontSlant :: FontSlant -> Render
 setFontSlant FontSlantNormal  = return ()
 setFontSlant FontSlantItalic  = raw "\\it "
-setFontSlant FontSlantOblique = raw "\\ob "
-
+setFontSlant FontSlantOblique = raw "\\sl "
 

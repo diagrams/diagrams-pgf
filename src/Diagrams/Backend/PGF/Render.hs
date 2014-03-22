@@ -286,5 +286,5 @@ renderTypeset (Typeset str tpsSize angle tpsAlign tr) = do
 
 
 instance Renderable Image PGF where
-  render _ (Image file _{-size-} _{-tr-}) = P $ P.image file
+  render _  = P . P.image
 

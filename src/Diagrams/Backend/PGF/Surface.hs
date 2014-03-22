@@ -24,6 +24,7 @@ module Diagrams.Backend.PGF.Surface
     , command
     , arguments
     , jobArg
+    , pageSize
     , preamble
     , beginDoc
     , endDoc
@@ -48,6 +49,7 @@ data Surface = Surface
   , _command    :: String             -- ^ System command to be called.
   , _arguments  :: [String]           -- ^ Auguments for command.
   , _jobArg     :: String -> String   -- ^ Command for specifying jobname.
+  , _pageSize   :: Maybe ((Double,Double) -> String)
   , _preamble   :: String             -- ^ Preamble for document, should import pgfcore.
   , _beginDoc   :: String             -- ^ Begin document
   , _endDoc     :: String             -- ^ End document.
@@ -65,6 +67,7 @@ latexSurface = Surface
   , _command   = "pdflatex"
   , _arguments = []
   , _jobArg    = \jobname -> "-jobname="++jobname
+  , _pageSize  = Nothing
   , _preamble  = "\\documentclass{article}\n\\usepackage{pgfcore}"
   , _beginDoc  = "\\begin{document}"
   , _endDoc    = "\\end{document}"
@@ -77,7 +80,19 @@ contextSurface = Surface
   , _command   = "context"
   , _arguments = ["--pipe"]
   , _jobArg    = \jobname -> "--dummyfile"++jobname
-  , _preamble  = "\\usemodule[pgf]\n\\setuppagenumbering[location=]" -- pgfcore doesn't work
+  , _pageSize  = Just $ \(w,h) ->
+                 "\\definepapersize[diagram][width="++show w++"px,height="++show h++"px]\n"
+              ++ "\\setuppapersize[diagram][diagram]\n"
+              ++ "\\setuplayout"
+              ++ "  [ topspace=0px"
+              ++ "  , backspace=0px"
+              ++ "  , header=0px"
+              ++ "  , footer=0px"
+              ++ "  , width="++show w++"px"
+              ++ "  , height="++show h++"px"
+              ++ "  ]"
+  , _preamble  = "\\usemodule[pgf]\n" -- pgfcore doesn't work
+              ++ "\\setuppagenumbering[location=]"
   , _beginDoc  = "\\starttext"
   , _endDoc    = "\\stoptext"
   , _pdfOrigin = Nothing
@@ -89,9 +104,11 @@ plaintexSurface = Surface
   , _command   = "pdftex"
   , _arguments = []
   , _jobArg    = \jobname -> "-jobname="++jobname
+  , _pageSize  = Nothing
   , _preamble  = "\\input eplain\n"
               ++ "\\beginpackages\n\\usepackage{color}\n\\endpackages\n"
-              ++ "\\input pgfcore"
+              ++ "\\input pgfcore\n"
+              ++ "\\def\\frac#1#2{{\\begingroup #1\\endgroup\\over #2}}"
   , _beginDoc  = ""
   , _endDoc    = "\\bye"
   , _pdfOrigin = Just (-0.712, 0.02)
