@@ -12,22 +12,22 @@
 -- Module      :  Diagrams.Backend.PGF
 -- Maintainer  :  diagrams-discuss@googlegroups.com
 --
--- A full-featured PGF backend for diagrams producing PGF code
+-- A full-featured PGFSystem backend for diagrams producing PGFSystem code
 -- suitable for LaTeX, ConTeXt or plain TeX consumtion.
 --
--- To invoke the PGF backend, you have a number of options.
+-- To invoke the PGFSystem backend, you have a number of options.
 --
 -- * You can use 'renderPGF' function to render a 'Diagram' to a ".tex" file;
 --
 -- * You can use the most flexible 'renderDia' function to access the
--- resulting PGF code directly in memory. For this particular backend
+-- resulting PGFSystem code directly in memory. For this particular backend
 -- the 'renderDia' function has the following type:
 --
--- > renderDia :: PGF -> Options PGF R2 -> Diagram PGF R2 -> Blaze.Builder
+-- > renderDia :: PGFSystem -> Options PGFSystem R2 -> Diagram PGFSystem R2 -> Blaze.Builder
 --
--- The @Options PGF R2@ is specified as following:
+-- The @Options PGFSystem R2@ is specified as following:
 --
--- > data Options PGF R2 = PGFOptions
+-- > data Options PGFSystem R2 = PGFOptions
 -- >     { _template          :: Surface    -- ^ Surface you want to use.
 -- >     , _sizeSpec          :: SizeSpec2D -- ^ The requested size.
 -- >     , _readable          :: Bool       -- ^ Pretty print output.
@@ -39,23 +39,23 @@
 --
 -- It is also possible (although not necessary) to use 'Lens'es to
 -- access fields of all the datastructures defined in this backend.
-module Diagrams.Backend.PGF
+module Diagrams.Backend.PGFSystem
     ( -- * Rendering token & options
-      PGF (..)
+      PGFSystem (..)
     , B
     , Options (..)
       -- ** Options lenses
-    , template, surface, sizeSpec, readable
+    , surface, sizeSpec --, readable
     , SizeSpec2D(..)
-    , module Diagrams.Backend.PGF.Surface
-    , defaultSurface
+    , module Diagrams.Backend.PGFSystem.Surface
+    -- , defaultSurface
       -- * Rendering functions
     , renderDia
     , renderPGF
     , renderPGF'
     , renderPDF
     , renderPDF'
-    , sizeSpecToBounds
+    -- , sizeSpecToBounds
     ) where
 
 import Control.Lens ((^.))
@@ -71,31 +71,31 @@ import System.IO
 import qualified Blaze.ByteString.Builder      as Blaze
 import qualified Data.ByteString.Char8         as B
 
-import Diagrams.Backend.PGF.Render
-import Diagrams.Backend.PGF.Surface
+import Diagrams.Backend.PGFSystem.Render
+import Diagrams.Backend.PGFSystem.Surface
 
 
-type B = PGF
+type B = PGFSystem
 
--- |
--- @
---  defaultSurface = 'PGFSurface'
--- @
-defaultSurface :: Surface
-defaultSurface = def
+-- -- |
+-- -- @
+-- --  defaultSurface = 'PGFSurface'
+-- -- @
+-- defaultSurface :: Surface
+-- defaultSurface = def
 
--- | Render a diagram as a PGF code, writing to the specified output
+-- | Render a diagram as a PGFSystem code, writing to the specified output
 --   file and using the requested size and surface, ready for inclusion in a 
 --   TeX document.
-renderPGF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
+renderPGF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGFSystem R2 -> IO ()
 renderPGF filePath sizeSp surf
-  = renderPGF' filePath (def & template .~ surf & sizeSpec .~ sizeSp)
+  = renderPGF' filePath (def & surface .~ surf & sizeSpec .~ sizeSp)
 
 -- | Similar to 'renderPDF' but takes PGFOptions instead.
-renderPGF' :: FilePath -> Options PGF R2 -> Diagram PGF R2 -> IO ()
+renderPGF' :: FilePath -> Options PGFSystem R2 -> Diagram PGFSystem R2 -> IO ()
 renderPGF' filePath ops dia = do
     h <- openFile filePath WriteMode
-    let rendered = renderDia PGF ops dia
+    let rendered = renderDia PGFSystem ops dia
     Blaze.toByteStringIO (B.hPutStr h) rendered
     hClose h
 
@@ -103,7 +103,7 @@ renderPGF' filePath ops dia = do
 --   little hacky and might not always work. It should be faster as pdfTeX can 
 --   load as diagrams output is generated. If you want to save the .tex file 
 --   aswell, use @renderPDF'@.
-renderPDF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
+renderPDF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGFSystem R2 -> IO ()
 renderPDF filePath sizeSp surf dia = do
   tmp <- getTemporaryDirectory
   let jobName = "texput" -- TODO make a random one
@@ -122,10 +122,8 @@ renderPDF filePath sizeSp surf dia = do
   -- this is important, each \n must be followed by a flush or TeX breaks
   hSetBuffering inH LineBuffering
 
-  let rendered = renderDia PGF (def & surface    .~ surf
-                                    & sizeSpec   .~ sizeSp
-                                    & readable   .~ True
-                                    & standalone .~ True)
+  let rendered = renderDia PGFSystem (def & surface    .~ surf
+                                          & sizeSpec   .~ sizeSp)
                                dia
   Blaze.toByteStringIO (B.hPutStr inH) rendered
   hClose inH
@@ -159,9 +157,9 @@ pdfcrop path = do
     _             -> return ()
 
 
--- | Render PGF and save to output.tex and run surface command on output.tex. 
+-- | Render PGFSystem and save to output.tex and run surface command on output.tex. 
 --   All auxillery files are kept.
-renderPDF' :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
+renderPDF' :: FilePath -> SizeSpec2D -> Surface -> Diagram PGFSystem R2 -> IO ()
 renderPDF' filePath sizeSp surf dia = do
     let (outDir,fileName) = splitFileName filePath
         texFileName       = replaceExtension fileName "tex"
@@ -170,7 +168,7 @@ renderPDF' filePath sizeSp surf dia = do
     --
     renderPGF' texFileName (def & sizeSpec .~ sizeSp
                                 & surface .~ surf
-                                & standalone .~ True)
+                                )
                            dia
     (ecode, _, _)
       <- readProcessWithExitCode (surf^.command) (texFileName : surf^.arguments) ""

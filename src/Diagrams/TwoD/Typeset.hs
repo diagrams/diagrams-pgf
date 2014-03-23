@@ -22,6 +22,7 @@ import Diagrams.Core
 import Diagrams.Core.Envelope (pointEnvelope)
 import Diagrams.TwoD.Text
 import Diagrams.TwoD.Types
+
 import Data.Monoid
 import Data.Colour
 import Data.Typeable
@@ -78,7 +79,4 @@ mkTypeset tps = recommendFillColor (black :: Colour Double)
 
 typeset :: String -> Typeset
 typeset str = Typeset str Medium (0@@rad) (BoxAlignedText 0.5 0.5) mempty
-
-
-
 

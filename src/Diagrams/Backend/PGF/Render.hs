@@ -62,8 +62,8 @@ instance Backend PGF R2 where
     r
 
   doRender _ ops (P r) =
-      P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
-      where bounds = sizeSpecToBounds (ops^.sizeSpec)
+    P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
+    where bounds = sizeSpecToBounds (ops^.sizeSpec)
   
   adjustDia =
       adjustDiaSize2D (view sizeSpec) (set sizeSpec)

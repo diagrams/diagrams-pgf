@@ -15,7 +15,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Diagrams.Backend.PGF.CmdLine
+module Diagrams.Backend.PGFsystem.CmdLine
        ( 
          -- * General form of @main@
          -- $mainwith
@@ -34,7 +34,7 @@ module Diagrams.Backend.PGF.CmdLine
        ) where
 
 import Diagrams.Prelude hiding (width, height, interval)
-import Diagrams.Backend.PGF
+import Diagrams.Backend.PGFSystem
 import Diagrams.Backend.CmdLine
 
 import Control.Lens
