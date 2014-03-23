@@ -43,7 +43,7 @@ latexSurface = Surface
   , _arguments = []
   , _jobArg    = \jobname -> "-jobname="++jobname
   , _pageSize  = Nothing
-  , _preamble  = "\\documentclass{article}\n\\usepackage{pgfsys}"
+  , _preamble  = "\\catcode`\\@=11\n\\documentclass{article}\n\\usepackage{pgfsys}"
   , _beginDoc  = "\\begin{document}"
   , _endDoc    = "\\end{document}"
   , _pdfOrigin = Just (-2.712, -1.85)
@@ -59,14 +59,15 @@ contextSurface = Surface
                  "\\definepapersize[diagram][width="++show w++"px,height="++show h++"px]\n"
               ++ "\\setuppapersize[diagram][diagram]\n"
               ++ "\\setuplayout"
-              ++ "[ topspace=0px"
+              ++ "[ topspace="++show h++"px"
               ++ ", backspace=0px"
               ++ ", header=0px"
               ++ ", footer=0px"
               ++ ", width="++show w++"px"
               ++ ", height="++show h++"px"
               ++ "]"
-  , _preamble  = "\\usemodule[pgfsys]\n"
+  , _preamble  = "\\catcode`\\@=11\n"
+              ++ "\\usemodule[pgfsys]\n"
               ++ "\\setuppagenumbering[location=]"
   , _beginDoc  = "\\starttext"
   , _endDoc    = "\\stoptext"
@@ -80,7 +81,8 @@ plaintexSurface = Surface
   , _arguments = []
   , _jobArg    = \jobname -> "-jobname="++jobname
   , _pageSize  = Nothing
-  , _preamble  = "\\input pgfsys\n"
+  , _preamble  = "\\catcode`\\@=11\n"
+              ++ "\\input pgfsys\n"
               ++ "\\def\\frac#1#2{{\\begingroup #1\\endgroup\\over #2}}"
   , _beginDoc  = ""
   , _endDoc    = "\\bye"
