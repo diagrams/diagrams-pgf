@@ -28,7 +28,6 @@ import           Data.Maybe                (isJust)
 import           Data.Typeable
 import           Diagrams.Prelude          hiding (r2, view)
 import qualified Diagrams.Prelude          as D
-import           Diagrams.TwoD.Image
 import           Diagrams.TwoD.Adjust      (adjustDiaSize2D)
 import           Diagrams.TwoD.Path
 import           Diagrams.TwoD.Text
@@ -244,7 +243,6 @@ escapeString = concatMap escapeChar
       '^' -> "\\^{}"
       '[' -> "{[}"
       ']' -> "{]}"
-      '^' -> "\\^{}"
       x      -> [x]
 
 --------------------------------------------------
@@ -272,7 +270,7 @@ instance Renderable Typeset PGF where
 -- | Renders text. Colour is set by fill colour. Opacity is inheritied from 
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
 renderText :: Text -> P.Render
-renderText (Text tr tAlign str) = do
+renderText (Text tr txtAlign str) = do
   setFillColor' <~ getFillColor
   --
   -- doTxtTrans <- view P.txtTrans
@@ -282,7 +280,7 @@ renderText (Text tr tAlign str) = do
       -- (/8) was obtained from trail and error
     -- else P.resetNonTranslations
   --
-  P.renderText (P.setTextAlign tAlign) $ do
+  P.renderText (P.setTextAlign txtAlign) $ do
     P.setFontWeight <~ getFontWeight
     P.setFontSlant  <~ getFontSlant
     P.rawString $ escapeString str

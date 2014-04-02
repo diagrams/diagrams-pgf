@@ -733,7 +733,6 @@ typesetSize s = do
     LaTeX    -> case s of
                   Tiny     -> raw "\\tiny"
                   Small    -> raw "\\small"
-                  Medium   -> return ()
                   Large    -> raw "\\large"
                   Huge     -> raw "\\huge"
                   PtSize x -> do
@@ -741,24 +740,25 @@ typesetSize s = do
                     bracers $ pt x
                     bracers $ raw "1em"
                     raw "\\selectfont"
+                  _        -> return ()
     ConTeXt  -> case s of
                   Tiny   -> raw "\\txx"
                   Small  -> raw "\\tx"
-                  Medium -> return ()
                   Large  -> raw "\\tf"
                   Huge   -> raw "\\tff"
                   PtSize x -> do
                     raw "\\switchtobodyfont"
                     brackets $ pt x
+                  _        -> return ()
     PlainTeX -> case s of
                   Tiny   -> raw "\\sevenrm"
                   Small  -> raw "\\ninerm"
-                  Medium -> return ()
                   Large  -> raw "\\large"
                   Huge   -> raw "\\huge"
                   PtSize x -> do
                     raw "\\font\\temp=cmr10 at "
                     pt x
                     raw "\\temp"
+                  _        -> return ()
   rawChar ' '
 
