@@ -23,6 +23,7 @@ Library
                        Diagrams.Backend.PGF.Surface
                        Diagrams.Backend.PGF.Render
                        Diagrams.Backend.PGF.Typeset
+                       Diagrams.Backend.PGF.RawTeX
                        Diagrams.Backend.PGFSystem
                        Diagrams.Backend.PGFSystem.Render
                        Diagrams.Backend.PGFSystem.Surface
