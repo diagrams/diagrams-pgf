@@ -22,7 +22,7 @@ module Diagrams.Backend.PGF.Render
 
 import           Control.Lens              (lens, (.=), (%=), (^.), op, view, 
                                             set, Lens', use)
-import           Control.Monad             (when)
+import           Control.Monad             (when, unless)
 import           Data.Default
 import           Data.Maybe                (isJust)
 import           Data.Typeable
@@ -291,16 +291,20 @@ renderTypeset (Typeset str tpsSize angle tpsAlign tr) = do
   setFillColor' <~ getFillColor
   P.applyTransform tr
   --
-  case tpsSize of
-    DiagramsSize x -> P.applyScale (x/8)
-    _              -> P.resetNonTranslations
-    -- TODO Typeset sizes
+  let isDiagramSize = case tpsSize of
+                        DiagramsSize _ -> True
+                        _              -> False
+  if isDiagramSize
+    then P.typesetSize tpsSize
+    else P.resetNonTranslations
+
   --
   let ops = P.setTextAlign tpsAlign
          ++ P.setTextRotation angle
   P.renderText ops $ do
     P.setFontWeight <~ getFontWeight
     P.setFontSlant  <~ getFontSlant
+    unless isDiagramSize $ P.typesetSize tpsSize
     P.rawString str
 
 

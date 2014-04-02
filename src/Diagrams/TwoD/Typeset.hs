@@ -40,6 +40,7 @@ data TypesetSize = DiagramsSize Double
                  | Large
                  | Huge
                  | PtSize Double
+                 deriving (Typeable, Show)
 
 
 -- | Typeset is for backends with more advanced text support and is required 

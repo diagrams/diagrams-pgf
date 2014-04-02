@@ -7,8 +7,10 @@
 -- Module      :  Graphics.Rendering.PGF
 -- Maintainer  :  c.chalmers@me.com
 --
--- Interface to PGF. RenderM monad is a little messy, it will probably be 
--- rewritten. See the manual http://www.ctan.org/pkg/pgf for details.
+-- Interface to PGF. See the manual http://www.ctan.org/pkg/pgf for details.
+--
+-- RenderM monad is a little messy, it will probably be 
+-- rewritten. 
 --
 ------------------------------------------------------------------------------
 module Graphics.Rendering.PGF
@@ -79,6 +81,8 @@ module Graphics.Rendering.PGF
   , setTextRotation
   , setFontWeight
   , setFontSlant
+  -- * Typeset
+  , typesetSize
   ) where
 
 import Control.Lens         (Lens', view, makeLenses, use,
@@ -88,6 +92,7 @@ import Control.Applicative
 import Diagrams.Core.Transform
 import Diagrams.Prelude hiding (Render, opacity, (<>), view, moveTo, stroke, image)
 import Diagrams.TwoD.Text
+import Diagrams.TwoD.Typeset
 import Diagrams.TwoD.Image (Image (..))
 import Blaze.ByteString.Builder as Blaze
 import Blaze.ByteString.Builder.Char.Utf8 as Blaze
@@ -285,6 +290,10 @@ show4px = (>> raw "px") . show4
 show4cm :: Double -> Render
 show4cm = (>> raw "cm") . show4 -- is this right?
 
+pt :: Double -> Render
+pt = (>> raw "pt") . show4
+
+
 -- | ε = 0.0001 is the limit at which lines are no longer stroked.
 epsilon :: Double
 epsilon = 0.0001
@@ -302,16 +311,16 @@ beginPicture :: Render
 beginPicture = do
   f <- view format
   emitLn . raw $ case f of
-    LaTeX ->    "\\begin{pgfpicture}"
-    ConTeXt ->  "\\startpgfpicture"
+    LaTeX    -> "\\begin{pgfpicture}"
+    ConTeXt  -> "\\startpgfpicture"
     PlainTeX -> "\\pgfpicture"
 
 endPicture :: Render
 endPicture = do
   f <- view format
   emitLn' . raw $ case f of
-    LaTeX ->    "\\end{pgfpicture}" 
-    ConTeXt ->  "\\stoppgfpicture"
+    LaTeX    -> "\\end{pgfpicture}" 
+    ConTeXt  -> "\\stoppgfpicture"
     PlainTeX -> "\\endpgfpicture"
 
 rectangleBoundingBox :: (Double,Double) -> Render
@@ -337,8 +346,8 @@ scopeHeader :: Render
 scopeHeader = do
   f <- view format
   emitLn . raw $ case f of
-    LaTeX ->    "\\begin{pgfscope}"
-    ConTeXt ->  "\\startpgfscope"
+    LaTeX    -> "\\begin{pgfscope}"
+    ConTeXt  -> "\\startpgfscope"
     PlainTeX -> "\\pgfscope"
 
 -- | Footer for ending a scope.
@@ -346,8 +355,8 @@ scopeFooter :: Render
 scopeFooter = do
   f <- view format
   emitLn' . raw $ case f of
-    LaTeX ->    "\\end{pgfscope}" 
-    ConTeXt ->  "\\stoppgfscope"
+    LaTeX    -> "\\end{pgfscope}" 
+    ConTeXt  -> "\\stoppgfscope"
     PlainTeX -> "\\endpgfscope"
 
 -- * Colours
@@ -712,4 +721,44 @@ setFontSlant :: FontSlant -> Render
 setFontSlant FontSlantNormal  = return ()
 setFontSlant FontSlantItalic  = raw "\\it "
 setFontSlant FontSlantOblique = raw "\\sl "
+
+-- typeset
+
+typesetSize :: TypesetSize -> Render
+typesetSize (DiagramsSize x) = applyScale (x/8)
+typesetSize s = do
+  -- resetNonTranslations
+  f <- view format
+  case f of
+    LaTeX    -> case s of
+                  Tiny     -> raw "\\tiny"
+                  Small    -> raw "\\small"
+                  Medium   -> return ()
+                  Large    -> raw "\\large"
+                  Huge     -> raw "\\huge"
+                  PtSize x -> do
+                    raw "\\fontsize"
+                    bracers $ pt x
+                    bracers $ raw "1em"
+                    raw "\\selectfont"
+    ConTeXt  -> case s of
+                  Tiny   -> raw "\\txx"
+                  Small  -> raw "\\tx"
+                  Medium -> return ()
+                  Large  -> raw "\\tf"
+                  Huge   -> raw "\\tff"
+                  PtSize x -> do
+                    raw "\\switchtobodyfont"
+                    brackets $ pt x
+    PlainTeX -> case s of
+                  Tiny   -> raw "\\sevenrm"
+                  Small  -> raw "\\ninerm"
+                  Medium -> return ()
+                  Large  -> raw "\\large"
+                  Huge   -> raw "\\huge"
+                  PtSize x -> do
+                    raw "\\font\\temp=cmr10 at "
+                    pt x
+                    raw "\\temp"
+  rawChar ' '
 
