@@ -1,4 +1,4 @@
-_diagrams-pfg_ is a [PGF] backend for [diagrams]. Diagrams is a powerful, flexible, declarative domain-specific language for creating vector graphics, using the [Haskell programming language][haskell].
+_diagrams-pgf_ is a [PGF] backend for [diagrams]. Diagrams is a powerful, flexible, declarative domain-specific language for creating vector graphics, using the [Haskell programming language][haskell].
 
 [PGF]:http://sourceforge.net/projects/pgf/
 [diagrams]: http://projects.haskell.org/diagrams/
@@ -74,17 +74,18 @@ $ cat ./square.tex
 \end{pgfpicture}
 ```
 
+## Typesetting
+
+TeX's text typesetting is one of the major advantages of using the PGF backend. There are experimental primitives for using TeX's features. `Typeset` is similar to `Text` with extra options. `RawTeX` allows unmodified strings to be inserted. The standard `Text` is escaped for compatibility.
+
 ## Missing features / Shortcomings
 
 The following features are not currently supported:
 
 - freezing
-- images
 - text alignment (only extreme cases supported)
 - selecting fonts (italic and bold work)
 
 Other features seems to be working OK. (see [tests])
-
-TeX's text typesetting is one of the major advantages of using PGF. Currently there is little support (text is passed unescaped), although there is an option to disable transformations to text.
 
 [tests]:http://github.com/cchalmers/diagrams-backend-tests
