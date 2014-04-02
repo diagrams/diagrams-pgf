@@ -1,6 +1,6 @@
 _diagrams-pgf_ is a [PGF] backend for [diagrams]. Diagrams is a powerful, flexible, declarative domain-specific language for creating vector graphics, using the [Haskell programming language][haskell].
 
-[PGF]:http://sourceforge.net/projects/pgf/
+[PGF]: http://sourceforge.net/projects/pgf/
 [diagrams]: http://projects.haskell.org/diagrams/
 [haskell]: http://www.haskell.org/haskellwiki/Haskell
 

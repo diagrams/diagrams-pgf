@@ -1,11 +1,12 @@
 Name:                diagrams-pgf
 Version:             1.0
 Synopsis:            PGF backend for diagrams drawing EDSL.
-Homepage:            http://code.haskell.org/diagrams/
 License:             BSD3
 License-file:        LICENSE
 Author:              Christopher Chalmers
 Maintainer:          c.chalmers@me.com
+Homepage:            http://github.com/cchalmers/diagrams-pgf
+Bug-reports:         http://github.com/cchalmers/diagrams-pgf/issues
 Stability:           Experimental
 Category:            Graphics
 Build-type:          Simple
@@ -16,6 +17,9 @@ Description:
   TeX library PGF.
 
   Support for rendering LaTeX, ConTeXt and plain TeX files.
+Source-repository head
+  type:     git
+  location: http://github.com/cchalmers/diagrams-pgf
 
 Library
   Exposed-modules:     Diagrams.Backend.PGF
