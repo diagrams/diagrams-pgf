@@ -44,7 +44,12 @@ module Diagrams.Backend.PGF
       PGF (..)
     , B
     , Options (..)
-      -- ** Options lenses
+      -- * TeX specific
+    , RawTeX (..)
+    , tex
+    , Typeset (..)
+    , typeset
+      -- * Options lenses
     , template, surface, sizeSpec, readable
     , SizeSpec2D(..)
     , module Diagrams.Backend.PGF.Surface
@@ -71,6 +76,8 @@ import System.IO
 import qualified Blaze.ByteString.Builder      as Blaze
 import qualified Data.ByteString.Char8         as B
 
+import Diagrams.TwoD.Typeset
+import Diagrams.Backend.PGF.RawTeX
 import Diagrams.Backend.PGF.Render
 import Diagrams.Backend.PGF.Surface
 

@@ -37,6 +37,7 @@ import qualified Blaze.ByteString.Builder  as Blaze
 
 import qualified Graphics.Rendering.PGF        as P
 import           Diagrams.Backend.PGF.Surface
+import           Diagrams.Backend.PGF.RawTeX
 
 -- | This data declaration is simply used as a token to distinguish
 --   this rendering engine.
@@ -307,7 +308,14 @@ renderTypeset (Typeset str tpsSize angle tpsAlign tr) = do
     unless isDiagramSize $ P.typesetSize tpsSize
     P.rawString str
 
+instance Renderable RawTeX PGF where
+  render _ = P . renderRaw
 
+renderRaw :: RawTeX -> P.Render
+renderRaw (RawTeX str tr) = do
+  P.applyTransform tr
+  P.resetNonTranslations
+  P.renderText [] (P.rawString str)
 
 instance Renderable Image PGF where
   render _  = P . P.image
