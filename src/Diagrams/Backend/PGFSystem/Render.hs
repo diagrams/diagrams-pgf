@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -11,55 +10,31 @@ module Diagrams.Backend.PGFSystem.Render
   ( PGFSystem (..)
   , sizeSpec
   , surface
-  -- , StateBuilder
-  -- , initialRenderState
   , Options (..)
   ) where
 
-import           Control.Lens             (lens, op, view, set, Lens')
+import qualified Blaze.ByteString.Builder as Blaze
+import           Control.Lens             (lens, op, Lens', (^.))
 import           Control.Monad.State
 import           Data.Default
 import           Data.Maybe               (isJust)
 import           Data.Typeable
-import           Diagrams.Prelude         hiding (r2, view, opacity)
+import           Data.Foldable            (foldMap)
+import           Data.Tree
+
+import           Diagrams.Prelude
 -- import           Diagrams.TwoD.Image
-import           Diagrams.TwoD.Adjust     (adjustDiaSize2D)
+import           Diagrams.TwoD.Adjust     (adjustDia2D)
+import           Diagrams.Core.Compile
+import           Diagrams.Core.Types      (Annotation)
 import           Diagrams.TwoD.Path
 -- import           Diagrams.TwoD.Text
-import qualified Blaze.ByteString.Builder as Blaze
 
 import qualified Graphics.Rendering.PGFSystem as P
 import           Diagrams.Backend.PGFSystem.Surface
 
 data PGFSystem = PGFSystem
   deriving (Show, Typeable)
-
--- type StateBuilder = State RenderState P.Put
--- 
--- initialRenderState :: RenderState
--- initialRenderState = RenderState False
-
--- -- | Convert an RTree to a renderable object. The unfrozen transforms have
--- --   been accumulated and are in the leaves of the RTree along with the Prims.
--- --   Frozen transformations have their own nodes and the styles have been
--- --   transfomed during the contruction of the RTree.
--- renderRTree :: RTree SVG R2 a -> Render SVG R2
--- renderRTree (Node (RPrim accTr p) _) = (render SVG (transform accTr p))
--- renderRTree (Node (RStyle sty) ts)
---   = R $ do
---       let P r = foldMap renderRTree ts
---       -- ignoreFill .= False
---       svg <- r
---       -- ign <- use ignoreFill
---       clippedSvg <- renderSvgWithClipping svg sty
---       return $ (S.g ! R.renderStyles ign sty) clippedSvg
--- renderRTree (Node (RFrozenTr tr) ts)
---   = P $ do
---       let P r = foldMap renderRTree ts
---       svg <- r
---       return $ P.transform tr
--- renderRTree (Node _ ts) = foldMap renderRTree ts
-
 
 instance Backend PGFSystem R2 where
   data Render  PGFSystem R2 = P P.Put
@@ -69,41 +44,33 @@ instance Backend PGFSystem R2 where
       , _sizeSpec   :: SizeSpec2D -- ^ The requested size.
       , _standalone :: Bool       -- ^ Should include preamble etc.
       }
--- 
-  withStyle _ s t (P r) = P $
-    P.scope $ do
-      P.transform t
-      style s
-      maybe (return ()) P.clip $ getAttr s
-      r
-      draw s
-  --   --   -- P.style %= (<> s)
-  --   --   -- setClipPaths <~ op Clip
-  --     pgf
-  -- withStyle = error "style"
-  -- withStyle _ s t (P r) = P $ do
-  --   pgf <- r
-  --   return . P.scope $ do
-  --     P.transform t
-  -- --   --   -- P.style %= (<> s)
-  -- --   --   -- setClipPaths <~ op Clip
-  --     pgf
-  --     P.raw "yo"
+  renderRTree _ ops rt =
+    P.renderWith (ops^.surface) (_standalone ops) bounds r
+    where
+      (P r) = toRender rt
+      bounds = sizeSpecToBounds (ops^.sizeSpec)
 
--- 
-  -- doRender _ _ (P r) = P.render $ evalState r initialRenderState
-  doRender _ ops (P r) = --P.render (P.picture r)
-    P.renderWith (_surface ops) (_standalone ops) bounds r
-    where bounds = sizeSpecToBounds (_sizeSpec ops)
-    -- where pgfsys = liftM P.render r
-            -- pgf <- r
-            -- return $ P.render pgf
---       -- P.renderWith (options^.surface) (options^.readable) bounds r
---       -- where bounds = sizeSpecToBounds (options^.sizeSpec)
---   
-  adjustDia =
-      adjustDiaSize2D (view sizeSpec) (set sizeSpec)
+  adjustDia = adjustDia2D sizeSpec
 
+toRender :: RTree PGFSystem R2 Annotation -> Render PGFSystem R2
+toRender = fromRTree
+  -- . Node (RStyle (mempty # recommendFillColor (transparent :: AlphaColour Double)))
+  -- . (:[])
+  -- . splitFills
+    where
+      -- fromRTree (Node (RAnnot (Href uri)) rs)
+      --   = R $ do
+      --       let R r =  foldMap fromRTree rs
+      --       svg <- r
+      --       return $ (S.a ! xlinkHref (S.toValue uri)) svg
+      fromRTree (Node (RPrim p) _) = render PGFSystem p
+      fromRTree (Node (RStyle sty) rs)
+        = P . P.scope $ do
+            let P r = foldMap fromRTree rs
+            style sty
+            r
+            draw sty
+      fromRTree (Node _ rs) = foldMap fromRTree rs
 
 sizeSpecToBounds :: SizeSpec2D -> (Double, Double)
 sizeSpecToBounds spec = case spec of
@@ -111,7 +78,6 @@ sizeSpecToBounds spec = case spec of
    Height h -> (h,h)
    Dims w h -> (w,h)
    Absolute -> (100,100)
-
 
 instance Default (Options PGFSystem R2) where
   def = PGFOptions
@@ -133,28 +99,29 @@ surface = lens getsurface setsurface
 style :: Style R2 -> P.Put
 style s = do
   P.fillColor <*~ getFillColor
-  P.fillRule  <~ getFillRule
+  P.fillRule  <~  getFillRule
   --
   P.lineColor <*~ getLineColor
-  P.lineJoin <~ getLineJoin
-  P.lineCap  <~ getLineCap
-  P.dash <~ getDashing
-  P.lw   <~ getLineWidth
+  P.lineJoin  <~  getLineJoin
+  P.lineCap   <~  getLineCap
+  P.dash      <~  getDashing
+  P.lineWidth <~  fromOutput . getLineWidth
   where
   (<~) :: (AttributeClass a) => (b -> P.Put) -> (a -> b) -> P.Put
   setter <~ getter = maybe (return ()) setter mAttribute
     where mAttribute = (getter <$>) . getAttr $ s
+  infixr 2 <~
   --
   (<*~) :: (AttributeClass a, Color c)
         => (AlphaColour Double -> P.Put) -> (a -> c) -> P.Put
   setColor <*~ getColor = (setColor . fade . toAlphaColour) <~ getColor
-  fade    = dissolve opacity
-  opacity = maybe 1 getOpacity (getAttr s)
+  --
+  fade = dissolve $ maybe 1 getOpacity (getAttr s)
 
 shouldStroke :: Style R2 -> Bool
 shouldStroke s = maybe True (> P.epsilon) mLineWidth
   where
-    mLineWidth = (getLineWidth <$>) . getAttr $ s
+    mLineWidth = (fromOutput . getLineWidth <$>) . getAttr $ s
 
 shouldFill :: Style R2 -> Bool
 shouldFill s = isJust mFillColor
@@ -162,19 +129,16 @@ shouldFill s = isJust mFillColor
     mFillColor = (getFillColor <$>) . getAttr $ s
 
 draw :: Style R2 -> P.Put
-draw s = do
-  when (shouldFill s)   P.fill
-  when (shouldStroke s) P.stroke
-
-
--- data RenderState = RenderState
---   { _ignoreFill :: Bool }
--- 
--- makeLenses ''RenderState
+draw s = case (shouldFill s, shouldStroke s) of
+           (True, True)   -> P.fillStroke
+           (True, False)  -> P.fill
+           (False, True)  -> P.stroke
+           (False, False) -> return ()
 
 instance Monoid (Render PGFSystem R2) where
-  mempty                   = P $ return ()
-  (P r1) `mappend` (P r2_) = P (r1 >> r2_)
+  mempty                  = P $ return ()
+  (P ra) `mappend` (P rb) = P (ra >> rb)
+
 ------------------------------------------------------------------------
 -- Renderable instances
 

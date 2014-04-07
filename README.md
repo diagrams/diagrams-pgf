@@ -76,7 +76,7 @@ $ cat ./square.tex
 
 ## Typesetting
 
-TeX's text typesetting is one of the major advantages of using the PGF backend. There are experimental primitives for using TeX's features. `Typeset` is similar to `Text` with extra options. `RawTeX` allows unmodified strings to be inserted. The standard `Text` is escaped for compatibility.
+TeX's text typesetting is one of the major advantages of using the PGF backend. There are experimental primitives for using TeX's features. `Typeset` is similar to `Text` with extra options. `Hbox` allows unmodified strings to be inserted. The standard `Text` is escaped for compatibility.
 
 ## Missing features / Shortcomings
 

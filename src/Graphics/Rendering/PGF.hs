@@ -156,7 +156,7 @@ resetState :: Render
 resetState = do
     ignoreFill .= False
     style      .= mempty # lc black
-                         # fontSize 1
+                         # fontSize (Output 1)
 
 -- | Starting RenderInfo.
 initialReader :: Surface -> RenderInfo
@@ -173,8 +173,8 @@ pdfPageBounds :: (Double,Double) -> (Double, Double) -> Render
 pdfPageBounds (x,y) (x0,y0) = do
   emitLn $ raw "\\pdfpagewidth="  >> show4px x
   emitLn $ raw "\\pdfpageheight=" >> show4px y
-  emitLn $ raw "\\pdfhorigin="    >> show4cm x0
-  emitLn $ raw "\\pdfvorigin="    >> show4cm y0
+  emitLn $ raw "\\pdfhorigin="    >> show4mm x0
+  emitLn $ raw "\\pdfvorigin="    >> show4mm y0
 
 renderWith :: Surface -> Bool -> Bool -> (Double,Double) -> Render -> Builder
 renderWith s readable standalone bounds r = builder
@@ -287,8 +287,8 @@ show4 = raw . toFixed 4
 show4px :: Double -> Render
 show4px = (>> raw "px") . show4
 
-show4cm :: Double -> Render
-show4cm = (>> raw "cm") . show4 -- is this right?
+show4mm :: Double -> Render
+show4mm = (>> raw "mm") . show4 . (*0.264583)
 
 pt :: Double -> Render
 pt = (>> raw "pt") . show4
@@ -482,7 +482,7 @@ asBoundingBox = emitLn $ do
 setLineWidth :: Double -> Render
 setLineWidth w = emitLn $ do
   pgf "setlinewidth"
-  bracers $ show4cm w
+  bracers $ show4mm w
 
 -- | Sets the line cap in current scope. Must be done before stroking.
 setLineCap :: LineCap -> Render
@@ -502,13 +502,13 @@ setLineJoin lJoin = emitLn . pgf $ case lJoin of
 setMiterLimit :: Double -> Render
 setMiterLimit l = do
   pgf "setmiterlimit"
-  bracers $ show4cm l
+  bracers $ show4mm l
 
 -- stroke parameters
 
 -- | Sets the dash for the current scope. Must be done before stroking.
 setDash :: Dashing -> Render
-setDash (Dashing ds offs) = setDash' ds offs
+setDash (Dashing ds offs) = setDash' (map fromOutput ds) (fromOutput offs)
 
 
 -- \pgfsetdash{{0.5cm}{0.5cm}{0.1cm}{0.2cm}}{0cm}
@@ -516,8 +516,8 @@ setDash (Dashing ds offs) = setDash' ds offs
 setDash' :: [Double] -> Double -> Render
 setDash' ds off = emitLn $ do
   pgf "setdash"
-  bracers . bracersL $ map (show4cm . (*0.8822)) ds
-  bracers $ show4cm (0.8822*off)
+  bracers . bracersL $ map (show4mm . (*0.8822)) ds
+  bracers $ show4mm (0.8822*off)
 
 -- | Sets the stroke colour in current scope. If colour has opacity < 1, the 
 --   scope opacity is set accordingly. Must be done before stroking.
@@ -630,7 +630,7 @@ baseTransform t = do
 --   emitLn $ do
 --     pgf "declarehorizontalshading"
 --     bracers $ raw "ft"
---     bracers $ show4cm 1
+--     bracers $ show4mm 1
 --     bracers $ colorSpec stops
 --   shadePath $ raw "ft"
 -- 

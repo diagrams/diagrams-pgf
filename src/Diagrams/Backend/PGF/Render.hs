@@ -20,23 +20,28 @@ module Diagrams.Backend.PGF.Render
   , standalone
   ) where
 
-import           Control.Lens              (lens, (.=), (%=), (^.), op, view, 
-                                            set, Lens', use)
+import           Control.Lens              (lens, (.=), (%=), (^.), op,
+                                            Lens', use)
 import           Control.Monad             (when, unless)
+import           Data.Foldable             (foldMap)
 import           Data.Default
 import           Data.Maybe                (isJust)
 import           Data.Typeable
-import           Diagrams.Prelude          hiding (r2, view)
-import qualified Diagrams.Prelude          as D
-import           Diagrams.TwoD.Adjust      (adjustDiaSize2D)
+import           Diagrams.Core.Compile
+import           Diagrams.Core.Types       (Annotation, Renderable (..), 
+                                            Backend (..))
+import Diagrams.Prelude
+import           Diagrams.TwoD.Adjust      (adjustDia2D)
 import           Diagrams.TwoD.Path
 import           Diagrams.TwoD.Text
+import           Diagrams.TwoD.Types       (r2)
 import           Diagrams.TwoD.Typeset
+import           Data.Tree
 import qualified Blaze.ByteString.Builder  as Blaze
 
 import qualified Graphics.Rendering.PGF        as P
 import           Diagrams.Backend.PGF.Surface
-import           Diagrams.Backend.PGF.RawTeX
+import           Diagrams.Backend.PGF.Hbox
 
 -- | This data declaration is simply used as a token to distinguish
 --   this rendering engine.
@@ -55,18 +60,49 @@ instance Backend PGF R2 where
                                   --   ('renderPDF' sets this to true)
       }
 
-  withStyle _ s t (P r) = P . P.scope $ do
-    P.applyTransform t
-    P.style %= (<> s)
-    setClipPaths <~ op Clip
-    r
-
-  doRender _ ops (P r) =
+  renderRTree _ ops rt =
     P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
-    where bounds = sizeSpecToBounds (ops^.sizeSpec)
-  
-  adjustDia =
-      adjustDiaSize2D (view sizeSpec) (set sizeSpec)
+    where
+      (P r) = toRender rt
+      bounds = sizeSpecToBounds (ops^.sizeSpec)
+
+  adjustDia = adjustDia2D sizeSpec
+
+  -- withStyle _ s t (P r) = P . P.scope $ do
+  --   P.applyTransform t
+  --   P.style %= (<> s)
+  --   setClipPaths <~ op Clip
+  --   r
+
+
+  -- doRender _ ops (P r) =
+  --   P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
+  --   where bounds = sizeSpecToBounds (ops^.sizeSpec)
+  -- 
+  -- adjustDia =
+  --     adjustDiaSize2D (view sizeSpec) (set sizeSpec)
+
+toRender :: RTree PGF R2 Annotation -> Render PGF R2
+toRender = fromRTree
+  -- . Node (RStyle (mempty # recommendFillColor (transparent :: AlphaColour Double)))
+  -- . (:[])
+  -- . splitFills
+    where
+      -- fromRTree (Node (RAnnot (Href uri)) rs)
+      --   = R $ do
+      --       let R r =  foldMap fromRTree rs
+      --       svg <- r
+      --       return $ (S.a ! xlinkHref (S.toValue uri)) svg
+      fromRTree (Node (RPrim p) _)     = render PGF p
+      fromRTree (Node (RStyle sty) rs) = P . P.scope $ do
+            let P r = foldMap fromRTree rs
+            P.style %= (<> sty)
+            setClipPaths <~ op Clip
+            pgf <- r
+            P.resetState
+            return pgf
+      fromRTree (Node _ rs)            = foldMap fromRTree rs
+
 
 sizeSpecToBounds :: SizeSpec2D -> (Double, Double)
 sizeSpecToBounds spec = case spec of
@@ -104,17 +140,6 @@ sizeSpec = lens getSize setSize
   where getSize (PGFOptions { _sizeSpec = s }) = s
         setSize o s = o { _sizeSpec = s }
 
--- | Not yet implimented.
--- preserveLineWidth :: Lens' (Options PGF R2) Bool
--- preserveLineWidth = lens getter setter
---   where getter (PGFOptions { _preserveLineWidth = s }) = s
---         setter o s = o { _preserveLineWidth = s }
-
--- transformText :: Lens' (Options PGF R2) Bool
--- transformText = lens getter setter
---   where getter (PGFOptions { _transformText = s }) = s
---         setter o s = o { _transformText = s }
-
 -- | Pretty print the output with indented lines, default is true.
 readable :: Lens' (Options PGF R2) Bool
 readable = lens getR setR
@@ -139,7 +164,7 @@ readable = lens getR setR
 
 instance Monoid (Render PGF R2) where
   mempty  = P $ return ()
-  (P r1) `mappend` (P r2) = P (r1 >> r2)
+  (P ra) `mappend` (P rb) = P (ra >> rb)
 
 renderP :: (Renderable a PGF, V a ~ R2) => a -> P.RenderM ()
 renderP (render PGF -> P r) = r
@@ -159,7 +184,7 @@ draw = do
   when doStroke $ do
     setLineColor'  <~ getLineColor -- stoke opacity needs to be set
     P.setLineJoin  <~ getLineJoin
-    P.setLineWidth <~ getLineWidth
+    P.setLineWidth <~ fromOutput . getLineWidth
     P.setLineCap   <~ getLineCap
     P.setDash      <~ getDashing
   -- 
@@ -171,6 +196,8 @@ renderF <~ getF = do
   s <- use P.style
   let mAttr = (getF <$>) . getAttr $ s
   maybe (return ()) renderF mAttr
+
+infixr 2 <~
 
 setFillColor' :: (Color c) => c -> P.RenderM ()
 setFillColor' c = do
@@ -199,7 +226,7 @@ shouldFill = do
 --   are stroked when lw > 0.0001
 shouldStroke :: P.RenderM Bool
 shouldStroke = do
-  mLWidth <- (getLineWidth <$>) . getAttr <$> use P.style
+  mLWidth <- (fromOutput . getLineWidth <$>) . getAttr <$> use P.style
   --
   return $ maybe True (> P.epsilon) mLWidth
 
@@ -212,17 +239,17 @@ setClipPath (Path trs) = do
   P.clip
   where
     renderTrail (viewLoc -> (unp2 -> p, tr)) = do
-      P.moveTo (D.r2 p)
+      P.moveTo (r2 p)
       renderP tr
 
-renderPath :: Path R2 -> P.RenderM ()
+renderPath :: Path R2 -> P.Render
 renderPath (Path trs) = do
   when (any (isLine . unLoc) trs) $ P.ignoreFill .= True
   mapM_ renderTrail trs
   draw
   where
     renderTrail (viewLoc -> (unp2 -> p, tr)) = do
-      P.moveTo (D.r2 p)
+      P.moveTo (r2 p)
       renderP tr
 
 -- | Escapes some common charcters in a string. Lots of things don't work in 
@@ -243,7 +270,7 @@ escapeString = concatMap escapeChar
       '^' -> "\\^{}"
       '[' -> "{[}"
       ']' -> "{]}"
-      x      -> [x]
+      x   -> [x]
 
 --------------------------------------------------
 -- Renderable instances
@@ -276,7 +303,7 @@ renderText (Text tr txtAlign str) = do
   -- doTxtTrans <- view P.txtTrans
   P.applyTransform tr
   -- if doTxtTrans
-  (P.applyScale . (/8)) <~ getFontSize
+  (P.applyScale . (/8)) <~ fromOutput . getFontSize
       -- (/8) was obtained from trail and error
     -- else P.resetNonTranslations
   --
@@ -306,11 +333,11 @@ renderTypeset (Typeset str tpsSize angle tpsAlign tr) = do
     unless isDiagramSize $ P.typesetSize tpsSize
     P.rawString str
 
-instance Renderable RawTeX PGF where
+instance Renderable Hbox PGF where
   render _ = P . renderRaw
 
-renderRaw :: RawTeX -> P.Render
-renderRaw (RawTeX str tr) = do
+renderRaw :: Hbox -> P.Render
+renderRaw (Hbox tr str) = do
   P.applyTransform tr
   P.resetNonTranslations
   P.renderText [] (P.rawString str)

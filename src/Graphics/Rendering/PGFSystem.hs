@@ -33,9 +33,10 @@ module Graphics.Rendering.PGFSystem
   , clip
   , stroke
   , fill
+  , fillStroke
   -- * Strokeing Options
   , dash
-  , lw
+  , lineWidth
   , lineCap
   , lineJoin
   , lineMiterLimit
@@ -72,10 +73,12 @@ import Data.AdditiveGroup ((^+^))
 
 import Diagrams.Core.Transform (Transformation, apply, transl)
 
-import Diagrams.Attributes (LineCap(..), LineJoin(..), Dashing(..),
+import Diagrams.Attributes (LineCap(..), LineJoin(..),
                             colorToSRGBA, Color (..))
 import Diagrams.TwoD.Path (FillRule(..), Clip (..))
+import Diagrams.Core.Types (fromOutput)
 import Diagrams.TwoD.Vector (unitX, unitY)
+import Diagrams.TwoD.Attributes (Dashing (..))
 import Diagrams.Trail (Trail, trailSegments, isLoop, trailVertices)
 import Diagrams.Path (Path (..))
 import Diagrams.Located (Located, viewLoc)
@@ -183,8 +186,8 @@ p' (x,y) = do
 n :: Double -> Put
 n = bracers . show4
 
-cm :: Double -> Put
-cm = (>> raw "cm") . show4
+mm :: Double -> Put
+mm = (>> raw "mm") . show4 . (*0.264583)
 
 show4 :: Double -> Put
 show4 = raw . toFixed 4
@@ -287,6 +290,9 @@ stroke = ln $ sys "stroke"
 fill :: Put
 fill = ln $ sys "fill"
 
+fillStroke :: Put
+fillStroke = ln $ sys "fillstroke"
+
 clip :: Clip -> Put
 clip (Clip paths) = mapM_ clipPath paths
 
@@ -301,10 +307,10 @@ clipNext = ln $ do
   sys "discardpath"
   -- this is the only way diagrams spcifies clips
 
-lw :: Double -> Put 
-lw w = ln $ do
+lineWidth :: Double -> Put 
+lineWidth w = ln $ do
   sys "setlinewidth"
-  n w
+  bracers $ mm w
 
 -- properties
 
@@ -326,12 +332,12 @@ lineMiterLimit l = ln $ do
   n l
 
 dash :: Dashing -> Put
-dash (Dashing ds ph) = dash' ds ph
+dash (Dashing ds ph) = dash' (map fromOutput ds) (fromOutput ph)
 
 dash' :: [Double] -> Double -> Put
 dash' ds ph = ln $ do
-  bracers . commaIntersperse $ map cm ds
-  bracers $ cm ph
+  bracers . commaIntersperse $ map mm ds
+  bracers $ mm ph
 
 eoRule :: Put
 eoRule = raw "\\ifpgfsys@eorule" -- not sure about this

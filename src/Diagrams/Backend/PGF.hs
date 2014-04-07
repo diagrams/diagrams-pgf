@@ -45,8 +45,7 @@ module Diagrams.Backend.PGF
     , B
     , Options (..)
       -- * TeX specific
-    , RawTeX (..)
-    , tex
+    , hbox
     , Typeset (..)
     , typeset
       -- * Options lenses
@@ -77,7 +76,7 @@ import qualified Blaze.ByteString.Builder      as Blaze
 import qualified Data.ByteString.Char8         as B
 
 import Diagrams.TwoD.Typeset
-import Diagrams.Backend.PGF.RawTeX
+import Diagrams.Backend.PGF.Hbox
 import Diagrams.Backend.PGF.Render
 import Diagrams.Backend.PGF.Surface
 

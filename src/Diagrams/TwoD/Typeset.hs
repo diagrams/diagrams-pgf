@@ -22,6 +22,7 @@ import Diagrams.Core
 import Diagrams.Core.Envelope (pointEnvelope)
 import Diagrams.TwoD.Text
 import Diagrams.TwoD.Types
+import Diagrams.Angle
 
 import Data.Monoid
 import Data.Colour
@@ -63,7 +64,7 @@ type instance V Typeset = R2
 instance Transformable Typeset where
   transform t typ = typ & tTrans %~ (t <>)
 
-instance IsPrim Typeset
+-- instance IsPrim Typeset
 
 instance Renderable Typeset NullBackend where
   render _ _ = mempty
