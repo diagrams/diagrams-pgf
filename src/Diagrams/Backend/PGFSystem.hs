@@ -1,16 +1,7 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE OverlappingInstances  #-}
-{-# LANGUAGE OverloadedStrings     #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Diagrams.Backend.PGF
--- Maintainer  :  diagrams-discuss@googlegroups.com
+-- Module      :  Diagrams.Backend.PGFSystem
+-- Maintainer  :  c.chalmers@me.com
 --
 -- A full-featured PGFSystem backend for diagrams producing PGFSystem code
 -- suitable for LaTeX, ConTeXt or plain TeX consumtion.

@@ -1,11 +1,8 @@
 {-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE ViewPatterns          #-}
 module Diagrams.Backend.PGF.Render
   ( PGF (..)
@@ -15,7 +12,6 @@ module Diagrams.Backend.PGF.Render
   , surface
   , sizeSpec
   , sizeSpecToBounds
-  -- , preserveLineWidth
   , readable
   , standalone
   ) where
@@ -27,20 +23,19 @@ import           Data.Default
 import           Data.Foldable             (foldMap)
 import           Data.Hashable             (Hashable (..))
 import           Data.Maybe                (isJust)
+import           Data.Tree
 import           Data.Typeable
+
 import           Diagrams.Core.Compile
-import           Diagrams.Core.Types       (Annotation) --, Renderable (..), 
-                                            -- Backend (..))
+import           Diagrams.Core.Types       (Annotation)
 import           Diagrams.Prelude
 import           Diagrams.TwoD.Adjust      (adjustDia2D)
 import           Diagrams.TwoD.Path
 import           Diagrams.TwoD.Text
-import           Diagrams.TwoD.Types       (r2)
 import           Diagrams.TwoD.Typeset
-import           Data.Tree
-import qualified Blaze.ByteString.Builder  as Blaze
+import qualified Blaze.ByteString.Builder     as Blaze
 
-import qualified Graphics.Rendering.PGF        as P
+import qualified Graphics.Rendering.PGF       as P
 import           Diagrams.Backend.PGF.Surface
 import           Diagrams.Backend.PGF.Hbox
 
@@ -357,3 +352,4 @@ instance Hashable (Options PGF R2) where
       sz `hashWithSalt`
       rd `hashWithSalt`
       st
+

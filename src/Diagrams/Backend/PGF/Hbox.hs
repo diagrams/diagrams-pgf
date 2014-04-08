@@ -7,13 +7,12 @@ module Diagrams.Backend.PGF.Hbox
   , hbox
   ) where
 
-import Diagrams.Core
-import Diagrams.Core.Envelope (pointEnvelope)
-import Diagrams.TwoD.Types
-
 import Data.Monoid
 import Data.Typeable
 
+import Diagrams.Core
+import Diagrams.Core.Envelope (pointEnvelope)
+import Diagrams.TwoD.Types
 
 -- | Data type typing raw TeX commands in a hbox.
 data Hbox = Hbox (Transformation R2) String

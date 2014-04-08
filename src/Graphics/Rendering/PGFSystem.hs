@@ -1,12 +1,12 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ViewPatterns      #-}
-{-# LANGUAGE GADTs             #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ViewPatterns         #-}
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Puting.PGFSystem
+-- Module      :  Graphics.Rendering.PGFSystem
 -- Maintainer  :  c.chalmers@me.com
 --
 -- Interface to the system layer of PGF. This is intented to be the rendering 
@@ -71,21 +71,21 @@ import Data.ByteString.Char8 (ByteString)
 import Data.List (intersperse)
 import Data.AdditiveGroup ((^+^))
 
-import Diagrams.Core.Transform (Transformation, apply, transl)
 
-import Diagrams.Attributes (LineCap(..), LineJoin(..),
-                            colorToSRGBA, Color (..))
-import Diagrams.TwoD.Path (FillRule(..), Clip (..))
-import Diagrams.Core.Types (fromOutput)
-import Diagrams.TwoD.Vector (unitX, unitY)
-import Diagrams.TwoD.Attributes (Dashing (..))
-import Diagrams.Trail (Trail, trailSegments, isLoop, trailVertices)
-import Diagrams.Path (Path (..))
-import Diagrams.Located (Located, viewLoc)
-import Diagrams.Segment -- (Segment, OffsetClosed (..))
-import Diagrams.TwoD.Types (R2, P2, unr2, unp2, r2)
--- import Diagrams.TwoD.Text
+import Diagrams.Attributes      (LineCap(..), LineJoin(..),
+                                 colorToSRGBA, Color (..))
+import Diagrams.TwoD.Path       (FillRule(..), Clip (..))
+import Diagrams.Core.Types      (fromOutput)
+import Diagrams.Core.Transform  (Transformation, apply, transl)
 -- import Diagrams.TwoD.Image
+import Diagrams.Located         (Located, viewLoc)
+import Diagrams.Segment
+import Diagrams.Path            (Path (..))
+import Diagrams.Trail           (Trail, trailSegments, isLoop, trailVertices)
+import Diagrams.TwoD.Attributes (Dashing (..))
+-- import Diagrams.TwoD.Text
+import Diagrams.TwoD.Types      (R2, P2, unr2, unp2, r2)
+import Diagrams.TwoD.Vector     (unitX, unitY)
 
 import Diagrams.Backend.PGF.Surface
 import Control.Lens ((^.))
