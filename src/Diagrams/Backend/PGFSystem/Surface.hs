@@ -88,3 +88,4 @@ plaintexSurface = Surface
   , _endDoc    = "\\bye"
   , _pdfOrigin = Just (-0.712, 0.02)
   }
+

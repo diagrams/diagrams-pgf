@@ -23,14 +23,15 @@ module Diagrams.Backend.PGF.Render
 import           Control.Lens              (lens, (.=), (%=), (^.), op,
                                             Lens', use)
 import           Control.Monad             (when, unless)
-import           Data.Foldable             (foldMap)
 import           Data.Default
+import           Data.Foldable             (foldMap)
+import           Data.Hashable             (Hashable (..))
 import           Data.Maybe                (isJust)
 import           Data.Typeable
 import           Diagrams.Core.Compile
-import           Diagrams.Core.Types       (Annotation, Renderable (..), 
-                                            Backend (..))
-import Diagrams.Prelude
+import           Diagrams.Core.Types       (Annotation) --, Renderable (..), 
+                                            -- Backend (..))
+import           Diagrams.Prelude
 import           Diagrams.TwoD.Adjust      (adjustDia2D)
 import           Diagrams.TwoD.Path
 import           Diagrams.TwoD.Text
@@ -272,28 +273,6 @@ escapeString = concatMap escapeChar
       ']' -> "{]}"
       x   -> [x]
 
---------------------------------------------------
--- Renderable instances
-
-instance Renderable (Segment Closed R2) PGF where
-  render _ (Linear (OffsetClosed v))       = P $ P.lineTo v
-  render _ (Cubic v1 v2 (OffsetClosed v3)) = P $ P.curveTo v1 v2 v3
-
-instance Renderable (Trail R2) PGF where
-  render _ t = withLine (render' . lineSegments) t where
-    render' segs = P $ do
-        mapM_ renderP segs
-        when (isLoop t) P.closePath
-
-instance Renderable (Path R2) PGF where
-  render _ = P . renderPath
-
-instance Renderable Text PGF where
-  render _ = P . renderText
-
-instance Renderable Typeset PGF where
-  render _ = P . renderTypeset
-
 -- | Renders text. Colour is set by fill colour. Opacity is inheritied from 
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
 renderText :: Text -> P.Render
@@ -333,15 +312,48 @@ renderTypeset (Typeset str tpsSize angle tpsAlign tr) = do
     unless isDiagramSize $ P.typesetSize tpsSize
     P.rawString str
 
-instance Renderable Hbox PGF where
-  render _ = P . renderRaw
-
 renderRaw :: Hbox -> P.Render
 renderRaw (Hbox tr str) = do
   P.applyTransform tr
   P.resetNonTranslations
   P.renderText [] (P.rawString str)
 
+------------------------------------------------------------------------
+-- Renderable instances
+
+instance Renderable (Segment Closed R2) PGF where
+  render _ (Linear (OffsetClosed v))       = P $ P.lineTo v
+  render _ (Cubic v1 v2 (OffsetClosed v3)) = P $ P.curveTo v1 v2 v3
+
+instance Renderable (Trail R2) PGF where
+  render _ t = withLine (render' . lineSegments) t
+    where
+      render' segs = P $ do
+        mapM_ renderP segs
+        when (isLoop t) P.closePath
+
+instance Renderable (Path R2) PGF where
+  render _ = P . renderPath
+
+instance Renderable Text PGF where
+  render _ = P . renderText
+
+instance Renderable Typeset PGF where
+  render _ = P . renderTypeset
+
+instance Renderable Hbox PGF where
+  render _ = P . renderRaw
+
 instance Renderable Image PGF where
   render _  = P . P.image
 
+------------------------------------------------------------------------
+-- Hashable instances
+
+instance Hashable (Options PGF R2) where
+  hashWithSalt s (PGFOptions sf sz rd st)
+    = s  `hashWithSalt`
+      sf `hashWithSalt`
+      sz `hashWithSalt`
+      rd `hashWithSalt`
+      st

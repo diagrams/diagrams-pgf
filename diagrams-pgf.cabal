@@ -1,5 +1,5 @@
 Name:                diagrams-pgf
-Version:             1.0
+Version:             1.1
 Synopsis:            PGF backend for diagrams drawing EDSL.
 License:             BSD3
 License-file:        LICENSE
@@ -42,8 +42,8 @@ Library
                      , containers           >= 0.3   && < 0.6
                      , colour
                      , data-default
-                     , diagrams-core        >= 1.1   && < 1.2
-                     , diagrams-lib         >= 1.1   && < 1.2
+                     , diagrams-core        >= 1.1   && < 1.3
+                     , diagrams-lib         >= 1.1   && < 1.3
                      , directory            >= 1.0   && < 1.4
                      , double-conversion    >= 0.2   && < 0.3
                      , filepath             >= 1.2   && < 1.4

@@ -20,6 +20,7 @@ import           Data.Default
 import           Data.Maybe               (isJust)
 import           Data.Typeable
 import           Data.Foldable            (foldMap)
+import           Data.Hashable            (Hashable (..))
 import           Data.Tree
 
 import           Diagrams.Prelude
@@ -155,3 +156,12 @@ instance Renderable (Path R2) PGFSystem where
     when (any (isLine . unLoc) . op Path $ p) $ P.fillOpacity 0
     P.path p
 
+------------------------------------------------------------------------
+-- Hashable instances
+
+instance Hashable (Options PGFSystem R2) where
+  hashWithSalt s (PGFOptions sf sz st)
+    = s  `hashWithSalt`
+      sf `hashWithSalt`
+      sz `hashWithSalt`
+      st

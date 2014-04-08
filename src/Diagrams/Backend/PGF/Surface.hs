@@ -35,9 +35,11 @@ module Diagrams.Backend.PGF.Surface
     , plaintexSurface
     ) where
 
-import Control.Lens (makeLenses)
-import Data.Default
-import Data.Typeable
+import Control.Applicative
+import Control.Lens  (makeLenses)
+import Data.Default  (Default (..))
+import Data.Hashable (Hashable (..))
+import Data.Typeable (Typeable)
 
 -- | The 'TeXFormat' is used to choose the different PGF commands nessesary for 
 --   that format.
@@ -117,3 +119,23 @@ plaintexSurface = Surface
 instance Default Surface where
   def = latexSurface
 
+------------------------------------------------------------------------
+-- Hashable instances
+
+instance Hashable (TeXFormat) where
+  hashWithSalt s LaTeX    = s `hashWithSalt` (1::Int)
+  hashWithSalt s ConTeXt  = s `hashWithSalt` (2::Int)
+  hashWithSalt s PlainTeX = s `hashWithSalt` (3::Int)
+
+instance Hashable (Surface) where
+  hashWithSalt s (Surface tf cm ar ja ps pr bd ed o)
+    = s                   `hashWithSalt`
+      tf                  `hashWithSalt`
+      cm                  `hashWithSalt`
+      ar                  `hashWithSalt`
+      ja "job"            `hashWithSalt`
+      ps <*> Just (30,30) `hashWithSalt`
+      pr                  `hashWithSalt`
+      bd                  `hashWithSalt`
+      ed                  `hashWithSalt`
+      o
