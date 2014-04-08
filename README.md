@@ -19,7 +19,7 @@ A simple example that uses _diagrams-pgf_ to draw a square.
 import Diagrams.Prelude
 import Diagrams.Backend.PGF.CmdLine
 
-b1 = square 20 # lw 0.002
+b1 = square 20 # lwG 0.05
 
 main = defaultMain (pad 1.1 b1)
 ```
@@ -57,19 +57,21 @@ If no output file is given, output is send to `stdout`. Supported outputs are ".
 $ ./Square -o square.tex
 $ cat ./square.tex
 \begin{pgfpicture}
-\pgfpathrectangle{\pgfpointorigin}{\pgfqpoint{22.0000px}{22.0000px}}
-\pgfusepath{use as bounding box}
+  \pgfpathrectangle{\pgfpointorigin}{\pgfqpoint{22.0000px}{22.0000px}}
+  \pgfusepath{use as bounding box}
   \begin{pgfscope}
-    \pgfpathmoveto{\pgfqpoint{21.0000px}{1.0000px}}
-    \pgfpathlineto{\pgfqpoint{21.0000px}{21.0000px}}
-    \pgfpathlineto{\pgfqpoint{1.0000px}{21.0000px}}
-    \pgfpathlineto{\pgfqpoint{1.0000px}{1.0000px}}
-    \pgfpathlineto{\pgfqpoint{21.0000px}{1.0000px}}
-    \pgfpathclose
-    \definecolor{fc}{rgb}{0.0000,0.0000,0.0000}
-    \pgfsetfillcolor{fc}
-    \pgfsetlinewidth{0.0020cm}
-    \pgfusepath{stroke}
+    \begin{pgfscope}
+      \pgfpathmoveto{\pgfqpoint{21.0000px}{1.0000px}}
+      \pgfpathlineto{\pgfqpoint{21.0000px}{21.0000px}}
+      \pgfpathlineto{\pgfqpoint{1.0000px}{21.0000px}}
+      \pgfpathlineto{\pgfqpoint{1.0000px}{1.0000px}}
+      \pgfpathlineto{\pgfqpoint{21.0000px}{1.0000px}}
+      \pgfpathclose
+      \definecolor{sc}{rgb}{0.0000,0.0000,0.0000}
+      \pgfsetstrokecolor{sc}
+      \pgfsetlinewidth{0.0132mm}
+      \pgfusepath{stroke}
+    \end{pgfscope}
   \end{pgfscope}
 \end{pgfpicture}
 ```
@@ -82,10 +84,7 @@ TeX's text typesetting is one of the major advantages of using the PGF backend. 
 
 The following features are not currently supported:
 
-- freezing
 - text alignment (only extreme cases supported)
 - selecting fonts (italic and bold work)
 
-Other features seems to be working OK. (see [tests])
-
-[tests]:http://github.com/cchalmers/diagrams-backend-tests
+Other features seems to be working OK.
