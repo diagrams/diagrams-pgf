@@ -43,9 +43,10 @@ latexSurface = Surface
   , _arguments = []
   , _jobArg    = \jobname -> "-jobname="++jobname
   , _pageSize  = Nothing
-  , _preamble  = "\\catcode`\\@=11\n\\documentclass{article}\n\\usepackage{pgfsys}"
-  , _beginDoc  = "\\begin{document}"
-  , _endDoc    = "\\end{document}"
+  , _preamble  = "\\catcode`\\@=11\n\\documentclass{article}\n"
+              ++ "\\def\\pgfsysdriver{pgfsys-pdftex.def}\n\\usepackage{pgfsys}"
+  , _beginDoc  = "\\begin{document}\n\\hbox{"
+  , _endDoc    = "}\n\\end{document}"
   , _pdfOrigin = Just (-2.712, -1.85)
   }
 
@@ -88,4 +89,3 @@ plaintexSurface = Surface
   , _endDoc    = "\\bye"
   , _pdfOrigin = Just (-0.712, 0.02)
   }
-

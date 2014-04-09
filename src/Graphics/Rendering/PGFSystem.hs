@@ -53,23 +53,28 @@ module Graphics.Rendering.PGFSystem
   , shift
   -- * images
   -- * Text
+  , pgfHbox
+  , hbox
   , paperSize
     -- * Diagrams primitves
   , path
   , locTrail
   -- , trail
   , segment
+  , transparencyGroup
   ) where
 
-import Data.Monoid
 import Control.Applicative
-import Control.Monad (when, zipWithM_)
-import Blaze.ByteString.Builder as Blaze
+import Control.Monad                      (when, zipWithM_)
+import Control.Lens                       ((^.))
+import Blaze.ByteString.Builder           as Blaze
 import Blaze.ByteString.Builder.Char.Utf8 as Blaze
+import Data.AdditiveGroup                 ((^+^))
+import Data.ByteString.Char8              (ByteString)
 import Data.Double.Conversion.ByteString
-import Data.ByteString.Char8 (ByteString)
-import Data.List (intersperse)
-import Data.AdditiveGroup ((^+^))
+import Data.Monoid
+import Data.List                          (intersperse)
+import Data.Word
 
 
 import Diagrams.Attributes      (LineCap(..), LineJoin(..),
@@ -77,6 +82,7 @@ import Diagrams.Attributes      (LineCap(..), LineJoin(..),
 import Diagrams.TwoD.Path       (FillRule(..), Clip (..))
 import Diagrams.Core.Types      (fromOutput)
 import Diagrams.Core.Transform  (Transformation, apply, transl)
+import qualified Diagrams.Core.Transform as T
 -- import Diagrams.TwoD.Image
 import Diagrams.Located         (Located, viewLoc)
 import Diagrams.Segment
@@ -87,8 +93,9 @@ import Diagrams.TwoD.Attributes (Dashing (..))
 import Diagrams.TwoD.Types      (R2, P2, unr2, unp2, r2)
 import Diagrams.TwoD.Vector     (unitX, unitY)
 
+import Diagrams.Backend.PGF.Hbox    (Hbox (..))
 import Diagrams.Backend.PGF.Surface
-import Control.Lens ((^.))
+
 
 data PairS a = PairS a !Builder
 
@@ -106,27 +113,28 @@ instance Functor PutM where
   {-# INLINE fmap #-}
 
 instance Applicative PutM where
-  pure    = return
+  pure a  = Put $ PairS a mempty
+  {-# INLINE pure #-}
+
   m <*> k = Put $
       let PairS f w  = unPut m
           PairS x w' = unPut k
-      in PairS (f x) (w `mappend` w')
+      in  PairS (f x) (w `mappend` w')
 
--- Standard Writer monad, with aggressive inlining
 instance Monad PutM where
-  return a = Put $ PairS a mempty
+  return  = pure
   {-# INLINE return #-}
 
-  m >>= k  = Put $
+  m >>= k = Put $
       let PairS a w  = unPut m
           PairS b w' = unPut (k a)
-      in PairS b (w `mappend` w')
+      in  PairS b (w `mappend` w')
   {-# INLINE (>>=) #-}
 
   m >> k  = Put $
       let PairS _ w  = unPut m
           PairS b w' = unPut k
-      in PairS b (w `mappend` w')
+      in  PairS b (w `mappend` w')
   {-# INLINE (>>) #-}
 
 
@@ -135,12 +143,18 @@ render = sndS . unPut
 
 renderWith :: Surface -> Bool -> (Double,Double) -> Put -> Builder
 renderWith s standalone bounds r = render $ do
-      when standalone $ do
-        ln . rawString $ s^.preamble
-        maybe (paperSize bounds) (rawString . ($ bounds)) (s^.pageSize)
-        ln . rawString $ s^.beginDoc
-      picture r
-      when standalone $ rawString $ s^.endDoc
+  when standalone $ do
+    ln . rawString $ s^.preamble
+    maybe (return ()) (pdfPageBounds bounds) (s^.pdfOrigin)
+    maybe (paperSize bounds) (rawString . ($ bounds)) (s^.pageSize)
+    ln . rawString $ s^.beginDoc
+  picture r
+  when standalone $ rawString $ s^.endDoc
+
+pdfPageBounds :: (Double, Double) -> (Double, Double) -> Put
+pdfPageBounds (x0,y0) (_,_) = do
+  ln $ raw "\\pdfhorigin=" >> mm 0
+  ln $ raw "\\pdfvorigin=" >> mm (y0+133.41749092)
 
 -- builder functions
 
@@ -170,10 +184,22 @@ bracers r = do
   r
   rawChar '}'
 
+lnBracers :: Put -> Put
+lnBracers r = bracers $ do
+  rawChar '\n'
+  r
+  rawChar '\n'
+
 commaIntersperse :: [Put] -> Put
 commaIntersperse = sequence_ . intersperse (rawChar ',')
 
 -- * number and points
+
+show4 :: Double -> Put
+show4 = raw . toFixed 4
+
+n :: Double -> Put
+n = bracers . show4
 
 p :: R2 -> Put
 p = p' . unr2
@@ -183,14 +209,8 @@ p' (x,y) = do
   bracers (px x)
   bracers (px y)
 
-n :: Double -> Put
-n = bracers . show4
-
 mm :: Double -> Put
 mm = (>> raw "mm") . show4 . (*0.264583)
-
-show4 :: Double -> Put
-show4 = raw . toFixed 4
 
 px :: Double -> Put
 px = (>> raw "px") . show4
@@ -380,6 +400,29 @@ fillColor' r g b = do
   sys "color@rgb@fill"
   mapM_ n [r,g,b]
 
+transparencyGroup :: Double -> Put -> Put
+transparencyGroup x r = do
+  sys "transparencygroupfrombox"
+  n x
+  bracers $ setbox 1 r
+
+setbox :: Word8 -> Put -> Put
+setbox i r = do
+  raw "\\setbox"
+  rawString $ show i
+  raw "\\hbox"
+  lnBracers r
+
+-- * Text
+
+pgfHbox :: Put -> Put
+pgfHbox r = ln $ do
+  setbox 0 r
+  sys "hbox"
+  rawString $ show 0
+
+-- * Paper
+
 paperSize :: (Double, Double) -> Put
 paperSize s = ln $ do
   sys "papersize"
@@ -415,4 +458,9 @@ moveSeg (Cubic v1 v2 (OffsetClosed v3)) p2 = curveTo v1' v2' v3'
 segment :: Segment Closed R2 -> Put
 segment (Linear (OffsetClosed v))       = lineTo v
 segment (Cubic v1 v2 (OffsetClosed v3)) = curveTo v1 v2 v3
+
+hbox :: Hbox -> Put
+hbox (Hbox tr str) = do
+  shift $ T.transl tr
+  pgfHbox $ rawString str
 
