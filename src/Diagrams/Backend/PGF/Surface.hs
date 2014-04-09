@@ -73,7 +73,7 @@ latexSurface = Surface
   , _preamble  = "\\documentclass{article}\n\\usepackage{pgfcore}"
   , _beginDoc  = "\\begin{document}"
   , _endDoc    = "\\end{document}"
-  , _pdfOrigin = Just (-2.712, -1.85)
+  , _pdfOrigin = Just (-102.5, -70)
   }
 
 contextSurface :: Surface
@@ -113,7 +113,7 @@ plaintexSurface = Surface
               ++ "\\def\\frac#1#2{{\\begingroup #1\\endgroup\\over #2}}"
   , _beginDoc  = ""
   , _endDoc    = "\\bye"
-  , _pdfOrigin = Just (-0.712, 0.02)
+  , _pdfOrigin = Just (-27, 0.75)
   }
 
 instance Default Surface where
