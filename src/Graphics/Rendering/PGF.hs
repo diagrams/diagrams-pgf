@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE GADTs             #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.PGF
@@ -93,7 +94,6 @@ import Diagrams.Core.Transform
 import Diagrams.Prelude hiding (Render, opacity, (<>), view, moveTo, stroke, image)
 import Diagrams.TwoD.Text
 import Diagrams.TwoD.Typeset
-import Diagrams.TwoD.Image (Image (..))
 import Blaze.ByteString.Builder as Blaze
 import Blaze.ByteString.Builder.Char.Utf8 as Blaze
 import Data.Double.Conversion.ByteString
@@ -102,7 +102,6 @@ import qualified Data.ByteString.Char8 as B
 import Data.Maybe (catMaybes)
 import Data.List (intersperse)
 import Diagrams.TwoD.Types
-
 
 import Diagrams.Backend.PGF.Surface
 
@@ -119,7 +118,6 @@ data RenderState = RenderState
     }
 
 makeLenses ''RenderState
-
 
 data RenderInfo = RenderInfo
     { _surface :: Surface
@@ -663,23 +661,17 @@ baseTransform t = do
 -- \pgfimage[⟨options ⟩]{⟨filename ⟩}
 
 -- | Images are wraped in a \pgftext.
-image :: Image -> Render
-image (Image path sizeSpec t2) = do
+image :: DImage External -> Render
+image (DImage (ImageRef path) w h t2) = do
   applyTransform t2
   emitLn $ do
     pgf "text"
     bracers $ do
       pgf "image"
-      brackets $ case sizeSpec of
-                   Width w  ->
-                     raw "width=" >> show4px w
-                   Height h ->
-                     raw "height=" >> show4px h
-                   Dims w h -> do
-                     raw "width=" >> show4px w
-                     rawChar ','
-                     raw "height=" >> show4px h
-                   Absolute -> return ()
+      brackets $ do
+        raw "width=" >> show4px (fromIntegral w)
+        rawChar ','
+        raw "height=" >> show4px (fromIntegral h)
       bracers $ rawString path
 
 

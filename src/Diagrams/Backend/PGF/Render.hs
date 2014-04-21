@@ -339,7 +339,7 @@ instance Renderable Typeset PGF where
 instance Renderable Hbox PGF where
   render _ = P . renderRaw
 
-instance Renderable Image PGF where
+instance Renderable (DImage External) PGF where
   render _  = P . P.image
 
 ------------------------------------------------------------------------
