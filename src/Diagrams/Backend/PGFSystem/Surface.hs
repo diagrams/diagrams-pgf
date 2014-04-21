@@ -7,7 +7,7 @@
 -- are used for rendering a @.tex@ or @.pdf@ using functions from 
 -- 'Diagrams.Backend.PGF'.
 --
--- Surfaces are also used in 'Diagrams.Backend.PGF.Typeset' for quereying 
+-- Surfaces are also used in 'Diagrams.Backend.PGF.Typeset' for querying 
 -- envelopes of text.
 --
 -- Surfaces for LaTeX, ConTeXt and plain TeX are provided and reexported by 

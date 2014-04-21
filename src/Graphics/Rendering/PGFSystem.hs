@@ -419,7 +419,7 @@ pgfHbox :: Put -> Put
 pgfHbox r = ln $ do
   setbox 0 r
   sys "hbox"
-  rawString $ show 0
+  rawChar '0'
 
 -- * Paper
 
