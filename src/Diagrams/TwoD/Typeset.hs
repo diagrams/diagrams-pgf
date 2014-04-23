@@ -17,7 +17,6 @@ module Diagrams.TwoD.Typeset
   , typeset
   ) where
 
-import Diagrams.Attributes
 import Diagrams.Core
 import Diagrams.Core.Envelope (pointEnvelope)
 import Diagrams.TwoD.Text
@@ -25,7 +24,6 @@ import Diagrams.TwoD.Types
 import Diagrams.Angle
 
 import Data.Monoid
-import Data.Colour
 import Data.Typeable
 
 import Control.Lens (makeLenses, (%~), (&))
@@ -72,8 +70,7 @@ instance Renderable Typeset NullBackend where
 mkTypeset :: Renderable Typeset b
           => Typeset -> Diagram b R2
 
-mkTypeset tps = recommendFillColor (black :: Colour Double)
-              $ mkQD (Prim tps)
+mkTypeset tps = mkQD (Prim tps)
                      (pointEnvelope origin)
                      mempty
                      mempty
