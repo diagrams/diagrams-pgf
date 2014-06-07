@@ -29,7 +29,6 @@ module Graphics.Rendering.PGF
   -- , fillRule
   , ignoreFill
   , style
-  -- , txtTrans
   -- * RenderM commands
   , block
   , emitLn
@@ -85,8 +84,6 @@ module Graphics.Rendering.PGF
   , setTextRotation
   , setFontWeight
   , setFontSlant
-  -- * Typeset
-  , typesetSize
   ) where
 
 import Blaze.ByteString.Builder           as Blaze (Builder,
@@ -99,15 +96,14 @@ import Control.Monad.RWS
 import Data.ByteString.Char8              (ByteString)
 import Data.ByteString.Char8              as B (replicate)
 import Data.Double.Conversion.ByteString  (toFixed)
-import Data.List                          (intersperse, mapAccumL)
+import Data.List                          (intersperse)
 import Data.Maybe                         (catMaybes)
 
-import Diagrams.Prelude        hiding (Render, image, moveTo, opacity,
-                                stroke, view, (<>))
-import Diagrams.TwoD.Text      (FontSlant (..), FontWeight (..),
-                                TextAlignment (..))
-import Diagrams.TwoD.Types     (R2 (..))
-import Diagrams.TwoD.Typeset   (TypesetSize (..))
+import Diagrams.Prelude      hiding (Render, image, moveTo, opacity,
+                              stroke, view, (<>))
+import Diagrams.TwoD.Text    (FontSlant (..), FontWeight (..),
+                              TextAlignment (..))
+import Diagrams.TwoD.Types   (R2 (..))
 
 import Diagrams.Backend.PGF.Surface
 
@@ -683,19 +679,12 @@ colorSpec d = mapM_ emitLn
             . combinePairs
             . intersperse (rawChar ';')
             . map mkColor
-            -- . snd . mapAccumL mkColor 0
   where
     mkColor (GradientStop sc sf) = do
       raw "rgb"
       parens $ show4mm (d*sf)
       raw "="
       parensColor sc
-    -- mkColor acc (GradientStop sc sf) = (sf',) $ do
-    --   raw "rgb"
-    --   parens $ show4mm sf'
-    --   raw "="
-    --   parensColor sc
-    --   where sf' = acc + sf
 
 combinePairs :: Monad m => [m a] -> [m a]
 combinePairs []  = []
@@ -752,8 +741,8 @@ setTextAlign a = case a of
 
 setTextRotation :: Angle -> [Render]
 setTextRotation a = case a^.deg of
-                      0 -> []
-                      θ -> [raw "rotate=" >> show4 θ]
+  0 -> []
+  θ -> [raw "rotate=" >> show4 θ]
 
 -- | Set the font weight by rendering @\bf @. Nothing is done for normal
 --   weight.
@@ -767,42 +756,3 @@ setFontSlant FontSlantNormal  = return ()
 setFontSlant FontSlantItalic  = raw "\\it "
 setFontSlant FontSlantOblique = raw "\\sl "
 
--- typeset
-
-typesetSize :: TypesetSize -> Render
-typesetSize (DiagramsSize x) = applyScale (x/8)
-typesetSize s = do
-  -- resetNonTranslations
-  f <- view format
-  case f of
-    LaTeX    -> case s of
-                  Tiny     -> raw "\\tiny"
-                  Small    -> raw "\\small"
-                  Large    -> raw "\\large"
-                  Huge     -> raw "\\huge"
-                  PtSize x -> do
-                    raw "\\fontsize"
-                    bracers $ pt x
-                    bracers $ raw "1em"
-                    raw "\\selectfont"
-                  _        -> return ()
-    ConTeXt  -> case s of
-                  Tiny   -> raw "\\txx"
-                  Small  -> raw "\\tx"
-                  Large  -> raw "\\tf"
-                  Huge   -> raw "\\tff"
-                  PtSize x -> do
-                    raw "\\switchtobodyfont"
-                    brackets $ pt x
-                  _        -> return ()
-    PlainTeX -> case s of
-                  Tiny   -> raw "\\sevenrm"
-                  Small  -> raw "\\ninerm"
-                  Large  -> raw "\\large"
-                  Huge   -> raw "\\huge"
-                  PtSize x -> do
-                    raw "\\font\\temp=cmr10 at "
-                    pt x
-                    raw "\\temp"
-                  _        -> return ()
-  rawChar ' '

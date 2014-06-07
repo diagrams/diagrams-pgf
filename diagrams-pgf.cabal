@@ -26,10 +26,8 @@ Library
                        Diagrams.Backend.PGF.CmdLine
                        Diagrams.Backend.PGF.Surface
                        Diagrams.Backend.PGF.Render
-                       Diagrams.Backend.PGF.Typeset
                        Diagrams.Backend.PGF.Hbox
                        Graphics.Rendering.PGF
-                       Diagrams.TwoD.Typeset
   Hs-source-dirs:      src
   Build-depends:       attoparsec           >= 0.10  && < 1.1
                      , base                 >= 4.4   && < 4.8

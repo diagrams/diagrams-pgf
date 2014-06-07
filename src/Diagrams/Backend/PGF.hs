@@ -37,8 +37,6 @@ module Diagrams.Backend.PGF
     , Options (..)
       -- * TeX specific
     , hbox
-    , Typeset (..)
-    , typeset
       -- * Options lenses
     , template, surface, sizeSpec, readable
     , SizeSpec2D(..)
@@ -66,7 +64,6 @@ import System.IO
 import qualified Blaze.ByteString.Builder      as Blaze
 import qualified Data.ByteString.Char8         as B
 
-import Diagrams.TwoD.Typeset
 import Diagrams.Backend.PGF.Hbox
 import Diagrams.Backend.PGF.Render
 import Diagrams.Backend.PGF.Surface
@@ -136,7 +133,6 @@ renderPDF filePath sizeSp surf dia = do
   case exitC of
     ExitSuccess -> do
       copyFile (tmp </> jobName <.> "pdf") filePath
-      when (surf^.texFormat == ConTeXt) $ pdfcrop filePath
       when logExists $ removeFile logFile
       removeFile (tmp </> jobName <.> "pdf")
     ExitFailure _ -> do
@@ -145,16 +141,6 @@ renderPDF filePath sizeSp surf dia = do
                    then "please check " ++ logFile
                    else "and no log file was found"
       when logExists $ copyFile logFile (replaceExtension filePath "log")
-
--- | Tempory solution to crop ConTeXt document, makes generation slow.
-pdfcrop :: FilePath -> IO ()
-pdfcrop path = do
-  (eCode, _,err) <- readProcessWithExitCode "pdfcrop" [path, path] ""
-
-  case eCode of
-    ExitFailure _ -> putStrLn $ "pdfcrop failed: " ++ err
-    _             -> return ()
-
 
 -- | Render PGF and save to output.tex and run surface command on output.tex.
 --   All auxillery files are kept.

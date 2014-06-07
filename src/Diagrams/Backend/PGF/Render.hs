@@ -17,17 +17,17 @@ module Diagrams.Backend.PGF.Render
   ) where
 
 import Blaze.ByteString.Builder (Builder)
-import Control.Lens             (Lens', lens, op, use, (%=), (.=), (^.), isn't)
+import Control.Lens             (Lens', isn't, lens, op, use, (%=),
+                                 (.=), (^.))
 import Control.Monad            (when)
 import Data.Default
 import Data.Foldable            (foldMap)
 import Data.Functor
 import Data.Hashable            (Hashable (..))
-import Data.Maybe               (isJust, fromMaybe)
+import Data.Maybe               (fromMaybe)
 import Data.Tree                (Tree (Node))
 import Data.Typeable            (Typeable)
 
-import Diagrams.Core.Compile (RNode (RPrim, RStyle), RTree)
 import Diagrams.Core.Types
 import Diagrams.Prelude
 
@@ -35,8 +35,9 @@ import Diagrams.Backend.PGF.Hbox    (Hbox (..))
 import Diagrams.Backend.PGF.Surface (Surface)
 import Diagrams.TwoD.Adjust         (adjustDia2D)
 import Diagrams.TwoD.Path
-import Diagrams.TwoD.Text           (Text (..), getFontSize, getFontSizeIsLocal,
-                                     getFontSlant, getFontWeight)
+import Diagrams.TwoD.Text           (Text (..), getFontSize,
+                                     getFontSizeIsLocal, getFontSlant,
+                                     getFontWeight)
 
 import qualified Graphics.Rendering.PGF as P
 
@@ -140,8 +141,6 @@ readable = lens getR setR
 --   P.setLineCap   <~ getLineCap
 --   P.setLineJoin  <~ getLineJoin
 
--- instance Hashable (Options Cairo R2)
-
 instance Monoid (Render PGF R2) where
   mempty  = P $ return ()
   (P ra) `mappend` (P rb) = P (ra >> rb)
@@ -159,7 +158,7 @@ draw = do
   doFill       <- case mFillTexture of
     Nothing -> return False
     Just t  -> setFillTexture t >> return (not $ isn't _SC t)
-  when doFill $ do
+  when doFill $
     P.setFillRule <~ getFillRule
   --
   doStroke <- shouldStroke
@@ -204,17 +203,6 @@ setLineTexture _                  = return ()
 -- | Apply the opacity from a style to a given color.
 applyOpacity :: Color c => c -> Style v -> AlphaColour Double
 applyOpacity c s = dissolve (maybe 1 getOpacity (getAttr s)) (toAlphaColour c)
-
--- | Queries the current style and decides if the path should be filled. Paths
---   are filled if a color is defined
-shouldFill :: P.RenderM Bool
--- shouldFill = return True
-shouldFill = do
-  fTexture <- (getFillTexture <$>) . getAttr <$> use P.style
-  let isn'tFill = maybe False (isn't _SC) fTexture
-  ignore <- use P.ignoreFill
-  --
-  return $ not ignore && not isn'tFill
 
 -- | Queries the current style and decides if the path should be stroked. Paths
 --   are stroked when lw > 0.0001
@@ -270,14 +258,6 @@ escapeString = concatMap escapeChar
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
 renderText :: Text -> P.Render
 renderText (Text tt tn txtAlign str) = do
-
--- renderF <~ getF = do
-  -- s <- use P.style
-  -- let mAttr = (getF <$>) . getAttr $ s
-  -- maybe (return ()) renderF mAttr
-
-
-
   isLocal <- (getFontSizeIsLocal <$>) . getAttr <$> use P.style
   setFillTexture <~ getFillTexture
   --
@@ -293,29 +273,8 @@ renderText (Text tt tn txtAlign str) = do
     P.setFontSlant  <~ getFontSlant
     P.rawString $ escapeString str
 
--- renderTypeset :: Typeset -> P.Render
--- renderTypeset (Typeset str tpsSize angle tpsAlign tr) = do
---   setFillColor' <~ getFillColor
---   P.applyTransform tr
---   --
---   let isDiagramSize = case tpsSize of
---                         DiagramsSize _ -> True
---                         _              -> False
---   if isDiagramSize
---     then P.typesetSize tpsSize
---     else P.resetNonTranslations
---
---   --
---   let ops = P.setTextAlign tpsAlign
---          ++ P.setTextRotation angle
---   P.renderText ops $ do
---     P.setFontWeight <~ getFontWeight
---     P.setFontSlant  <~ getFontSlant
---     unless isDiagramSize $ P.typesetSize tpsSize
---     P.rawString str
-
-renderRaw :: Hbox -> P.Render
-renderRaw (Hbox tr str) = do
+renderHbox :: Hbox -> P.Render
+renderHbox (Hbox tr str) = do
   P.applyTransform tr
   P.resetNonTranslations
   P.renderText [] (P.rawString str)
@@ -340,11 +299,8 @@ instance Renderable (Path R2) PGF where
 instance Renderable Text PGF where
   render _ = P . renderText
 
--- instance Renderable Typeset PGF where
---   render _ = P . renderTypeset
-
 instance Renderable Hbox PGF where
-  render _ = P . renderRaw
+  render _ = P . renderHbox
 
 instance Renderable (DImage External) PGF where
   render _  = P . P.image
@@ -359,3 +315,4 @@ instance Hashable (Options PGF R2) where
       sz `hashWithSalt`
       rd `hashWithSalt`
       st
+
