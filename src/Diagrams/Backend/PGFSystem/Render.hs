@@ -2,8 +2,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE OverloadedStrings     #-}
 module Diagrams.Backend.PGFSystem.Render
   ( PGFSystem (..)
   , sizeSpec
@@ -11,34 +9,44 @@ module Diagrams.Backend.PGFSystem.Render
   , Options (..)
   ) where
 
-import qualified Blaze.ByteString.Builder as Blaze
-import           Control.Lens             (lens, op, Lens', (^.))
-import           Control.Monad.State
-import           Data.Default
-import           Data.Maybe               (isJust)
-import           Data.Typeable
-import           Data.Foldable            (foldMap)
-import           Data.Hashable            (Hashable (..))
-import           Data.Tree
+import Blaze.ByteString.Builder (Builder)
 
-import           Diagrams.Prelude
--- import           Diagrams.TwoD.Image
-import           Diagrams.TwoD.Adjust     (adjustDiaSize2D)
-import           Diagrams.Core.Compile
-import           Diagrams.Core.Types      (Annotation)
-import           Diagrams.TwoD.Path
--- import           Diagrams.TwoD.Text
+import Control.Lens  (Lens', lens, (^.))
+import Data.Default  (Default (..))
+import Data.Foldable (foldMap)
+import Data.Hashable (Hashable (..))
+import Data.Maybe    (isJust)
+import Data.Tree     (Tree (Node))
+import Data.Typeable (Typeable)
 
-import           Diagrams.Backend.PGF.Hbox
+import Diagrams.Backend.PGF.Hbox          (Hbox)
+import Diagrams.Backend.PGFSystem.Surface (Surface)
+import Diagrams.Core.Compile              (RNode (RPrim, RStyle), RTree)
+import Diagrams.Core.Types                (Annotation)
+import Diagrams.Prelude                   (AlphaColour, AttributeClass,
+                                           Backend (..),
+                                           Color (toAlphaColour),
+                                           Monoid (mappend, mempty),
+                                           Path, R2, Renderable (..),
+                                           SizeSpec2D (..), Style,
+                                           dissolve, fromOutput,
+                                           getAttr, getDashing,
+                                           getFillColor, getLineCap,
+                                           getLineColor, getLineJoin,
+                                           getLineWidth, getOpacity,
+                                           (<$>))
+import Diagrams.TwoD.Adjust               (adjustDiaSize2D)
+import Diagrams.TwoD.Path                 (getFillRule)
+
+
 import qualified Graphics.Rendering.PGFSystem as P
-import           Diagrams.Backend.PGFSystem.Surface
 
 data PGFSystem = PGFSystem
   deriving (Show, Typeable)
 
 instance Backend PGFSystem R2 where
   data Render  PGFSystem R2 = P P.Put
-  type Result  PGFSystem R2 = Blaze.Builder
+  type Result  PGFSystem R2 = Builder
   data Options PGFSystem R2 = PGFOptions
       { _surface    :: Surface    -- ^ Surface you want to use.
       , _sizeSpec   :: SizeSpec2D -- ^ The requested size.
@@ -57,7 +65,7 @@ instance Monoid (Render PGFSystem R2) where
   (P ra) `mappend` (P rb) = P (ra >> rb)
 
 toRender :: RTree PGFSystem R2 Annotation -> Render PGFSystem R2
-toRender = fromRTree . splitFills
+toRender = fromRTree -- . splitFills
   where
     -- fromRTree (Node (TransparencyGroup x) rs)
     --   = P $ do
@@ -141,14 +149,14 @@ draw s = case (shouldFill s, shouldStroke s) of
 
 -- instance Renderable (Segment Closed R2) PGFSystem where
 --   render b = render b . (fromSegments :: [Segment Closed R2] -> Path R2) . (:[])
--- 
+--
 -- instance Renderable (Trail R2) PGFSystem where
 --   render b = render b . pathFromTrail
--- 
+--
 instance Renderable (Path R2) PGFSystem where
   render _ = P . P.path
   -- render _ p = P $ do
-  --   -- dirty hack, but we avoid needing state and how often to people try to 
+  --   -- dirty hack, but we avoid needing state and how often to people try to
   --   -- fill lines?
   --   when (any (isLine . unLoc) . op Path $ p) $ P.fillOpacity 0
   --   P.path p

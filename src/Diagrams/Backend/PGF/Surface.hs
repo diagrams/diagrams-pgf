@@ -1,18 +1,18 @@
-{-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell    #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF.Surface
 -- Maintainer  :  diagrams-discuss@googlegroups.com
 --
--- A 'Surface' defines how a pgfpicture should be placed and compiled. Surfaces 
--- are used for rendering a @.tex@ or @.pdf@ using functions from 
+-- A 'Surface' defines how a pgfpicture should be placed and compiled. Surfaces
+-- are used for rendering a @.tex@ or @.pdf@ using functions from
 -- 'Diagrams.Backend.PGF'.
 --
--- Surfaces are also used in 'Diagrams.Backend.PGF.Typeset' for quereying 
+-- Surfaces are also used in 'Diagrams.Backend.PGF.Typeset' for quereying
 -- envelopes of text.
 --
--- Surfaces for LaTeX, ConTeXt and plain TeX are provided and reexported by 
+-- Surfaces for LaTeX, ConTeXt and plain TeX are provided and reexported by
 -- Diagrams.Backend.PGF, but can be adjusted here as required.
 -----------------------------------------------------------------------------
 
@@ -36,28 +36,28 @@ module Diagrams.Backend.PGF.Surface
     ) where
 
 import Control.Applicative
-import Control.Lens  (makeLenses)
-import Data.Default  (Default (..))
-import Data.Hashable (Hashable (..))
-import Data.Typeable (Typeable)
+import Control.Lens        (makeLenses)
+import Data.Default        (Default (..))
+import Data.Hashable       (Hashable (..))
+import Data.Typeable       (Typeable)
 
--- | The 'TeXFormat' is used to choose the different PGF commands nessesary for 
+-- | The 'TeXFormat' is used to choose the different PGF commands nessesary for
 --   that format.
 data TeXFormat = LaTeX | ConTeXt | PlainTeX
   deriving (Show, Read, Eq, Typeable)
 
 data Surface = Surface
-  { _texFormat  :: TeXFormat          -- ^ Format PGF commands use.
-  , _command    :: String             -- ^ System command to be called.
-  , _arguments  :: [String]           -- ^ Auguments for command.
-  , _jobArg     :: String -> String   -- ^ Command for specifying jobname.
-  , _pageSize   :: Maybe ((Double,Double) -> String)
-  , _preamble   :: String             -- ^ Preamble for document, should import pgfcore.
-  , _beginDoc   :: String             -- ^ Begin document
-  , _endDoc     :: String             -- ^ End document.
-  , _pdfOrigin  :: Maybe (Double,Double) -- ^ Set origin of picture with 
-                                         -- \pdfhorigin, \pdfvorigin, if you 
-                                         -- don't want the PDF to be cropped, 
+  { _texFormat :: TeXFormat          -- ^ Format PGF commands use.
+  , _command   :: String             -- ^ System command to be called.
+  , _arguments :: [String]           -- ^ Auguments for command.
+  , _jobArg    :: String -> String   -- ^ Command for specifying jobname.
+  , _pageSize  :: Maybe ((Double,Double) -> String)
+  , _preamble  :: String             -- ^ Preamble for document, should import pgfcore.
+  , _beginDoc  :: String             -- ^ Begin document
+  , _endDoc    :: String             -- ^ End document.
+  , _pdfOrigin :: Maybe (Double,Double) -- ^ Set origin of picture with
+                                         -- \pdfhorigin, \pdfvorigin, if you
+                                         -- don't want the PDF to be cropped,
                                          -- set nothing.
   }
 
@@ -70,7 +70,9 @@ latexSurface = Surface
   , _arguments = []
   , _jobArg    = \jobname -> "-jobname="++jobname
   , _pageSize  = Nothing
-  , _preamble  = "\\documentclass{article}\n\\usepackage{pgfcore}"
+  , _preamble  = "\\documentclass{article}\n"
+              ++ "\\usepackage{pgfcore}\n"
+              ++ "\\pagenumbering{gobble}\n"
   , _beginDoc  = "\\begin{document}"
   , _endDoc    = "\\end{document}"
   , _pdfOrigin = Just (-102.5, -70)
@@ -90,8 +92,8 @@ contextSurface = Surface
               ++ "  , backspace=0px\n"
               ++ "  , header=0px\n"
               ++ "  , footer=0px\n"
-              ++ "  , width="++show w++"px\n"
-              ++ "  , height="++show h++"px\n"
+              ++ "  , width=" ++ show (ceiling w :: Int) ++ "px\n"
+              ++ "  , height=" ++ show (ceiling h :: Int) ++ "px\n"
               ++ "  ]"
   , _preamble  = "\\usemodule[pgf]\n" -- pgfcore doesn't work
               ++ "\\setuppagenumbering[location=]"
@@ -129,13 +131,13 @@ instance Hashable (TeXFormat) where
 
 instance Hashable (Surface) where
   hashWithSalt s (Surface tf cm ar ja ps pr bd ed o)
-    = s                   `hashWithSalt`
-      tf                  `hashWithSalt`
-      cm                  `hashWithSalt`
-      ar                  `hashWithSalt`
-      ja "job"            `hashWithSalt`
-      ps <*> Just (30,30) `hashWithSalt`
-      pr                  `hashWithSalt`
-      bd                  `hashWithSalt`
-      ed                  `hashWithSalt`
+    = s                 `hashWithSalt`
+      tf                `hashWithSalt`
+      cm                `hashWithSalt`
+      ar                `hashWithSalt`
+      ja "job"          `hashWithSalt`
+      ps <*> Just (1,2) `hashWithSalt`
+      pr                `hashWithSalt`
+      bd                `hashWithSalt`
+      ed                `hashWithSalt`
       o

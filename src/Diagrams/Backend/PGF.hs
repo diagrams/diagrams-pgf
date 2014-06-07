@@ -82,7 +82,7 @@ defaultSurface :: Surface
 defaultSurface = def
 
 -- | Render a diagram as a PGF code, writing to the specified output
---   file and using the requested size and surface, ready for inclusion in a 
+--   file and using the requested size and surface, ready for inclusion in a
 --   TeX document.
 renderPGF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
 renderPGF filePath sizeSp surf
@@ -96,9 +96,9 @@ renderPGF' filePath ops dia = do
     Blaze.toByteStringIO (B.hPutStr h) rendered
     hClose h
 
--- | This is an experimental function that pipes directly to pdfTeX. It's a 
---   little hacky and might not always work. It should be faster as pdfTeX can 
---   load as diagrams output is generated. If you want to save the .tex file 
+-- | This is an experimental function that pipes directly to pdfTeX. It's a
+--   little hacky and might not always work. It should be faster as pdfTeX can
+--   load as diagrams output is generated. If you want to save the .tex file
 --   aswell, use @renderPDF'@.
 renderPDF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
 renderPDF filePath sizeSp surf dia = do
@@ -156,7 +156,7 @@ pdfcrop path = do
     _             -> return ()
 
 
--- | Render PGF and save to output.tex and run surface command on output.tex. 
+-- | Render PGF and save to output.tex and run surface command on output.tex.
 --   All auxillery files are kept.
 renderPDF' :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
 renderPDF' filePath sizeSp surf dia = do
@@ -182,4 +182,3 @@ renderPDF' filePath sizeSp surf dia = do
                      then "please check " ++ logFile
                      else "and no log file was found"
       ExitSuccess   -> return ()
-

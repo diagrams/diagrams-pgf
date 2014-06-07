@@ -16,73 +16,57 @@ module Diagrams.Backend.PGF.Render
   , standalone
   ) where
 
-import           Control.Lens              (lens, (.=), (%=), (^.), op,
-                                            Lens', use)
-import           Control.Monad             (when, unless)
-import           Data.Default
-import           Data.Foldable             (foldMap)
-import           Data.Hashable             (Hashable (..))
-import           Data.Maybe                (isJust)
-import           Data.Tree
-import           Data.Typeable
+import Blaze.ByteString.Builder (Builder)
+import Control.Lens             (Lens', lens, op, use, (%=), (.=), (^.), isn't)
+import Control.Monad            (when)
+import Data.Default
+import Data.Foldable            (foldMap)
+import Data.Functor
+import Data.Hashable            (Hashable (..))
+import Data.Maybe               (isJust, fromMaybe)
+import Data.Tree                (Tree (Node))
+import Data.Typeable            (Typeable)
 
-import           Diagrams.Core.Compile
-import           Diagrams.Core.Types       (Annotation)
-import           Diagrams.Prelude
-import           Diagrams.TwoD.Adjust      (adjustDia2D)
-import           Diagrams.TwoD.Path
-import           Diagrams.TwoD.Text
-import           Diagrams.TwoD.Typeset
-import qualified Blaze.ByteString.Builder     as Blaze
+import Diagrams.Core.Compile (RNode (RPrim, RStyle), RTree)
+import Diagrams.Core.Types
+import Diagrams.Prelude
 
-import qualified Graphics.Rendering.PGF       as P
-import           Diagrams.Backend.PGF.Surface
-import           Diagrams.Backend.PGF.Hbox
+import Diagrams.Backend.PGF.Hbox    (Hbox (..))
+import Diagrams.Backend.PGF.Surface (Surface)
+import Diagrams.TwoD.Adjust         (adjustDia2D)
+import Diagrams.TwoD.Path
+import Diagrams.TwoD.Text           (Text (..), getFontSize, getFontSizeIsLocal,
+                                     getFontSlant, getFontWeight)
+
+import qualified Graphics.Rendering.PGF as P
 
 -- | This data declaration is simply used as a token to distinguish
 --   this rendering engine.
 data PGF = PGF
   deriving (Show, Typeable)
 
-
 instance Backend PGF R2 where
   data Render  PGF R2 = P (P.Render)
-  type Result  PGF R2 = Blaze.Builder
+  type Result  PGF R2 = Builder
   data Options PGF R2 = PGFOptions
-      { _surface    :: Surface    -- ^ Surface you want to use.
-      , _sizeSpec   :: SizeSpec2D -- ^ The requested size.
-      , _readable   :: Bool       -- ^ Pretty print output.
-      , _standalone :: Bool       -- ^ Should .tex output be standalone 
-                                  --   ('renderPDF' sets this to true)
-      }
+    { _surface    :: Surface    -- ^ Surface you want to use.
+    , _sizeSpec   :: SizeSpec2D -- ^ The requested size.
+    , _readable   :: Bool       -- ^ Pretty print output.
+    , _standalone :: Bool       -- ^ Should .tex output be standalone.
+    }
 
   renderRTree _ ops rt =
     P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
-    where
-      (P r) = toRender rt
-      bounds = sizeSpecToBounds (ops^.sizeSpec)
+      where
+        (P r)  = toRender rt
+        bounds = sizeSpecToBounds (ops^.sizeSpec)
 
   adjustDia = adjustDia2D sizeSpec
 
-  -- withStyle _ s t (P r) = P . P.scope $ do
-  --   P.applyTransform t
-  --   P.style %= (<> s)
-  --   setClipPaths <~ op Clip
-  --   r
-
-
-  -- doRender _ ops (P r) =
-  --   P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
-  --   where bounds = sizeSpecToBounds (ops^.sizeSpec)
-  -- 
-  -- adjustDia =
-  --     adjustDiaSize2D (view sizeSpec) (set sizeSpec)
-
 toRender :: RTree PGF R2 Annotation -> Render PGF R2
 toRender = fromRTree
-  -- . Node (RStyle (mempty # recommendFillColor (transparent :: AlphaColour Double)))
-  -- . (:[])
-  -- . splitFills
+  . Node (RStyle (mempty # recommendFillColor (transparent :: AlphaColour Double)))
+  . (:[])
     where
       -- fromRTree (Node (RAnnot (Href uri)) rs)
       --   = R $ do
@@ -91,12 +75,12 @@ toRender = fromRTree
       --       return $ (S.a ! xlinkHref (S.toValue uri)) svg
       fromRTree (Node (RPrim p) _)     = render PGF p
       fromRTree (Node (RStyle sty) rs) = P . P.scope $ do
-            let P r = foldMap fromRTree rs
-            P.style %= (<> sty)
-            setClipPaths <~ op Clip
-            pgf <- r
-            P.resetState
-            return pgf
+        let P r = foldMap fromRTree rs
+        P.style %= (<> sty)
+        setClipPaths <~ op Clip
+        pgf <- r
+        P.resetState
+        return pgf
       fromRTree (Node _ rs)            = foldMap fromRTree rs
 
 
@@ -115,7 +99,7 @@ instance Default (Options PGF R2) where
           , _standalone = False
           }
 
--- | Lens to change the template, aka surface defined in Diagrams.Backend.PGF.Surface
+-- | Lens to change the surface
 template :: Lens' (Options PGF R2) Surface
 template = lens getter setter
   where
@@ -145,7 +129,7 @@ readable = lens getR setR
 
 -- defStyle :: Style R2
 -- defStyle = mempty # lineWidthA def # lineColorA def
---                   # lineCap def # lineJoin def 
+--                   # lineCap def # lineJoin def
 --                   # lineMiterLimitA def
 
 -- set default values outside scope
@@ -164,26 +148,28 @@ instance Monoid (Render PGF R2) where
 
 renderP :: (Renderable a PGF, V a ~ R2) => a -> P.RenderM ()
 renderP (render PGF -> P r) = r
-  
--- | Use the path that has already been drawn in scope. The path is stroked if 
+
+-- | Use the path that has already been drawn in scope. The path is stroked if
 --   linewidth > 0.0001 and if filled if a colour is defined.
 --
---   All stroke and fill properties from the cuuent @style@ are also output here.
+--   All stroke and fill properties from the current @style@ are also output here.
 draw :: P.RenderM ()
 draw = do
-  doFill <- shouldFill
+  mFillTexture <- (getFillTexture <$>) . getAttr <$> use P.style
+  doFill       <- case mFillTexture of
+    Nothing -> return False
+    Just t  -> setFillTexture t >> return (not $ isn't _SC t)
   when doFill $ do
-    setFillColor' <~ getFillColor
     P.setFillRule <~ getFillRule
   --
   doStroke <- shouldStroke
   when doStroke $ do
-    setLineColor'  <~ getLineColor -- stoke opacity needs to be set
+    setLineTexture <~ getLineTexture -- stoke opacity needs to be set
     P.setLineJoin  <~ getLineJoin
     P.setLineWidth <~ fromOutput . getLineWidth
     P.setLineCap   <~ getLineCap
     P.setDash      <~ getDashing
-  -- 
+  --
   P.usePath doFill doStroke False
 
 -- helper function to easily get options and set them
@@ -195,30 +181,42 @@ renderF <~ getF = do
 
 infixr 2 <~
 
-setFillColor' :: (Color c) => c -> P.RenderM ()
+setFillTexture :: Texture -> P.Render
+setFillTexture t = case t of
+  (SC (SomeColor c)) -> setFillColor' c
+  (LG g)             -> P.linearGradient g
+  (RG g)             -> P.radialGradient g
+
+setFillColor' :: (Color c) => c -> P.Render
 setFillColor' c = do
   s <- use P.style
   P.setFillColor $ applyOpacity c s
 
-setLineColor' :: (Color c) => c -> P.RenderM ()
+setLineColor' :: (Color c) => c -> P.Render
 setLineColor' c = do
   s <- use P.style
   P.setLineColor $ applyOpacity c s
+
+setLineTexture :: Texture -> P.Render
+setLineTexture (SC (SomeColor c)) = setLineColor' c
+setLineTexture _                  = return ()
 
 -- | Apply the opacity from a style to a given color.
 applyOpacity :: Color c => c -> Style v -> AlphaColour Double
 applyOpacity c s = dissolve (maybe 1 getOpacity (getAttr s)) (toAlphaColour c)
 
--- | Queries the current style and decides if the path should be filled. Paths 
+-- | Queries the current style and decides if the path should be filled. Paths
 --   are filled if a color is defined
 shouldFill :: P.RenderM Bool
+-- shouldFill = return True
 shouldFill = do
-  fColor <- (getFillColor <$>) . getAttr <$> use P.style
+  fTexture <- (getFillTexture <$>) . getAttr <$> use P.style
+  let isn'tFill = maybe False (isn't _SC) fTexture
   ignore <- use P.ignoreFill
   --
-  return $ not ignore && isJust fColor
+  return $ not ignore && not isn'tFill
 
--- | Queries the current style and decides if the path should be stroked. Paths 
+-- | Queries the current style and decides if the path should be stroked. Paths
 --   are stroked when lw > 0.0001
 shouldStroke :: P.RenderM Bool
 shouldStroke = do
@@ -248,7 +246,7 @@ renderPath (Path trs) = do
       P.moveTo (r2 p)
       renderP tr
 
--- | Escapes some common charcters in a string. Lots of things don't work in 
+-- | Escapes some common charcters in a string. Lots of things don't work in
 --   plain TeX.
 escapeString :: String -> String
 escapeString = concatMap escapeChar
@@ -268,14 +266,23 @@ escapeString = concatMap escapeChar
       ']' -> "{]}"
       x   -> [x]
 
--- | Renders text. Colour is set by fill colour. Opacity is inheritied from 
+-- | Renders text. Colour is set by fill colour. Opacity is inheritied from
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
 renderText :: Text -> P.Render
-renderText (Text tr txtAlign str) = do
-  setFillColor' <~ getFillColor
+renderText (Text tt tn txtAlign str) = do
+
+-- renderF <~ getF = do
+  -- s <- use P.style
+  -- let mAttr = (getF <$>) . getAttr $ s
+  -- maybe (return ()) renderF mAttr
+
+
+
+  isLocal <- (getFontSizeIsLocal <$>) . getAttr <$> use P.style
+  setFillTexture <~ getFillTexture
   --
   -- doTxtTrans <- view P.txtTrans
-  P.applyTransform tr
+  P.applyTransform (if fromMaybe False isLocal then tt else tn)
   -- if doTxtTrans
   (P.applyScale . (/8)) <~ fromOutput . getFontSize
       -- (/8) was obtained from trail and error
@@ -286,26 +293,26 @@ renderText (Text tr txtAlign str) = do
     P.setFontSlant  <~ getFontSlant
     P.rawString $ escapeString str
 
-renderTypeset :: Typeset -> P.Render
-renderTypeset (Typeset str tpsSize angle tpsAlign tr) = do
-  setFillColor' <~ getFillColor
-  P.applyTransform tr
-  --
-  let isDiagramSize = case tpsSize of
-                        DiagramsSize _ -> True
-                        _              -> False
-  if isDiagramSize
-    then P.typesetSize tpsSize
-    else P.resetNonTranslations
-
-  --
-  let ops = P.setTextAlign tpsAlign
-         ++ P.setTextRotation angle
-  P.renderText ops $ do
-    P.setFontWeight <~ getFontWeight
-    P.setFontSlant  <~ getFontSlant
-    unless isDiagramSize $ P.typesetSize tpsSize
-    P.rawString str
+-- renderTypeset :: Typeset -> P.Render
+-- renderTypeset (Typeset str tpsSize angle tpsAlign tr) = do
+--   setFillColor' <~ getFillColor
+--   P.applyTransform tr
+--   --
+--   let isDiagramSize = case tpsSize of
+--                         DiagramsSize _ -> True
+--                         _              -> False
+--   if isDiagramSize
+--     then P.typesetSize tpsSize
+--     else P.resetNonTranslations
+--
+--   --
+--   let ops = P.setTextAlign tpsAlign
+--          ++ P.setTextRotation angle
+--   P.renderText ops $ do
+--     P.setFontWeight <~ getFontWeight
+--     P.setFontSlant  <~ getFontSlant
+--     unless isDiagramSize $ P.typesetSize tpsSize
+--     P.rawString str
 
 renderRaw :: Hbox -> P.Render
 renderRaw (Hbox tr str) = do
@@ -333,8 +340,8 @@ instance Renderable (Path R2) PGF where
 instance Renderable Text PGF where
   render _ = P . renderText
 
-instance Renderable Typeset PGF where
-  render _ = P . renderTypeset
+-- instance Renderable Typeset PGF where
+--   render _ = P . renderTypeset
 
 instance Renderable Hbox PGF where
   render _ = P . renderRaw
@@ -352,4 +359,3 @@ instance Hashable (Options PGF R2) where
       sz `hashWithSalt`
       rd `hashWithSalt`
       st
-

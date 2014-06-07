@@ -1,17 +1,15 @@
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE ViewPatterns      #-}
-{-# LANGUAGE GADTs             #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE ViewPatterns               #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.PGF
 -- Maintainer  :  c.chalmers@me.com
 --
 -- Interface to PGF. See the manual http://www.ctan.org/pkg/pgf for details.
---
--- RenderM monad is a little messy, it will probably be 
--- rewritten. 
 --
 ------------------------------------------------------------------------------
 module Graphics.Rendering.PGF
@@ -74,6 +72,11 @@ module Graphics.Rendering.PGF
   , baseTransform
   , applyScale
   , resetNonTranslations
+  -- * Shading
+  , linearGradient
+  , radialGradient
+  , colorSpec
+  , shadePath
   -- * images
   , image
   -- * Text
@@ -86,35 +89,38 @@ module Graphics.Rendering.PGF
   , typesetSize
   ) where
 
-import Control.Lens         (Lens', view, makeLenses, use,
-                             (^.), (+=), (-=), (.=))
+import Blaze.ByteString.Builder           as Blaze (Builder,
+                                                    fromByteString)
+import Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar,
+                                                    fromString)
+import Control.Lens                       (Lens', makeLenses, use, view,
+                                           (+=), (-=), (.=), (^.))
 import Control.Monad.RWS
-import Control.Applicative
-import Diagrams.Core.Transform
-import Diagrams.Prelude hiding (Render, opacity, (<>), view, moveTo, stroke, image)
-import Diagrams.TwoD.Text
-import Diagrams.TwoD.Typeset
-import Blaze.ByteString.Builder as Blaze
-import Blaze.ByteString.Builder.Char.Utf8 as Blaze
-import Data.Double.Conversion.ByteString
-import Data.ByteString.Char8 (ByteString)
-import qualified Data.ByteString.Char8 as B
-import Data.Maybe (catMaybes)
-import Data.List (intersperse)
-import Diagrams.TwoD.Types
+import Data.ByteString.Char8              (ByteString)
+import Data.ByteString.Char8              as B (replicate)
+import Data.Double.Conversion.ByteString  (toFixed)
+import Data.List                          (intersperse, mapAccumL)
+import Data.Maybe                         (catMaybes)
+
+import Diagrams.Prelude        hiding (Render, image, moveTo, opacity,
+                                stroke, view, (<>))
+import Diagrams.TwoD.Text      (FontSlant (..), FontWeight (..),
+                                TextAlignment (..))
+import Diagrams.TwoD.Types     (R2 (..))
+import Diagrams.TwoD.Typeset   (TypesetSize (..))
 
 import Diagrams.Backend.PGF.Surface
 
 
 -- * Types, lenses & runners
 
--- | Render state, mainly to be used for convienience when build, this module 
+-- | Render state, mainly to be used for convienience when build, this module
 --   only uses the indent properiy.
 data RenderState = RenderState
-    { _pos          :: R2   -- ^ Current position
-    , _indent       :: Int  -- ^ Current identation
-    , _ignoreFill   :: Bool
-    , _style        :: Style R2
+    { _pos        :: R2   -- ^ Current position
+    , _indent     :: Int  -- ^ Current identation
+    , _ignoreFill :: Bool
+    , _style      :: Style R2
     }
 
 makeLenses ''RenderState
@@ -131,7 +137,7 @@ newtype RenderM m = RenderM { runRender :: RWS RenderInfo Blaze.Builder RenderSt
 -- newtype RenderM m = RenderM (RWS RenderInfo Blaze.Builder RenderState m)
   deriving ( Functor, Monad, Applicative
            , MonadWriter Blaze.Builder
-           , MonadState RenderState 
+           , MonadState RenderState
            , MonadReader RenderInfo
            )
 
@@ -204,17 +210,16 @@ pgf c = raw "\\pgf" >> raw c
 rawChar :: Char -> Render
 rawChar = tell . Blaze.fromChar
 
-emit :: Render -> Render
-emit r = do
+emit :: Render
+emit = do
   tab <- use indent
   raw $ B.replicate tab ' '
-  r
 
 emitLn :: Render -> Render
 emitLn r = do
   pp <- view pprint
   if pp
-    then emit r >> rawChar '\n'
+    then emit >> r >> rawChar '\n'
     else r >> rawChar ' '
 
 -- force a newline, TeX complains if lines are too long so we
@@ -223,7 +228,7 @@ emitLn' :: Render -> Render
 emitLn' r = do
   pp <- view pprint
   if pp
-    then emit r >> rawChar '\n'
+    then emit >> r >> rawChar '\n'
     else r >> rawChar '\n'
 
 -- | Wrap a `Render` in { .. }.
@@ -233,11 +238,17 @@ bracers r = do
   r
   rawChar '}'
 
+bracersBlock :: Render -> Render
+bracersBlock rs = do
+  raw "{\n"
+  inBlock rs
+  emit >> rawChar '}'
+
 -- | Wrap each element in { .. } and put them next to each other.
 bracersL :: [Render] -> Render
 bracersL = mapM_ bracers
 
--- | Intersperce list with comas and wrap in { .. }. If the list is
+-- | Intersperce list with commas and wrap in { .. }. If the list is
 --   empty, {} is rendered.
 bracersL' :: [Render] -> Render
 bracersL' = bracers . commaIntersperce
@@ -248,6 +259,12 @@ brackets r = do
   rawChar '['
   r
   rawChar ']'
+
+parens :: Render -> Render
+parens r = do
+  rawChar '('
+  r
+  rawChar ')'
 
 -- | Intersperce list with commas and wrap in [ .. ]. If the list is
 --   empty, nothing is rendered.
@@ -272,6 +289,9 @@ inBlock r = do
 
 pgfP :: R2 -> Render
 pgfP = pgfP' . unr2
+
+pgfPoint :: P2 -> Render
+pgfPoint = pgfP' . unp2
 
 pgfP' :: (Double,Double) -> Render
 pgfP' (x,y) = do
@@ -317,7 +337,7 @@ endPicture :: Render
 endPicture = do
   f <- view format
   emitLn' . raw $ case f of
-    LaTeX    -> "\\end{pgfpicture}" 
+    LaTeX    -> "\\end{pgfpicture}"
     ConTeXt  -> "\\stoppgfpicture"
     PlainTeX -> "\\endpgfpicture"
 
@@ -353,7 +373,7 @@ scopeFooter :: Render
 scopeFooter = do
   f <- view format
   emitLn' . raw $ case f of
-    LaTeX    -> "\\end{pgfscope}" 
+    LaTeX    -> "\\end{pgfscope}"
     ConTeXt  -> "\\stoppgfscope"
     PlainTeX -> "\\endpgfscope"
 
@@ -379,7 +399,7 @@ contextColor r g b = do
   rawChar ','
   raw "b=" >> show4 b
 
--- | Defines an RGB colour with the given name, using the TeX format. 
+-- | Defines an RGB colour with the given name, using the TeX format.
 defineColour :: ByteString -> Double -> Double -> Double -> Render
 defineColour name r g b = do
   f <- view format
@@ -393,6 +413,13 @@ defineColour name r g b = do
       bracers $ raw name
       bracers $ raw "rgb"
       bracers $ texColor r g b
+
+parensColor :: Color c => c -> Render
+parensColor c = parens $ do
+  show4 r >> rawChar ','
+  show4 g >> rawChar ','
+  show4 b
+  where (r,g,b,_) = colorToSRGBA c
 
 -- | Apply the opacity from a style to a given color.
 applyOpacity :: Color c => c -> Style v -> AlphaColour Double
@@ -442,7 +469,7 @@ stroke = emitLn $ pgf "usepath{stroke}"
 fill :: Render
 fill = emitLn $ pgf "usepath{fill}"
 
--- | Use the defined path a clip for everything that follows in the current 
+-- | Use the defined path a clip for everything that follows in the current
 --   scope. Stacks.
 clip :: Render
 clip = emitLn $ pgf "usepath{clip}"
@@ -517,7 +544,7 @@ setDash' ds off = emitLn $ do
   bracers . bracersL $ map (show4mm . (*0.8822)) ds
   bracers $ show4mm (0.8822*off)
 
--- | Sets the stroke colour in current scope. If colour has opacity < 1, the 
+-- | Sets the stroke colour in current scope. If colour has opacity < 1, the
 --   scope opacity is set accordingly. Must be done before stroking.
 setLineColor :: (Color c) => c -> Render
 setLineColor c = do
@@ -528,7 +555,7 @@ setLineColor c = do
   where
     (r,g,b,a) = colorToSRGBA c
 
--- | Sets the stroke opacity for the current scope. Should be a value between 0 
+-- | Sets the stroke opacity for the current scope. Should be a value between 0
 --   and 1. Must be done  before stroking.
 setLineOpacity :: Double -> Render
 setLineOpacity a = emitLn $ do
@@ -538,27 +565,23 @@ setLineOpacity a = emitLn $ do
 
 -- filling
 
--- | Set the fill rule to winding or even-odd for current scope. Must be done 
+-- | Set the fill rule to winding or even-odd for current scope. Must be done
 --   before filling.
 setFillRule :: FillRule -> Render
 setFillRule rule = emitLn $ case rule of
-                     Winding -> pgf "setnonzerorule"
-                     EvenOdd -> pgf "seteorule"
+  Winding -> pgf "setnonzerorule"
+  EvenOdd -> pgf "seteorule"
 
-
--- | Sets the fill colour for current scope. If an alpha colour is used, the 
+-- | Sets the fill colour for current scope. If an alpha colour is used, the
 --   fill opacity is set accordingly. Must be done before filling.
 setFillColor :: (Color c) => c -> Render
-setFillColor c = do
-      defineColour "fc" r g b
-      emitLn $ pgf "setfillcolor{fc}"
-      --
-      when (a /= 1) $ setFillOpacity a
-  where
-    (r,g,b,a) = colorToSRGBA c
+setFillColor (colorToSRGBA -> (r,g,b,a)) = do
+  defineColour "fc" r g b
+  emitLn $ pgf "setfillcolor{fc}"
+  --
+  when (a /= 1) $ setFillOpacity a
 
-
--- | Sets the stroke opacity for the current scope. Should be a value between 0 
+-- | Sets the stroke opacity for the current scope. Should be a value between 0
 --   and 1. Must be done  before stroking.
 setFillOpacity :: Double -> Render
 setFillOpacity a = emitLn $ do
@@ -578,8 +601,8 @@ getMatrix t = (a1,a2,b1,b2,c1,c2)
 
 -- \pgftransformcm{⟨a⟩}{⟨b⟩}{⟨c⟩}{⟨d⟩}{⟨pointa}
 
--- | Applies a transformation to the current scope. This transformation only 
---   effects coordinates and text, not line withs or dash spacing. (See 
+-- | Applies a transformation to the current scope. This transformation only
+--   effects coordinates and text, not line withs or dash spacing. (See
 --   applyDeepTransform). Must be set before the path is used.
 applyTransform :: Transformation R2 -> Render
 applyTransform t
@@ -620,40 +643,70 @@ baseTransform t = do
   pgf "lowlevel"
   bracers $ setTransform t
 
+setShadetransform :: Transformation R2 -> Render
+setShadetransform (dropTransl -> t) = do
+  pgf "setadditionalshadetransform"
+  bracersBlock $ applyTransform t
 
 -- shading
 
--- linearGradient :: Render
--- linearGradient (LGradient stops g0 g1 gt sp) = do
---   emitLn $ do
---     pgf "declarehorizontalshading"
---     bracers $ raw "ft"
---     bracers $ show4mm 1
---     bracers $ colorSpec stops
---   shadePath $ raw "ft"
--- 
--- radialGradient :: RGradient -> Render
--- radialGradient (RGradient stops c0 r0 c1 r1 gt sm) = emitLn $ do
---   pgf "decareradialshading"
---   bracers $ raw "ft"
---   point center
---   bracers $ colorSpec stops
--- 
--- colorSpec :: [GradientStop] -> Render
--- colorSpec = sequence_ . intersperse (raw "; ")
---                       . map mkColor
---   where
---     mkColor (GradientStop sc sf) = do
---       raw "rgb"
---       brackets $ show4px sf
---       raw "="
---       brackets sc
--- 
--- shadePath :: Render -> Render
--- shadePath name = emitLn $ do
---   pgf "usepath"
---   bracers name
+linearGradient :: LGradient -> Render
+linearGradient (LGradient stops g0 g1 gt sp) = do
+  let d = g0 .-. g1
+  -- emitLn $ setShadetransform (scale (magnitude d) gt)
+  emitLn $ do
+    raw "%"
+    raw " g0=" >> pgfP d
+    -- raw " sp=" >> pgfPoint sp
+  emitLn $ do
+    pgf "declarehorizontalshading"
+    bracers $ raw "ft"
+    bracers $ raw "100cm" -- must be a better way?
+    bracersBlock $ colorSpec (magnitude d) stops
+  shadePath (direction d) $ raw "ft"
 
+radialGradient :: RGradient -> Render
+radialGradient (RGradient stops c0 r0 c1 r1 gt sm) = do
+  let d = c0 .-. c1
+  mapM_ (emitLn . (raw "% " >>) . pgfPoint) [c0,c1]
+  mapM_ (emitLn . (raw "% " >>) . show4)    [r0,r1]
+  -- emitLn $ setShadetransform (scale (r0+r1) gt)
+  emitLn $ do
+    pgf "declareradialshading"
+    bracers $ raw "ft"
+    bracers $ pgfPoint c0
+    bracersBlock $ colorSpec r1 stops
+  shadePath (direction d) $ raw "ft"
+
+colorSpec :: Double -> [GradientStop] -> Render
+colorSpec d = mapM_ emitLn
+            . combinePairs
+            . intersperse (rawChar ';')
+            . map mkColor
+            -- . snd . mapAccumL mkColor 0
+  where
+    mkColor (GradientStop sc sf) = do
+      raw "rgb"
+      parens $ show4mm (d*sf)
+      raw "="
+      parensColor sc
+    -- mkColor acc (GradientStop sc sf) = (sf',) $ do
+    --   raw "rgb"
+    --   parens $ show4mm sf'
+    --   raw "="
+    --   parensColor sc
+    --   where sf' = acc + sf
+
+combinePairs :: Monad m => [m a] -> [m a]
+combinePairs []  = []
+combinePairs [x] = [x]
+combinePairs (x1:x2:xs) = (x1 >> x2) : combinePairs xs
+
+shadePath :: Angle -> Render -> Render
+shadePath (view deg -> θ) name = emitLn $ do
+  pgf "shadepath"
+  bracers name
+  bracers $ show4 θ
 
 
 -- images
@@ -683,7 +736,7 @@ renderText ops txt = emitLn $ do
   bracketsL ops
   bracers txt
 
--- | Returns a list of values to be put in square brackets like 
+-- | Returns a list of values to be put in square brackets like
 --   @\pgftext[left,top]{txt}@. Usually to be used with @bracketsL@.
 setTextAlign :: TextAlignment -> [Render]
 setTextAlign a = case a of
@@ -701,8 +754,8 @@ setTextRotation :: Angle -> [Render]
 setTextRotation a = case a^.deg of
                       0 -> []
                       θ -> [raw "rotate=" >> show4 θ]
- 
--- | Set the font weight by rendering @\bf @. Nothing is done for normal 
+
+-- | Set the font weight by rendering @\bf @. Nothing is done for normal
 --   weight.
 setFontWeight :: FontWeight -> Render
 setFontWeight FontWeightNormal = return ()
@@ -753,4 +806,3 @@ typesetSize s = do
                     raw "\\temp"
                   _        -> return ()
   rawChar ' '
-

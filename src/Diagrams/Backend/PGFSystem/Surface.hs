@@ -3,14 +3,14 @@
 -- Module      :  Diagrams.Backend.PGF.Surface
 -- Maintainer  :  diagrams-discuss@googlegroups.com
 --
--- A 'Surface' defines how a pgfpicture should be placed and compiled. Surfaces 
--- are used for rendering a @.tex@ or @.pdf@ using functions from 
+-- A 'Surface' defines how a pgfpicture should be placed and compiled. Surfaces
+-- are used for rendering a @.tex@ or @.pdf@ using functions from
 -- 'Diagrams.Backend.PGF'.
 --
--- Surfaces are also used in 'Diagrams.Backend.PGF.Typeset' for querying 
+-- Surfaces are also used in 'Diagrams.Backend.PGF.Typeset' for querying
 -- envelopes of text.
 --
--- Surfaces for LaTeX, ConTeXt and plain TeX are provided and reexported by 
+-- Surfaces for LaTeX, ConTeXt and plain TeX are provided and reexported by
 -- Diagrams.Backend.PGF, but can be adjusted here as required.
 -----------------------------------------------------------------------------
 
@@ -18,6 +18,11 @@ module Diagrams.Backend.PGFSystem.Surface
     ( -- * Surface definition
       Surface(..)
     , TeXFormat(..)
+      -- * Predefined surfaces
+    , latexSurface
+    , contextSurface
+    , plaintexSurface
+      -- * Lenses
     , texFormat
     , command
     , arguments
@@ -27,14 +32,10 @@ module Diagrams.Backend.PGFSystem.Surface
     , beginDoc
     , endDoc
     , pdfOrigin
-      -- * Predefined surfaces
-    , latexSurface
-    , contextSurface
-    , plaintexSurface
     ) where
 
-import Diagrams.Backend.PGF.Surface hiding (latexSurface, contextSurface,
-                                            plaintexSurface)
+import Diagrams.Backend.PGF.Surface hiding (contextSurface,
+                                     latexSurface, plaintexSurface)
 
 latexSurface :: Surface
 latexSurface = Surface
@@ -60,12 +61,12 @@ contextSurface = Surface
                  "\\definepapersize[diagram][width="++show w++"px,height="++show h++"px]\n"
               ++ "\\setuppapersize[diagram][diagram]\n"
               ++ "\\setuplayout\n"
-              ++ "[ topspace="++show h++"px\n"
+              ++ "[ topspace=" ++ show h ++ "px\n"
               ++ ", backspace=0px\n"
               ++ ", header=0px\n"
               ++ ", footer=0px\n"
-              ++ ", width="++show w++"px\n"
-              ++ ", height="++show h++"px\n"
+              ++ ", width=" ++ show w ++ "px\n"
+              ++ ", height=" ++ show h ++ "px\n"
               ++ "]\n"
   , _preamble  = "\\catcode`\\@=11\n"
               ++ "\\usemodule[pgfsys]\n"
