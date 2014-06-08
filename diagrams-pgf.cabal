@@ -29,8 +29,7 @@ Library
                        Diagrams.Backend.PGF.Hbox
                        Graphics.Rendering.PGF
   Hs-source-dirs:      src
-  Build-depends:       attoparsec           >= 0.10  && < 1.1
-                     , base                 >= 4.4   && < 4.8
+  Build-depends:       base                 >= 4.4   && < 4.8
                      , blaze-builder        >= 0.3   && < 0.4
                      , bytestring           >= 0.9   && < 1.1
                      , containers           >= 0.3   && < 0.6

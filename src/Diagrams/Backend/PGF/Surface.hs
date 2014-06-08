@@ -141,3 +141,4 @@ instance Hashable (Surface) where
       bd                `hashWithSalt`
       ed                `hashWithSalt`
       o
+
