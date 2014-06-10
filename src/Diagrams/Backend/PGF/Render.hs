@@ -172,7 +172,7 @@ draw = do
   P.usePath doFill doStroke False
 
 -- helper function to easily get options and set them
-(<~) :: (AttributeClass a) => (b -> P.RenderM ()) -> (a -> b) -> P.RenderM ()
+(<~) :: (AttributeClass a) => (b -> P.Render) -> (a -> b) -> P.RenderM ()
 renderF <~ getF = do
   s <- use P.style
   let mAttr = (getF <$>) . getAttr $ s

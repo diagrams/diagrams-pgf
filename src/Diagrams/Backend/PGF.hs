@@ -88,10 +88,10 @@ renderPGF filePath sizeSp surf
 -- | Similar to 'renderPDF' but takes PGFOptions instead.
 renderPGF' :: FilePath -> Options PGF R2 -> Diagram PGF R2 -> IO ()
 renderPGF' filePath ops dia = do
-    h <- openFile filePath WriteMode
-    let rendered = renderDia PGF ops dia
-    Blaze.toByteStringIO (B.hPutStr h) rendered
-    hClose h
+  h <- openFile filePath WriteMode
+  let rendered = renderDia PGF ops dia
+  Blaze.toByteStringIO (B.hPutStr h) rendered
+  hClose h
 
 -- | This is an experimental function that pipes directly to pdfTeX. It's a
 --   little hacky and might not always work. It should be faster as pdfTeX can
@@ -103,10 +103,10 @@ renderPDF filePath sizeSp surf dia = do
   let jobName = "texput" -- TODO make a random one
       args = (surf^.jobArg) jobName : surf^.arguments
       p = (proc (surf^.command) args)
-           { cwd     = Just tmp
-           , std_in  = CreatePipe
-           , std_out = CreatePipe
-           }
+            { cwd     = Just tmp
+            , std_in  = CreatePipe
+            , std_out = CreatePipe
+            }
 
   (Just inH, Just outH, _, pHandle) <- createProcess p
 

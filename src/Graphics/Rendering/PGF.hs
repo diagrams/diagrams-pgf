@@ -4,6 +4,7 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE Rank2Types                 #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.PGF
@@ -91,10 +92,11 @@ import Blaze.ByteString.Builder           as Blaze (Builder,
 import Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar,
                                                     fromString)
 import Control.Lens                       (Lens', makeLenses, use, view,
-                                           (+=), (-=), (.=), (^.))
+                                           (+=), (-=), (.=), (^.), (+~),
+                                           imap, (#~), (^#), Lens)
 import Control.Monad.RWS
 import Data.ByteString.Char8              (ByteString)
-import Data.ByteString.Char8              as B (replicate)
+import qualified Data.ByteString.Char8              as B (replicate)
 import Data.Double.Conversion.ByteString  (toFixed)
 import Data.List                          (intersperse)
 import Data.Maybe                         (catMaybes)
@@ -304,8 +306,8 @@ show4px = (>> raw "px") . show4
 show4mm :: Double -> Render
 show4mm = (>> raw "mm") . show4 . (*0.264583)
 
-pt :: Double -> Render
-pt = (>> raw "pt") . show4
+-- pt :: Double -> Render
+-- pt = (>> raw "pt") . show4
 
 
 -- | ε = 0.0001 is the limit at which lines are no longer stroked.
@@ -639,40 +641,58 @@ baseTransform t = do
   pgf "lowlevel"
   bracers $ setTransform t
 
-setShadetransform :: Transformation R2 -> Render
-setShadetransform (dropTransl -> t) = do
-  pgf "setadditionalshadetransform"
-  bracersBlock $ applyTransform t
+-- setShadetransform :: Transformation R2 -> Render
+-- setShadetransform (dropTransl -> t) = do
+--   pgf "setadditionalshadetransform"
+--   bracersBlock $ applyTransform t
 
 -- shading
 
 linearGradient :: LGradient -> Render
-linearGradient (LGradient stops g0 g1 gt sp) = do
-  let d = g0 .-. g1
-  -- emitLn $ setShadetransform (scale (magnitude d) gt)
-  emitLn $ do
-    raw "%"
-    raw " g0=" >> pgfP d
-    -- raw " sp=" >> pgfPoint sp
+linearGradient (LGradient stops g0 g1 gt sm) = do
+  let d      = transform gt (g0 .-. g1)
+      stops' = adjustStops stops sm
   emitLn $ do
     pgf "declarehorizontalshading"
     bracers $ raw "ft"
     bracers $ raw "100cm" -- must be a better way?
-    bracersBlock $ colorSpec (magnitude d) stops
+    bracersBlock $ colorSpec (magnitude d) stops'
   shadePath (direction d) $ raw "ft"
 
 radialGradient :: RGradient -> Render
 radialGradient (RGradient stops c0 r0 c1 r1 gt sm) = do
-  let d = c0 .-. c1
+  let d = transform gt (c0 .-. c1)
+      stops' = adjustStops stops sm
   mapM_ (emitLn . (raw "% " >>) . pgfPoint) [c0,c1]
   mapM_ (emitLn . (raw "% " >>) . show4)    [r0,r1]
+  (emitLn . (raw "% " >>) . pgfP) (transform gt unitX)
   -- emitLn $ setShadetransform (scale (r0+r1) gt)
   emitLn $ do
     pgf "declareradialshading"
     bracers $ raw "ft"
     bracers $ pgfPoint c0
-    bracersBlock $ colorSpec r1 stops
+    bracersBlock $ colorSpec r1 stops'
   shadePath (direction d) $ raw "ft"
+
+-- Dirty adjustments for spread methods (PGF doesn't seem to have them).
+adjustStops :: [GradientStop] -> SpreadMethod -> [GradientStop]
+adjustStops stops method =
+  case method of
+    GradPad     -> (stopFraction .~ 0) (head stops)
+                 : map (stopFraction +~ 1) stops
+                ++ [(stopFraction +~ 2) (last stops)]
+    GradReflect -> correct . concat . replicate 10
+                 $ [stops, zipWith (\a b -> a & (stopColor .§ b)) stops (reverse stops)]
+    GradRepeat  -> correct . replicate 10 $ stops
+
+  where
+    correct  = concat . imap (\i -> map (stopFraction +~ (lastStop * fromIntegral i)) )
+    lastStop = last stops ^. stopFraction
+
+(.§) :: Lens s t b b -> s -> s -> t
+(.§) l a b = b & l #~ (a ^# l)
+{-# INLINE (.§) #-}
+
 
 colorSpec :: Double -> [GradientStop] -> Render
 colorSpec d = mapM_ emitLn
