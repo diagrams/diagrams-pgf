@@ -173,10 +173,10 @@ format = surface . texFormat
 
 pdfPageBounds :: (Double,Double) -> (Double, Double) -> Render
 pdfPageBounds (x,y) (x0,y0) = do
-  emitLn $ raw "\\pdfpagewidth="  >> show4px x
-  emitLn $ raw "\\pdfpageheight=" >> show4px y
-  emitLn $ raw "\\pdfhorigin="    >> show4mm x0
-  emitLn $ raw "\\pdfvorigin="    >> show4mm y0
+  emitLn $ raw "\\pdfpagewidth="  >> bp x
+  emitLn $ raw "\\pdfpageheight=" >> bp y
+  emitLn $ raw "\\pdfhorigin="    >> bp x0
+  emitLn $ raw "\\pdfvorigin="    >> bp y0
 
 renderWith :: Surface -> Bool -> Bool -> (Double,Double) -> Render -> Builder
 renderWith s readable standalone bounds r = builder
@@ -294,17 +294,20 @@ pgfPoint = pgfP' . unp2
 pgfP' :: (Double,Double) -> Render
 pgfP' (x,y) = do
   pgf "qpoint"
-  bracers (show4px x)
-  bracers (show4px y)
+  bracers (bp x)
+  bracers (bp y)
 
 show4 :: Double -> Render
 show4 = raw . toFixed 4
 
-show4px :: Double -> Render
-show4px = (>> raw "px") . show4
+bp :: Double -> Render
+bp = (>> raw "bp") . show4
 
-show4mm :: Double -> Render
-show4mm = (>> raw "mm") . show4 . (*0.264583)
+-- px :: Double -> Render
+-- px = (>> raw "px") . show4
+
+-- mm :: Double -> Render
+-- mm = (>> raw "mm") . show4 . (*0.35277)
 
 -- pt :: Double -> Render
 -- pt = (>> raw "pt") . show4
@@ -505,7 +508,7 @@ asBoundingBox = emitLn $ do
 setLineWidth :: Double -> Render
 setLineWidth w = emitLn $ do
   pgf "setlinewidth"
-  bracers $ show4mm w
+  bracers $ bp w
 
 -- | Sets the line cap in current scope. Must be done before stroking.
 setLineCap :: LineCap -> Render
@@ -525,7 +528,7 @@ setLineJoin lJoin = emitLn . pgf $ case lJoin of
 setMiterLimit :: Double -> Render
 setMiterLimit l = do
   pgf "setmiterlimit"
-  bracers $ show4mm l
+  bracers $ bp l
 
 -- stroke parameters
 
@@ -539,8 +542,8 @@ setDash (Dashing ds offs) = setDash' (map fromOutput ds) (fromOutput offs)
 setDash' :: [Double] -> Double -> Render
 setDash' ds off = emitLn $ do
   pgf "setdash"
-  bracers . bracersL $ map (show4mm . (*0.8822)) ds
-  bracers $ show4mm (0.8822*off)
+  bracers . bracersL $ map bp ds
+  bracers $ bp off
 
 -- | Sets the stroke colour in current scope. If colour has opacity < 1, the
 --   scope opacity is set accordingly. Must be done before stroking.
@@ -623,7 +626,7 @@ applyTransform t
 setTransform :: Transformation R2 -> Render
 setTransform t = do
   pgf "settransformentries"
-  bracersL $ map show4 [a, b, c, d] ++ map show4px [e, f]
+  bracersL $ map show4 [a, b, c, d] ++ map bp [e, f]
   where
     (a,b,c,d,e,f) = getMatrix t
 
@@ -663,10 +666,6 @@ radialGradient :: RGradient -> Render
 radialGradient (RGradient stops c0 r0 c1 r1 gt sm) = do
   let d = transform gt (c0 .-. c1)
       stops' = adjustStops stops sm
-  mapM_ (emitLn . (raw "% " >>) . pgfPoint) [c0,c1]
-  mapM_ (emitLn . (raw "% " >>) . show4)    [r0,r1]
-  (emitLn . (raw "% " >>) . pgfP) (transform gt unitX)
-  -- emitLn $ setShadetransform (scale (r0+r1) gt)
   emitLn $ do
     pgf "declareradialshading"
     bracers $ raw "ft"
@@ -702,7 +701,7 @@ colorSpec d = mapM_ emitLn
   where
     mkColor (GradientStop sc sf) = do
       raw "rgb"
-      parens $ show4mm (d*sf)
+      parens $ bp (d*sf)
       raw "="
       parensColor sc
 
@@ -731,9 +730,9 @@ image (DImage (ImageRef path) w h t2) = do
     bracers $ do
       pgf "image"
       brackets $ do
-        raw "width=" >> show4px (fromIntegral w)
+        raw "width=" >> bp (fromIntegral w)
         rawChar ','
-        raw "height=" >> show4px (fromIntegral h)
+        raw "height=" >> bp (fromIntegral h)
       bracers $ rawString path
 
 

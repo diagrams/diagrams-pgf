@@ -75,7 +75,7 @@ latexSurface = Surface
               ++ "\\pagenumbering{gobble}\n"
   , _beginDoc  = "\\begin{document}"
   , _endDoc    = "\\end{document}"
-  , _pdfOrigin = Just (-102.5, -70)
+  , _pdfOrigin = Just (-76.7, -52.8)
   }
 
 contextSurface :: Surface
@@ -85,15 +85,15 @@ contextSurface = Surface
   , _arguments = ["--pipe"]
   , _jobArg    = \jobname -> "--dummyfile"++jobname
   , _pageSize  = Just $ \(w,h) ->
-                 "\\definepapersize[diagram][width="++show w++"px,height="++show h++"px]\n"
+                 "\\definepapersize[diagram][width="++show w++"bp,height="++show h++"bp]\n"
               ++ "\\setuppapersize[diagram][diagram]\n"
               ++ "\\setuplayout\n"
-              ++ "  [ topspace=0px\n"
-              ++ "  , backspace=0px\n"
-              ++ "  , header=0px\n"
-              ++ "  , footer=0px\n"
-              ++ "  , width=" ++ show (ceiling w :: Int) ++ "px\n"
-              ++ "  , height=" ++ show (ceiling h :: Int) ++ "px\n"
+              ++ "  [ topspace=0bp\n"
+              ++ "  , backspace=0bp\n"
+              ++ "  , header=0bp\n"
+              ++ "  , footer=0bp\n"
+              ++ "  , width=" ++ show (ceiling w :: Int) ++ "bp\n"
+              ++ "  , height=" ++ show (ceiling h :: Int) ++ "bp\n"
               ++ "  ]"
   , _preamble  = "\\usemodule[pgf]\n" -- pgfcore doesn't work
               ++ "\\setuppagenumbering[location=]"
@@ -115,7 +115,7 @@ plaintexSurface = Surface
               ++ "\\def\\frac#1#2{{\\begingroup #1\\endgroup\\over #2}}"
   , _beginDoc  = ""
   , _endDoc    = "\\bye"
-  , _pdfOrigin = Just (-27, 0.75)
+  , _pdfOrigin = Just (-20, 0)
   }
 
 instance Default Surface where
