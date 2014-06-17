@@ -47,12 +47,12 @@ module Diagrams.Backend.PGF
     , renderPGF
     , renderPGF'
     , renderPDF
+    , renderProcessPDF
     , renderPDF'
     , sizeSpecToBounds
     ) where
 
 import Control.Lens ((^.))
-import Control.Monad (when)
 import Data.Default
 import Diagrams.Prelude     hiding (r2, view, (<.>))
 import System.Directory     hiding (readable)
@@ -60,6 +60,8 @@ import System.Exit
 import System.FilePath
 import System.Process
 import System.IO
+import System.TeXRunner
+import qualified System.TeXRunner.Online as Online
 
 import qualified Blaze.ByteString.Builder      as Blaze
 import qualified Data.ByteString.Char8         as B
@@ -93,78 +95,81 @@ renderPGF' filePath ops dia = do
   Blaze.toByteStringIO (B.hPutStr h) rendered
   hClose h
 
--- | This is an experimental function that pipes directly to pdfTeX. It's a
---   little hacky and might not always work. It should be faster as pdfTeX can
---   load as diagrams output is generated. If you want to save the .tex file
---   aswell, use @renderPDF'@.
+-- | Render PDF by calling TeX in a temporary directory.
 renderPDF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
 renderPDF filePath sizeSp surf dia = do
-  tmp <- getTemporaryDirectory
-  let jobName = "texput" -- TODO make a random one
-      args = (surf^.jobArg) jobName : surf^.arguments
-      p = (proc (surf^.command) args)
-            { cwd     = Just tmp
-            , std_in  = CreatePipe
-            , std_out = CreatePipe
-            }
-
-  (Just inH, Just outH, _, pHandle) <- createProcess p
-
-  -- this is important, TeX doesn't work unless you gobble it's output
-  _ <- hGetContents outH
-
-  -- this is important, each \n must be followed by a flush or TeX breaks
-  hSetBuffering inH LineBuffering
 
   let rendered = renderDia PGF (def & surface    .~ surf
                                     & sizeSpec   .~ sizeSp
                                     & readable   .~ True
                                     & standalone .~ True)
                                dia
-  Blaze.toByteStringIO (B.hPutStr inH) rendered
-  hClose inH
-  exitC <- waitForProcess pHandle
-  -- must't be closed before process has finished
-  hClose outH
 
-  let logFile = tmp </> jobName <.> "log"
-  logExists <- doesFileExist logFile
+  flip Blaze.toByteStringIO rendered $ \source -> do
+    (_, texLog, mPDF) <- runTex (surf^.command) (surf^.arguments) source
 
-  case exitC of
-    ExitSuccess -> do
-      copyFile (tmp </> jobName <.> "pdf") filePath
-      when logExists $ removeFile logFile
-      removeFile (tmp </> jobName <.> "pdf")
-    ExitFailure _ -> do
-      putStrLn $ "An error occured while processing TeX file"
-              ++ if logExists
-                   then "please check " ++ logFile
-                   else "and no log file was found"
-      when logExists $ copyFile logFile (replaceExtension filePath "log")
+    case mPDF of
+      Nothing  -> putStrLn "Error, no PDF found:"
+               >> print texLog
+      Just pdf -> B.writeFile filePath pdf
+
+
+-- | Render PDF by calling TeX in a temporary directory.
+renderProcessPDF :: FilePath
+                 -> SizeSpec2D
+                 -> Surface
+                 -> Online.TeXProcess (Diagram PGF R2)
+                 -> IO ()
+renderProcessPDF filePath sizeSp surf diaP = do
+
+  ((), texLog, mPDF) <- Online.runTexOnline filePath
+    (surf^.command)
+    (surf^.arguments)
+    (B.pack $ surf^.preamble) $ do
+
+      dia <- diaP
+
+      let rendered = renderDia PGF (def & surface    .~ surf
+                                        & sizeSpec   .~ sizeSp
+                                        & readable   .~ True
+                                        & standalone .~ False
+                                   ) dia
+
+      Online.texPutStrLn $ B.pack (surf^.beginDoc)
+      Online.texPutStrLn $ Blaze.toByteString rendered
+      Online.texPutStrLn $ B.pack (surf^.endDoc)
+
+  case mPDF of
+    Nothing  -> putStrLn "Error, no PDF found:"
+             >> print texLog
+    Just pdf -> B.writeFile filePath pdf
+
 
 -- | Render PGF and save to output.tex and run surface command on output.tex.
 --   All auxillery files are kept.
 renderPDF' :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
 renderPDF' filePath sizeSp surf dia = do
-    let (outDir,fileName) = splitFileName filePath
-        texFileName       = replaceExtension fileName "tex"
-    oldDir <- getCurrentDirectory
-    setCurrentDirectory outDir
-    --
-    renderPGF' texFileName (def & sizeSpec .~ sizeSp
-                                & surface .~ surf
-                                & standalone .~ True)
-                           dia
-    (ecode, _, _)
-      <- readProcessWithExitCode (surf^.command) (texFileName : surf^.arguments) ""
-    setCurrentDirectory oldDir
+  let (outDir,fileName) = splitFileName filePath
+      texFileName       = replaceExtension fileName "tex"
+  oldDir <- getCurrentDirectory
+  setCurrentDirectory outDir
+  --
+  renderPGF' texFileName (def & sizeSpec   .~ sizeSp
+                              & surface    .~ surf
+                              & standalone .~ True)
+                         dia
+  (ecode, _, _)
+    <- readProcessWithExitCode (surf^.command) (texFileName : surf^.arguments) ""
 
-    case ecode of
-      ExitFailure _ -> do
-        let logFile = replaceExtension filePath "log"
-        logExists <- doesFileExist logFile
-        putStrLn $ "An error occured while processing TeX file"
-                ++ if logExists
-                     then "please check " ++ logFile
-                     else "and no log file was found"
-      ExitSuccess   -> return ()
+  setCurrentDirectory oldDir
+
+  case ecode of
+    ExitFailure _ -> do
+      let logFile = replaceExtension filePath "log"
+      logExists <- doesFileExist logFile
+      putStrLn $ "An error occured while processing TeX file"
+              ++ if logExists
+                   then "please check " ++ logFile
+                   else "and no log file was found"
+    ExitSuccess   -> return ()
+

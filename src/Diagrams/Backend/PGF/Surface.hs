@@ -82,7 +82,7 @@ contextSurface :: Surface
 contextSurface = Surface
   { _texFormat = ConTeXt
   , _command   = "context"
-  , _arguments = ["--pipe"]
+  , _arguments = ["--pipe", "--once"]
   , _jobArg    = \jobname -> "--dummyfile"++jobname
   , _pageSize  = Just $ \(w,h) ->
                  "\\definepapersize[diagram][width="++show w++"bp,height="++show h++"bp]\n"
@@ -113,6 +113,7 @@ plaintexSurface = Surface
               ++ "\\beginpackages\n\\usepackage{color}\n\\endpackages\n"
               ++ "\\input pgfcore\n"
               ++ "\\def\\frac#1#2{{\\begingroup #1\\endgroup\\over #2}}"
+              ++ "\\nopagenumbers"
   , _beginDoc  = ""
   , _endDoc    = "\\bye"
   , _pdfOrigin = Just (-20, 0)
