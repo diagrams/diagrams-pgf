@@ -43,7 +43,6 @@ module Graphics.Rendering.PGF
   , bracketsL
   -- * Paths
   , usePath
-  , startPath
   , lineTo
   , curveTo
   , moveTo
@@ -115,7 +114,7 @@ import Diagrams.Backend.PGF.Surface
 -- | Render state, mainly to be used for convienience when build, this module
 --   only uses the indent properiy.
 data RenderState = RenderState
-    { _pos        :: R2   -- ^ Current position
+    { _pos        :: P2   -- ^ Current position
     , _indent     :: Int  -- ^ Current identation
     , _ignoreFill :: Bool
     , _style      :: Style R2
@@ -145,7 +144,7 @@ type Render = RenderM ()
 -- | Starting state for running the bulider.
 initialState :: RenderState
 initialState = RenderState
-  { _pos     = r2 (0,0)
+  { _pos     = origin
   , _indent  = 0
   , _ignoreFill = False
   , _style = lc black mempty -- Until I think of something better:
@@ -231,7 +230,10 @@ bracersBlock :: Render -> Render
 bracersBlock rs = do
   raw "{\n"
   inBlock rs
-  emit >> rawChar '}'
+  pp <- view pprint
+  if pp
+    then rawChar '}'
+    else emit >> rawChar '}'
 
 -- | Wrap each element in { .. } and put them next to each other.
 bracersL :: [Render] -> Render
@@ -371,10 +373,6 @@ scopeFooter = do
 
 -- * Colours
 
--- an easier option would be to use
--- \pgfsys@color@rgb@fill{r}{g}{b}
--- but it requies the pgfsys package to be imported
-
 texColor :: Double -> Double -> Double -> Render
 texColor r g b = do
   show4 r
@@ -420,35 +418,30 @@ applyOpacity c s = dissolve (maybe 1 getOpacity (getAttr s)) (toAlphaColour c)
 
 -- Path commands
 
-startPath :: R2 -> Render
-startPath v = emitLn $ do
-  pgf "pathmoveto"
-  bracers $ pgfP v
-
 closePath :: Render
 closePath = emitLn $ pgf "pathclose"
 
-moveTo :: R2 -> Render
+moveTo :: P2 -> Render
 moveTo v = emitLn $ do
   pos .= v
   pgf "pathmoveto"
-  bracers $ pgfP v
+  bracers $ pgfPoint v
 
 lineTo :: R2 -> Render
 lineTo v = emitLn $ do
   p <- use pos
-  let v' = p ^+^ v
+  let v' = p .+^ v
   pos .= v'
   pgf "pathlineto"
-  bracers $ pgfP v'
+  bracers $ pgfPoint v'
 
 curveTo :: R2 -> R2 -> R2 -> Render
 curveTo v2 v3 v4 = emitLn $ do
   p <- use pos
-  let [v2',v3',v4'] = map (p ^+^) [v2,v3,v4]
+  let [v2',v3',v4'] = map (p .+^) [v2,v3,v4]
   pos .= v4'
   pgf "pathcurveto"
-  bracersL [pgfP v2', pgfP v3', pgfP v4']
+  bracersL $ map pgfPoint [v2', v3', v4']
 
 -- using paths
 

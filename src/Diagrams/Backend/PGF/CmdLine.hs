@@ -156,7 +156,7 @@ instance Mainable (Diagram PGF R2) where
 chooseRender :: DiagramOpts -> TeXFormat -> Diagram PGF R2 -> IO ()
 chooseRender opts format d = case splitOn "." (opts^.output) of
     [""] -> Blaze.toByteStringIO B.putStr $ 
-              renderDia PGF (def & template .~ surf & sizeSpec .~ size) d
+              renderDia PGF (def & surface .~ surf & sizeSpec .~ size) d
     ps | last ps == "tex" -> renderPGF (opts^.output) size surf d
        | last ps == "pdf" -> renderPDF (opts^.output) size surf d
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
@@ -231,7 +231,6 @@ waitForChange lastAttempt opts = do
           if newBin
             then executeFile prog False args Nothing
             else go prog args $ getFirst (First newAttempt <> First lastAtt)
-
 -- | @recompile t prog@ attempts to recompile @prog@, assuming the
 --   last attempt was made at time @t@.  If @t@ is @Nothing@ assume
 --   the last attempt time is the same as the modification time of the

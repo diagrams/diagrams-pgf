@@ -49,7 +49,6 @@ module Diagrams.Backend.PGF
     , renderPDF
     , renderProcessPDF
     , renderPDF'
-    , sizeSpecToBounds
     ) where
 
 import Control.Lens ((^.))

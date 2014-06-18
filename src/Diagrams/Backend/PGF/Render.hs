@@ -40,7 +40,6 @@ import Diagrams.TwoD.Size           (sizePair)
 
 import qualified Graphics.Rendering.PGF as P
 
-
 -- | This data declaration is simply used as a token to distinguish
 --   this rendering engine.
 data PGF = PGF
@@ -139,7 +138,7 @@ readable = lens getR setR
 --   linewidth > 0.0001 and if filled if a colour is defined.
 --
 --   All stroke and fill properties from the current @style@ are also output here.
-draw :: P.RenderM ()
+draw :: P.Render
 draw = do
   mFillTexture <- (getFillTexture <$>) . getAttr <$> use P.style
   doFill       <- case mFillTexture of
@@ -207,8 +206,8 @@ setClipPath (Path trs) = do
   mapM_ renderTrail trs
   P.clip
   where
-    renderTrail (viewLoc -> (unp2 -> p, tr)) = do
-      P.moveTo (r2 p)
+    renderTrail (viewLoc -> (p, tr)) = do
+      P.moveTo p
       renderP tr
 
 renderPath :: Path R2 -> P.Render
@@ -217,8 +216,8 @@ renderPath (Path trs) = do
   mapM_ renderTrail trs
   draw
   where
-    renderTrail (viewLoc -> (unp2 -> p, tr)) = do
-      P.moveTo (r2 p)
+    renderTrail (viewLoc -> (p, tr)) = do
+      P.moveTo p
       renderP tr
 
 -- | Escapes some common charcters in a string. Lots of things don't work in
