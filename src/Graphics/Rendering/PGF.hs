@@ -218,15 +218,6 @@ emitLn r = do
   pp <- view pprint
   if pp
     then emit >> r >> rawChar '\n'
-    else r >> rawChar ' '
-
--- force a newline, TeX complains if lines are too long so we
--- sometimes have to do this
-emitLn' :: Render -> Render
-emitLn' r = do
-  pp <- view pprint
-  if pp
-    then emit >> r >> rawChar '\n'
     else r >> rawChar '\n'
 
 -- | Wrap a `Render` in { .. }.
@@ -337,7 +328,7 @@ beginPicture = do
 endPicture :: Render
 endPicture = do
   f <- view format
-  emitLn' . raw $ case f of
+  emitLn . raw $ case f of
     LaTeX    -> "\\end{pgfpicture}"
     ConTeXt  -> "\\stoppgfpicture"
     PlainTeX -> "\\endpgfpicture"
@@ -373,7 +364,7 @@ scopeHeader = do
 scopeFooter :: Render
 scopeFooter = do
   f <- view format
-  emitLn' . raw $ case f of
+  emitLn . raw $ case f of
     LaTeX    -> "\\end{pgfscope}"
     ConTeXt  -> "\\stoppgfscope"
     PlainTeX -> "\\endpgfscope"
