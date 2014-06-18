@@ -8,10 +8,8 @@ module Diagrams.Backend.PGF.Render
   ( PGF (..)
   , Options (..)
   -- * Lenses
-  , template
   , surface
   , sizeSpec
-  , sizeSpecToBounds
   , readable
   , standalone
   ) where
@@ -38,8 +36,10 @@ import Diagrams.TwoD.Path
 import Diagrams.TwoD.Text           (Text (..), getFontSize,
                                      getFontSizeIsLocal, getFontSlant,
                                      getFontWeight, TextAlignment (..))
+import Diagrams.TwoD.Size           (sizePair)
 
 import qualified Graphics.Rendering.PGF as P
+
 
 -- | This data declaration is simply used as a token to distinguish
 --   this rendering engine.
@@ -60,7 +60,7 @@ instance Backend PGF R2 where
     P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
       where
         (P r)  = toRender rt
-        bounds = sizeSpecToBounds (ops^.sizeSpec)
+        bounds = sizePair (ops^.sizeSpec)
 
   adjustDia = adjustDia2D sizeSpec
 
@@ -85,13 +85,6 @@ toRender = fromRTree
       fromRTree (Node _ rs)            = foldMap fromRTree rs
 
 
-sizeSpecToBounds :: SizeSpec2D -> (Double, Double)
-sizeSpecToBounds spec = case spec of
-   Width w  -> (w,w)
-   Height h -> (h,h)
-   Dims w h -> (w,h)
-   Absolute -> (100,100)
-
 instance Default (Options PGF R2) where
   def = PGFOptions
           { _surface    = def
@@ -100,21 +93,23 @@ instance Default (Options PGF R2) where
           , _standalone = False
           }
 
+instance Monoid (Render PGF R2) where
+  mempty  = P $ return ()
+  (P ra) `mappend` (P rb) = P (ra >> rb)
+
+renderP :: (Renderable a PGF, V a ~ R2) => a -> P.RenderM ()
+renderP (render PGF -> P r) = r
+
 -- | Lens to change the surface
-template :: Lens' (Options PGF R2) Surface
-template = lens getter setter
-  where
-    getter (PGFOptions { _surface = s }) = s
-    setter o s = o { _surface = s }
+surface :: Lens' (Options PGF R2) Surface
+surface = lens getter setter
+  where getter (PGFOptions { _surface = s }) = s
+        setter o s = o { _surface = s }
 
 standalone :: Lens' (Options PGF R2) Bool
 standalone = lens getter setter
-  where
-    getter (PGFOptions { _standalone = s }) = s
-    setter o s = o { _standalone = s }
-
-surface :: Lens' (Options PGF R2) Surface
-surface = template
+  where getter (PGFOptions { _standalone = s }) = s
+        setter o s = o { _standalone = s }
 
 sizeSpec :: Lens' (Options PGF R2) SizeSpec2D
 sizeSpec = lens getSize setSize
@@ -124,9 +119,8 @@ sizeSpec = lens getSize setSize
 -- | Pretty print the output with indented lines, default is true.
 readable :: Lens' (Options PGF R2) Bool
 readable = lens getR setR
-  where
-    getR (PGFOptions { _readable = r }) = r
-    setR o r = o { _readable = r }
+  where getR (PGFOptions { _readable = r }) = r
+        setR o r = o { _readable = r }
 
 -- defStyle :: Style R2
 -- defStyle = mempty # lineWidthA def # lineColorA def
@@ -140,13 +134,6 @@ readable = lens getR setR
 --   P.setLineColor <~ getLineColor
 --   P.setLineCap   <~ getLineCap
 --   P.setLineJoin  <~ getLineJoin
-
-instance Monoid (Render PGF R2) where
-  mempty  = P $ return ()
-  (P ra) `mappend` (P rb) = P (ra >> rb)
-
-renderP :: (Renderable a PGF, V a ~ R2) => a -> P.RenderM ()
-renderP (render PGF -> P r) = r
 
 -- | Use the path that has already been drawn in scope. The path is stroked if
 --   linewidth > 0.0001 and if filled if a colour is defined.

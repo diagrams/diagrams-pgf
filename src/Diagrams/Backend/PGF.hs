@@ -38,7 +38,7 @@ module Diagrams.Backend.PGF
       -- * TeX specific
     , hbox
       -- * Options lenses
-    , template, surface, sizeSpec, readable
+    , surface, sizeSpec, readable
     , SizeSpec2D(..)
     , module Diagrams.Backend.PGF.Surface
     , defaultSurface
@@ -85,7 +85,7 @@ defaultSurface = def
 --   TeX document.
 renderPGF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
 renderPGF filePath sizeSp surf
-  = renderPGF' filePath (def & template .~ surf & sizeSpec .~ sizeSp)
+  = renderPGF' filePath (def & surface .~ surf & sizeSpec .~ sizeSp)
 
 -- | Similar to 'renderPDF' but takes PGFOptions instead.
 renderPGF' :: FilePath -> Options PGF R2 -> Diagram PGF R2 -> IO ()
@@ -122,22 +122,23 @@ renderProcessPDF :: FilePath
                  -> IO ()
 renderProcessPDF filePath sizeSp surf diaP = do
 
-  ((), texLog, mPDF) <- Online.runTexOnline filePath
-    (surf^.command)
-    (surf^.arguments)
-    (B.pack $ surf^.preamble) $ do
+  ((), texLog, mPDF) <-
+    Online.runTexOnline
+      (surf^.command)
+      (surf^.arguments)
+      (B.pack $ surf^.preamble) $ do
 
-      dia <- diaP
+        dia <- diaP
 
-      let rendered = renderDia PGF (def & surface    .~ surf
-                                        & sizeSpec   .~ sizeSp
-                                        & readable   .~ True
-                                        & standalone .~ False
-                                   ) dia
+        let rendered = renderDia PGF (def & surface    .~ surf
+                                          & sizeSpec   .~ sizeSp
+                                          & readable   .~ True
+                                          & standalone .~ False
+                                     ) dia
 
-      Online.texPutStrLn $ B.pack (surf^.beginDoc)
-      Online.texPutStrLn $ Blaze.toByteString rendered
-      Online.texPutStrLn $ B.pack (surf^.endDoc)
+        Online.texPutStrLn $ B.pack (surf^.beginDoc)
+        Online.texPutStrLn $ Blaze.toByteString rendered
+        Online.texPutStrLn $ B.pack (surf^.endDoc)
 
   case mPDF of
     Nothing  -> putStrLn "Error, no PDF found:"
