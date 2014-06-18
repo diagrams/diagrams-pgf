@@ -3,7 +3,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF.Surface
--- Maintainer  :  diagrams-discuss@googlegroups.com
+-- Maintainer  :  c.chalmers@me.com
 --
 -- A 'Surface' defines how a pgfpicture should be placed and compiled. Surfaces
 -- are used for rendering a @.tex@ or @.pdf@ using functions from
@@ -20,6 +20,11 @@ module Diagrams.Backend.PGF.Surface
     ( -- * Surface definition
       Surface(..)
     , TeXFormat(..)
+      -- * Predefined surfaces
+    , latexSurface
+    , contextSurface
+    , plaintexSurface
+      -- * Lenses
     , texFormat
     , command
     , arguments
@@ -27,10 +32,6 @@ module Diagrams.Backend.PGF.Surface
     , preamble
     , beginDoc
     , endDoc
-      -- * Predefined surfaces
-    , latexSurface
-    , contextSurface
-    , plaintexSurface
     ) where
 
 import Control.Applicative
@@ -45,13 +46,14 @@ data TeXFormat = LaTeX | ConTeXt | PlainTeX
   deriving (Show, Read, Eq, Typeable)
 
 data Surface = Surface
-  { _texFormat :: TeXFormat          -- ^ Format PGF commands use.
-  , _command   :: String             -- ^ System command to be called.
-  , _arguments :: [String]           -- ^ Auguments for command.
+  { _texFormat :: TeXFormat -- ^ Format PGF commands use.
+  , _command   :: String    -- ^ System command to be called.
+  , _arguments :: [String]  -- ^ Auguments for command.
   , _pageSize  :: Maybe ((Int,Int) -> String)
-  , _preamble  :: String             -- ^ Preamble for document, should import pgfcore.
-  , _beginDoc  :: String             -- ^ Begin document
-  , _endDoc    :: String             -- ^ End document.
+                            -- ^ Command to change page size from dimensions of image.
+  , _preamble  :: String    -- ^ Preamble for document, should import pgfcore.
+  , _beginDoc  :: String    -- ^ Begin document
+  , _endDoc    :: String    -- ^ End document.
   }
 
 makeLenses ''Surface
@@ -114,6 +116,7 @@ plaintexSurface = Surface
   , _endDoc    = "\\bye"
   }
 
+-- | LaTeX is the default surface.
 instance Default Surface where
   def = latexSurface
 
