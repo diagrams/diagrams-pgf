@@ -92,7 +92,7 @@ import Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar,
                                                     fromString)
 import Control.Lens                       (Lens', makeLenses, use, view,
                                            (+=), (-=), (.=), (^.), (+~),
-                                           imap, (#~), (^#), Lens)
+                                           imap, (#~), (^#), Lens, over, both)
 import Control.Monad.RWS
 import Data.ByteString.Char8              (ByteString)
 import qualified Data.ByteString.Char8              as B (replicate)
@@ -170,13 +170,6 @@ format = surface . texFormat
 -- txtTrans :: Lens' RenderInfo Bool
 -- txtTrans = surface . textTransforms
 
-pdfPageBounds :: (Double,Double) -> (Double, Double) -> Render
-pdfPageBounds (x,y) (x0,y0) = do
-  emitLn $ raw "\\pdfpagewidth="  >> bp x
-  emitLn $ raw "\\pdfpageheight=" >> bp y
-  emitLn $ raw "\\pdfhorigin="    >> bp x0
-  emitLn $ raw "\\pdfvorigin="    >> bp y0
-
 renderWith :: Surface -> Bool -> Bool -> (Double,Double) -> Render -> Builder
 renderWith s readable standalone bounds r = builder
   where
@@ -186,8 +179,7 @@ renderWith s readable standalone bounds r = builder
     r' = runRender $ do
       when standalone $ do
         emitLn . rawString $ s^.preamble
-        maybe (return ()) (pdfPageBounds bounds) (s^.pdfOrigin)
-        maybe (return ()) (rawString . ($ bounds)) (s^.pageSize)
+        maybe (return ()) (rawString . ($ over both ceiling bounds)) (s^.pageSize)
         emitLn . rawString $ s^.beginDoc
       picture $ rectangleBoundingBox bounds >> r
       when standalone $ rawString $ s^.endDoc

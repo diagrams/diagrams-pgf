@@ -51,7 +51,7 @@ module Diagrams.Backend.PGF
     , renderPDF'
     ) where
 
-import Control.Lens ((^.))
+import Control.Lens ((^.), set)
 import Data.Default
 import Diagrams.Prelude     hiding (r2, view, (<.>))
 import System.Directory     hiding (readable)
@@ -129,15 +129,13 @@ renderProcessPDF filePath sizeSp surf diaP = do
 
         dia <- diaP
 
-        let rendered = renderDia PGF (def & surface    .~ surf
+        let rendered = renderDia PGF (def & surface    .~ set preamble "" surf
                                           & sizeSpec   .~ sizeSp
                                           & readable   .~ True
-                                          & standalone .~ False
+                                          & standalone .~ True
                                      ) dia
 
-        Online.texPutStrLn $ B.pack (surf^.beginDoc)
         Online.texPutStrLn $ Blaze.toByteString rendered
-        Online.texPutStrLn $ B.pack (surf^.endDoc)
 
   case mPDF of
     Nothing  -> putStrLn "Error, no PDF found:"
