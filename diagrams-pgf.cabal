@@ -11,6 +11,7 @@ Stability:           Experimental
 Category:            Graphics
 Build-type:          Simple
 Cabal-version:       >=1.10
+Extra-source-files:  README.markdown, diagrams/*.svg
 Description:
   This package provides a modular backend for rendering
   diagrams created with the diagrams EDSL using the 

@@ -40,8 +40,8 @@ module Diagrams.Backend.PGF
       -- * Options lenses
     , surface, sizeSpec, readable
     , SizeSpec2D(..)
+      -- * Surfaces
     , module Diagrams.Backend.PGF.Surface
-    , defaultSurface
       -- * Rendering functions
     , renderDia
     , renderPGF
@@ -60,7 +60,7 @@ import System.FilePath
 import System.Process
 import System.IO
 import System.TeXRunner
-import qualified System.TeXRunner.Online as Online
+import System.TeXRunner.Online hiding (hbox)
 
 import qualified Blaze.ByteString.Builder      as Blaze
 import qualified Data.ByteString.Char8         as B
@@ -71,13 +71,6 @@ import Diagrams.Backend.PGF.Surface
 
 
 type B = PGF
-
--- |
--- @
---  defaultSurface = 'PGFSurface'
--- @
-defaultSurface :: Surface
-defaultSurface = def
 
 -- | Render a diagram as a PGF code, writing to the specified output
 --   file and using the requested size and surface, ready for inclusion in a
@@ -117,12 +110,12 @@ renderPDF filePath sizeSp surf dia = do
 renderProcessPDF :: FilePath
                  -> SizeSpec2D
                  -> Surface
-                 -> Online.TeXProcess (Diagram PGF R2)
+                 -> OnlineTeX (Diagram PGF R2)
                  -> IO ()
 renderProcessPDF filePath sizeSp surf diaP = do
 
   ((), texLog, mPDF) <-
-    Online.runTexOnline
+    runOnlineTex'
       (surf^.command)
       (surf^.arguments)
       (B.pack $ surf^.preamble) $ do
@@ -135,7 +128,7 @@ renderProcessPDF filePath sizeSp surf diaP = do
                                           & standalone .~ True
                                      ) dia
 
-        Online.texPutStrLn $ Blaze.toByteString rendered
+        texPutStrLn $ Blaze.toByteString rendered
 
   case mPDF of
     Nothing  -> putStrLn "Error, no PDF found:"

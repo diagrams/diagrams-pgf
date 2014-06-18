@@ -250,7 +250,7 @@ renderText (Text tt tn txtAlign str) = do
   -- doTxtTrans <- view P.txtTrans
   P.applyTransform (if fromMaybe False isLocal then tt else tn)
   -- if doTxtTrans
-  -- (P.applyScale . (/8)) <~ fromOutput . getFontSize
+  (P.applyScale . (/8)) <~ fromOutput . getFontSize
       -- (/8) was obtained from trail and error
     -- else P.resetNonTranslations
   --
@@ -260,9 +260,9 @@ renderText (Text tt tn txtAlign str) = do
     P.rawString $ escapeString str
 
 renderHbox :: Hbox -> P.Render
-renderHbox (Hbox tt tn str) = do
-  isLocal <- (getFontSizeIsLocal <$>) . getAttr <$> use P.style
-  P.applyTransform (if fromMaybe False isLocal then tn else tt)
+renderHbox (Hbox tt str) = do
+  -- isLocal <- (getFontSizeIsLocal <$>) . getAttr <$> use P.style
+  P.applyTransform tt -- (if fromMaybe False isLocal then tn else tt)
   -- P.applyScale 8
   -- P.resetNonTranslations
   P.renderText (P.setTextAlign BaselineText) (P.rawString str)

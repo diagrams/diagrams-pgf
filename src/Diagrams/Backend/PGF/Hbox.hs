@@ -2,19 +2,35 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Diagrams.Backend.PGF.Hbox
+-- Maintainer  :  c.chalmers@me.com
+--
+-- A hbox a primative TeX box, typically used for holding text. This module 
+-- provides fuctions for retreving the dimensions of these boxes so they may be 
+-- used as envelopes for diagrams.
+-----------------------------------------------------------------------------
 module Diagrams.Backend.PGF.Hbox
   ( Hbox (..)
+    -- * Enveloped diagrams
+    -- | The dimensions of a hbox can be recovered by calling TeX. The 
+    --   resulting envelope has its origin at the baseline of the text.
+    --   <<hbox.svg title>>
+  , onlineHbox
+  , surfOnlineTex
+    -- * Point envelope diagrams
   , hbox
-  , hboxEmpty
-  , hboxP
-  , surfTexProcess
+  , hbox
     -- * IO versions
+    -- | If used properly, the non-IO verions should be \'safe\'. However we 
+    --   supply the IO versions anyway.
   , hboxIO
-  , surfTexProcessIO
+  , surfOnlineTexIO
   ) where
 
-import Control.Lens ((^.))
-import Data.ByteString.Char8 (pack)
+import Control.Lens            ((^.))
+import Data.ByteString.Char8   (pack)
 import Data.Monoid
 import Data.Typeable
 import System.IO.Unsafe
@@ -23,74 +39,74 @@ import System.TeXRunner.Parse
 
 import qualified System.TeXRunner.Online as Online
 
-import Diagrams.Prelude hiding ((<>))
 
 import Diagrams.BoundingBox
-import Diagrams.Core.Envelope (pointEnvelope)
+import Diagrams.Core.Envelope           (pointEnvelope)
+import Diagrams.Prelude                 hiding ((<>))
+import Diagrams.TwoD.Transform.ScaleInv
 
 import Diagrams.Backend.PGF.Surface
 
--- | Data type typing raw TeX commands in a hbox.
-data Hbox = Hbox (Transformation R2) (Transformation R2) String
+-- | Primative for placing raw TeX commands in a hbox.
+data Hbox = Hbox (Transformation R2) String
   deriving Typeable
 
 type instance V Hbox = R2
 
 instance Transformable Hbox where
-  transform t (Hbox tt tn str)
-    = Hbox (t <> tt) (t <> tn <> scaling (1 / avgScale t)) str
+  transform t (Hbox tt str)
+    = Hbox (t <> tt) str
 
 instance Renderable Hbox NullBackend where
   render _ _ = mempty
 
--- | Used to insert raw TeX commands into a hbox, traslations are 
---   applied from the transformations.
-hboxEmpty :: Renderable Hbox b => String -> Diagram b R2
-hboxEmpty raw = mkQD (Prim (Hbox mempty mempty raw))
+-- | Raw TeX commands with no envelope. Transformations are applied normally.
+hbox :: Renderable Hbox b => String -> Diagram b R2
+hbox raw = mkQD (Prim (Hbox mempty raw))
                 (pointEnvelope origin)
                 mempty
                 mempty
                 mempty
 
-hbox :: Renderable Hbox b => Surface -> String -> Diagram b R2
-hbox surf txt = unsafePerformIO (hboxIO surf txt)
-{-# NOINLINE hbox #-}
+-- | Raw TeX commands with no envelope. Only translational transformations are
+--   applied.
+hboxInv :: Renderable Hbox b => String -> Diagram b R2
+hboxInv txt = scaleInvPrim (Hbox mempty txt) (mkR2 0 0)
 
+-- | Hbox with bounding box envelope. Note that each box requires a call to
+--   TeX. For multiple boxes consider using 'onlineHbox' to get multiple boxes
+--   from a single call. (uses unsafePerformIO)
+surfaceHbox :: Renderable Hbox b => Surface -> String -> Diagram b R2
+surfaceHbox surf txt = unsafePerformIO (hboxIO surf txt)
+{-# NOINLINE surfaceHbox #-}
+
+-- | Hbox with bounding box envelope. Note that each box requires a call to
+--   TeX. For multiple boxes consider using 'onlineHbox' to get multiple boxes
+--   from a single call.
 hboxIO :: Renderable Hbox b => Surface -> String -> IO (Diagram b R2)
-hboxIO surf txt = do
-  box <- runTexProcess (surf^.command)
-                       (surf^.arguments)
-                       (pack $ surf^.preamble)
-                       (Online.hbox $ pack txt)
+hboxIO surf txt = surfOnlineTexIO surf (onlineHbox txt)
 
-  let env = getEnvelope
-          $ fromCorners (mkP2 0 (negate $ boxDepth box))
-                        (mkP2 (boxWidth box) (boxHeight box))
+-- | Get the result of an OnlineTeX using the given surface.
+surfOnlineTex :: Surface -> OnlineTeX a -> a
+surfOnlineTex surf a = unsafePerformIO (surfOnlineTexIO surf a)
+{-# NOINLINE surfOnlineTex #-}
 
-  return $ mkQD (Prim (Hbox mempty mempty txt))
-                env
-                mempty
-                mempty
-                mempty
+-- | Get the result of an OnlineTeX using the given surface.
+surfOnlineTexIO :: Surface -> OnlineTeX a -> IO a
+surfOnlineTexIO surf = runOnlineTex (surf^.command)
+                                    (surf^.arguments)
+                                    (pack $ surf^.preamble)
 
-surfTexProcess :: Surface -> TeXProcess a -> a
-surfTexProcess surf a = unsafePerformIO (surfTexProcessIO surf a)
-{-# NOINLINE surfTexProcess #-}
-
-surfTexProcessIO :: Surface -> TeXProcess a -> IO a
-surfTexProcessIO surf = runTexProcess (surf^.command)
-                                      (surf^.arguments)
-                                      (pack $ surf^.preamble)
-
-hboxP :: Renderable Hbox b => String -> TeXProcess (Diagram b R2)
-hboxP txt = do
+-- | Hbox with bounding box envelope.
+onlineHbox :: Renderable Hbox b => String -> OnlineTeX (Diagram b R2)
+onlineHbox txt = do
   (Box h d w) <- Online.hbox (pack txt)
 
   let env = getEnvelope
-          $ fromCorners (mkP2 0 (negate d))
-                        (mkP2 w h)
+          $ fromCorners (0 ^& negate d)
+                        (w ^& h)
 
-  return $ mkQD (Prim (Hbox mempty mempty txt))
+  return $ mkQD (Prim (Hbox mempty txt))
                 env
                 mempty
                 mempty
