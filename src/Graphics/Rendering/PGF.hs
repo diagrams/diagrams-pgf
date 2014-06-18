@@ -1,10 +1,10 @@
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE Rank2Types                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE ViewPatterns               #-}
-{-# LANGUAGE Rank2Types                 #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.PGF
@@ -86,25 +86,26 @@ module Graphics.Rendering.PGF
   , setFontSlant
   ) where
 
-import Blaze.ByteString.Builder           as Blaze (Builder,
-                                                    fromByteString)
-import Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar,
-                                                    fromString)
-import Control.Lens                       (Lens', makeLenses, use, view,
-                                           (+=), (-=), (.=), (^.), (+~),
-                                           imap, (#~), (^#), Lens, over, both)
-import Control.Monad.RWS
-import Data.ByteString.Char8              (ByteString)
+import           Blaze.ByteString.Builder           as Blaze (Builder, fromByteString)
+import           Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar, fromString)
+import           Control.Lens                       (Lens, Lens', both,
+                                                     imap, makeLenses,
+                                                     over, use, view,
+                                                     ( #~ ), (+=), (+~),
+                                                     (-=), (.=), (^#),
+                                                     (^.))
+import           Control.Monad.RWS
+import           Data.ByteString.Char8              (ByteString)
 import qualified Data.ByteString.Char8              as B (replicate)
-import Data.Double.Conversion.ByteString  (toFixed)
-import Data.List                          (intersperse)
-import Data.Maybe                         (catMaybes)
+import           Data.Double.Conversion.ByteString  (toFixed)
+import           Data.List                          (intersperse)
+import           Data.Maybe                         (catMaybes)
 
-import Diagrams.Prelude      hiding (Render, image, moveTo, opacity,
-                              stroke, view, (<>))
-import Diagrams.TwoD.Text    (FontSlant (..), FontWeight (..),
-                              TextAlignment (..))
-import Diagrams.TwoD.Types   (R2 (..))
+import Diagrams.Prelude    hiding (Render, image, moveTo, opacity,
+                            stroke, view, (<>))
+import Diagrams.TwoD.Text  (FontSlant (..), FontWeight (..),
+                            TextAlignment (..))
+import Diagrams.TwoD.Types (R2 (..))
 
 import Diagrams.Backend.PGF.Surface
 
@@ -130,13 +131,7 @@ data RenderInfo = RenderInfo
 makeLenses ''RenderInfo
 
 -- | Type wrapper for render monad.
-newtype RenderM m = RenderM { runRender :: RWS RenderInfo Blaze.Builder RenderState m }
--- newtype RenderM m = RenderM (RWS RenderInfo Blaze.Builder RenderState m)
-  deriving ( Functor, Monad, Applicative
-           , MonadWriter Blaze.Builder
-           , MonadState RenderState
-           , MonadReader RenderInfo
-           )
+type RenderM m = RWS RenderInfo Blaze.Builder RenderState m
 
 -- | Convienient type for building.
 type Render = RenderM ()
@@ -176,10 +171,12 @@ renderWith s readable standalone bounds r = builder
     (_,builder) = evalRWS r'
                           (RenderInfo s readable)
                           initialState
-    r' = runRender $ do
+    r' = do
       when standalone $ do
         emitLn . rawString $ s^.preamble
-        maybe (return ()) (rawString . ($ over both ceiling bounds)) (s^.pageSize)
+        maybe (return ())
+              (emitLn . rawString . ($ over both ceiling bounds))
+              (s^.pageSize)
         emitLn . rawString $ s^.beginDoc
       picture $ rectangleBoundingBox bounds >> r
       when standalone $ rawString $ s^.endDoc
