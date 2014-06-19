@@ -3,17 +3,19 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF.Surface
+-- Copyright   :  (c) 2014 Christopher Chalmers
+-- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
 -- A 'Surface' defines how a pgfpicture should be placed and compiled. Surfaces
 -- are used for rendering a @.tex@ or @.pdf@ using functions from
 -- 'Diagrams.Backend.PGF'.
 --
--- Surfaces are also used in 'Diagrams.Backend.PGF.Typeset' for quereying
+-- Surfaces are also used in 'Diagrams.Backend.PGF.Hbox' for quereying
 -- envelopes of text.
 --
 -- Surfaces for LaTeX, ConTeXt and plain TeX are provided and reexported by
--- Diagrams.Backend.PGF, but can be adjusted here as required.
+-- Diagrams.Backend.PGF. Lenses here allow these to be adjusted as required.
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.PGF.Surface
@@ -51,8 +53,9 @@ data Surface = Surface
   , _arguments :: [String]  -- ^ Auguments for command.
   , _pageSize  :: Maybe ((Int,Int) -> String)
                             -- ^ Command to change page size from dimensions of image.
+                            --   (in bp)
   , _preamble  :: String    -- ^ Preamble for document, should import pgfcore.
-  , _beginDoc  :: String    -- ^ Begin document
+  , _beginDoc  :: String    -- ^ Begin document.
   , _endDoc    :: String    -- ^ End document.
   }
 

@@ -290,6 +290,7 @@ instance Renderable Text PGF where
 instance Renderable Hbox PGF where
   render _ = P . renderHbox
 
+-- | Supported: @.pdf@, @.jpg@, @.png@.
 instance Renderable (DImage External) PGF where
   render _  = P . P.image
 

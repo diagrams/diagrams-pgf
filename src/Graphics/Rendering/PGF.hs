@@ -8,6 +8,8 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.PGF
+-- Copyright   :  (c) 2014 Christopher Chalmers
+-- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
 -- Interface to PGF. See the manual http://www.ctan.org/pkg/pgf for details.
@@ -104,7 +106,6 @@ import Diagrams.Prelude    hiding (Render, image, moveTo, opacity,
                             stroke, view, (<>))
 import Diagrams.TwoD.Text  (FontSlant (..), FontWeight (..),
                             TextAlignment (..))
-import Diagrams.TwoD.Types (R2 (..))
 import Diagrams.Core.Transform (matrixHomRep)
 
 import Diagrams.Backend.PGF.Surface
@@ -561,7 +562,6 @@ applyTransform :: Transformation R2 -> Render
 applyTransform t
   | isID      = return ()
   | shiftOnly = ln $ do
-  -- | otherwise = ln $ do
       pgf "transformshift"
       bracers p
   | otherwise = ln $ do
@@ -697,7 +697,7 @@ renderText ops txt = ln $ do
   bracers txt
 
 -- | Returns a list of values to be put in square brackets like
---   @\pgftext[left,top]{txt}@. Usually to be used with @bracketsL@.
+--   @\pgftext[left,top]{txt}@.
 setTextAlign :: TextAlignment -> [Render]
 setTextAlign a = case a of
   BaselineText         -> [raw "base", raw "left"]

@@ -4,7 +4,9 @@
 {-# LANGUAGE TypeFamilies          #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Diagrams.Backend.PGF.Hbox
+-- Module      :  Diagrams.Backend.PGF
+-- Copyright   :  (c) 2014 Christopher Chalmers
+-- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
 -- A hbox a primative TeX box, typically used for holding text. This module 
@@ -16,12 +18,14 @@ module Diagrams.Backend.PGF.Hbox
     -- * Enveloped diagrams
     -- | The dimensions of a hbox can be recovered by calling TeX. The 
     --   resulting envelope has its origin at the baseline of the text.
-    --   <<hbox.svg title>>
+    --   
+    --   <<diagrams/hbox.svg#width=200 hbox>>
   , onlineHbox
   , surfOnlineTex
+  , surfaceHbox
     -- * Point envelope diagrams
   , hbox
-  , hbox
+  , hboxInv
     -- * IO versions
     -- | If used properly, the non-IO verions should be \'safe\'. However we 
     --   supply the IO versions anyway.

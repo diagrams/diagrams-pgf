@@ -65,7 +65,7 @@ import System.Posix.Process (executeFile)
 # if MIN_VERSION_directory(1,2,0)
 import Data.Time.Clock (UTCTime,getCurrentTime)
 type ModuleTime = UTCTime
-getModuleTime :: IO  ModuleTime
+getModuleTime :: IO ModuleTime
 getModuleTime = getCurrentTime
 #else
 import System.Time         (ClockTime, getClockTime)
@@ -158,7 +158,7 @@ chooseRender opts format d = case splitOn "." (opts^.output) of
     [""] -> Blaze.toByteStringIO B.putStr $ 
               renderDia PGF (def & surface .~ surf & sizeSpec .~ size) d
     ps | last ps == "tex" -> renderPGF (opts^.output) size surf d
-       | last ps == "pdf" -> renderPDF (opts^.output) size surf d
+       | last ps == "pdf" -> renderPGF (opts^.output) size surf d
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
                               ++ "\nSupported file types are .tex or .pdf"
   where
@@ -168,9 +168,9 @@ chooseRender opts format d = case splitOn "." (opts^.output) of
              (Nothing, Just h)  -> Height (fromIntegral h)
              (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
     surf = case format of
-                         LaTeX    -> latexSurface
-                         ConTeXt  -> contextSurface
-                         PlainTeX -> plaintexSurface
+             LaTeX    -> latexSurface
+             ConTeXt  -> contextSurface
+             PlainTeX -> plaintexSurface
 
 
 -- | @multiMain@ is like 'defaultMain', except instead of a single

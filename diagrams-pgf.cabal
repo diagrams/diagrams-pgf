@@ -1,5 +1,5 @@
 Name:                diagrams-pgf
-Version:             1.2
+Version:             0.1
 Synopsis:            PGF backend for diagrams drawing EDSL.
 License:             BSD3
 License-file:        LICENSE
@@ -12,6 +12,7 @@ Category:            Graphics
 Build-type:          Simple
 Cabal-version:       >=1.10
 Extra-source-files:  README.markdown, diagrams/*.svg
+extra-doc-files:     diagrams/*.svg
 Description:
   This package provides a modular backend for rendering
   diagrams created with the diagrams EDSL using the 
