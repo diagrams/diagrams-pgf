@@ -51,6 +51,7 @@ module Diagrams.Backend.PGF
 import Control.Lens ((^.), set)
 import Data.Default
 import Diagrams.Prelude     hiding (r2, view, (<.>))
+import System.Directory hiding (readable)
 import System.FilePath
 import System.IO
 import System.TeXRunner
@@ -82,8 +83,11 @@ renderPGF' outFile ops dia = case takeExtension outFile of
   ".pdf" -> do
     let rendered = renderDia PGF (ops & standalone .~ True) dia
 
+    currentDir <- getCurrentDirectory
+    targetDir  <- canonicalizePath (takeDirectory outFile)
+
     flip Blaze.toByteStringIO rendered $ \source -> do
-      (_, texLog, mPDF) <- runTex (ops^.surface.command) (ops^.surface.arguments) source
+      (_, texLog, mPDF) <- runTex (ops^.surface.command) (ops^.surface.arguments) [currentDir, targetDir] source
 
       case mPDF of
         Nothing  -> putStrLn "Error, no PDF found:"
