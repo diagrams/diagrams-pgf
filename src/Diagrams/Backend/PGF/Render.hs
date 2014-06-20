@@ -15,28 +15,30 @@ module Diagrams.Backend.PGF.Render
   ) where
 
 import Blaze.ByteString.Builder (Builder)
-import Control.Lens             (Lens', isn't, lens, op, use, (%=),
-                                 (.=), (^.))
+import Control.Lens             (Lens', isn't, lens, op, use, (.=),
+                                 (<<%=), (^.))
 import Control.Monad            (when)
+-- import Control.Monad.StateStack
+
 import Data.Default
-import Data.Foldable            (foldMap)
+import Data.Foldable (foldMap)
 import Data.Functor
-import Data.Hashable            (Hashable (..))
-import Data.Maybe               (fromMaybe)
-import Data.Tree                (Tree (Node))
-import Data.Typeable            (Typeable)
+import Data.Hashable (Hashable (..))
+import Data.Maybe    (fromMaybe)
+import Data.Tree     (Tree (Node))
+import Data.Typeable (Typeable)
 
 import Diagrams.Core.Types
 import Diagrams.Prelude
 
 import Diagrams.Backend.PGF.Hbox    (Hbox (..))
 import Diagrams.Backend.PGF.Surface (Surface)
-import Diagrams.TwoD.Adjust         (adjustDia2D)
+import Diagrams.TwoD.Adjust         (adjustDiaSize2D)
 import Diagrams.TwoD.Path
-import Diagrams.TwoD.Text           (Text (..), getFontSize,
-                                     getFontSizeIsLocal, getFontSlant,
-                                     getFontWeight, TextAlignment (..))
 import Diagrams.TwoD.Size           (sizePair)
+import Diagrams.TwoD.Text           (Text (..), TextAlignment (..),
+                                     getFontSize, getFontSizeIsLocal,
+                                     getFontSlant, getFontWeight)
 
 import qualified Graphics.Rendering.PGF as P
 
@@ -44,6 +46,8 @@ import qualified Graphics.Rendering.PGF as P
 --   this rendering engine.
 data PGF = PGF
   deriving (Show, Typeable)
+
+-- type PGFStack a = StateStackT PGFState P.RenderM a
 
 instance Backend PGF R2 where
   data Render  PGF R2 = P (P.Render)
@@ -61,28 +65,44 @@ instance Backend PGF R2 where
         (P r)  = toRender rt
         bounds = sizePair (ops^.sizeSpec)
 
-  adjustDia = adjustDia2D sizeSpec
+  adjustDia = adjustDiaSize2D sizeSpec
 
-toRender :: RTree PGF R2 Annotation -> Render PGF R2
-toRender = fromRTree
-  . Node (RStyle (mempty # recommendFillColor (transparent :: AlphaColour Double)))
-  . (:[])
-    where
-      -- fromRTree (Node (RAnnot (Href uri)) rs)
-      --   = R $ do
-      --       let R r =  foldMap fromRTree rs
-      --       svg <- r
-      --       return $ (S.a ! xlinkHref (S.toValue uri)) svg
-      fromRTree (Node (RPrim p) _)     = render PGF p
-      fromRTree (Node (RStyle sty) rs) = P . P.scope $ do
-        let P r = foldMap fromRTree rs
-        P.style %= (<> sty)
-        setClipPaths <~ op Clip
-        pgf <- r
-        P.resetState
-        return pgf
-      fromRTree (Node _ rs)            = foldMap fromRTree rs
+toRender :: RTree PGF R2 a -> Render PGF R2
+toRender (Node (RPrim p) _) = render PGF p
+toRender (Node (RStyle sty) rs) = P . P.scope $ do
+  oldSty <- P.style <<%= (<> sty)
 
+  setClipPaths <~ op Clip
+  let P r = foldMap toRender rs
+  pgf <- r
+
+  P.style      .= oldSty
+  P.ignoreFill .= False
+  return pgf
+-- toRender (Node (RAnnot (Href uri)) rs)
+--   = R $ do
+--       let R r = foldMap fromRTree rs
+--       pgf <- r
+--       return $ (S.a ! xlinkHref (S.toValue uri)) svg
+toRender (Node _ rs) = foldMap toRender rs
+
+-- toRender :: RTree PGF R2 Annotation -> Render PGF R2
+-- toRender = fromRTree
+--   -- . Node (RStyle (mempty # recommendFillColor (transparent :: AlphaColour Double)))
+--   -- . (:[])
+--     where
+--       fromRTree (Node (RPrim p) _)     = render PGF p
+--       fromRTree (Node (RStyle sty) rs) = P . P.scope $ do
+--         let P r = foldMap fromRTree rs
+--         P.style %= (<> sty)
+--         setClipPaths <~ op Clip
+--         pgf <- r
+--         P.resetState
+--         return pgf
+--       fromRTree (Node _ rs)            = foldMap fromRTree rs
+
+renderP :: (Renderable a PGF, V a ~ R2) => a -> P.Render
+renderP (render PGF -> P r) = r
 
 instance Default (Options PGF R2) where
   def = PGFOptions
@@ -93,29 +113,28 @@ instance Default (Options PGF R2) where
           }
 
 instance Monoid (Render PGF R2) where
-  mempty  = P $ return ()
+  mempty                  = P $ return ()
   (P ra) `mappend` (P rb) = P (ra >> rb)
 
-renderP :: (Renderable a PGF, V a ~ R2) => a -> P.RenderM ()
-renderP (render PGF -> P r) = r
-
--- | Lens to change the surface
+-- | Lens onto the surface used to render.
 surface :: Lens' (Options PGF R2) Surface
 surface = lens getter setter
   where getter (PGFOptions { _surface = s }) = s
         setter o s = o { _surface = s }
 
+-- | Lens onto whether a standalone TeX document should be produced.
 standalone :: Lens' (Options PGF R2) Bool
 standalone = lens getter setter
   where getter (PGFOptions { _standalone = s }) = s
         setter o s = o { _standalone = s }
 
+-- | Lens onto the 'SizeSpec2D'.
 sizeSpec :: Lens' (Options PGF R2) SizeSpec2D
 sizeSpec = lens getSize setSize
   where getSize (PGFOptions { _sizeSpec = s }) = s
         setSize o s = o { _sizeSpec = s }
 
--- | Pretty print the output with indented lines, default is true.
+-- | Lens onto whether the lines of the TeX output are indented.
 readable :: Lens' (Options PGF R2) Bool
 readable = lens getR setR
   where getR (PGFOptions { _readable = r }) = r

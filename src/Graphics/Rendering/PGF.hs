@@ -20,12 +20,11 @@ module Graphics.Rendering.PGF
   , RenderM
   , Render
   , initialState
-  , rawString
   -- * Environments
   , scope
-  , scopeHeader
-  , resetState
-  , scopeFooter
+  -- , scopeHeader
+  -- , resetState
+  -- , scopeFooter
   , epsilon
   -- * Lenses
   -- , fillRule
@@ -39,6 +38,7 @@ module Graphics.Rendering.PGF
   -- * RenderM commands
   , ln
   , raw
+  , rawString
   , pgf
   , bracers
   , brackets
@@ -149,11 +149,11 @@ initialState = RenderState
 
 -- | Resets the parts of the state responsible for the drawing stuff
 -- eg identation and position is not reset
-resetState :: Render
-resetState = do
-  ignoreFill .= False
-  style      .= mempty # lc black
-                       # fontSize (Output 1)
+-- resetState :: Render
+-- resetState = - do
+--   ignoreFill .= False
+--   style      .= mempty # lc black
+--                        # fontSize (Output 1)
 
 renderWith :: Surface -> Bool -> Bool -> (Double,Double) -> Render -> Builder
 renderWith s readable standalone bounds r = builder
@@ -317,7 +317,7 @@ rectangleBoundingBox bounds = do
 scope :: Render -> Render
 scope r = do
   scopeHeader
-  resetState
+  -- resetState
   inBlock r
   scopeFooter
 
