@@ -16,9 +16,8 @@ module Diagrams.Backend.PGF.Render
 
 import Blaze.ByteString.Builder (Builder)
 import Control.Lens             (Lens', isn't, lens, op, use, (.=),
-                                 (<<%=), (^.))
+                                 (<<<>=), (^.))
 import Control.Monad            (when)
--- import Control.Monad.StateStack
 
 import Data.Default
 import Data.Foldable (foldMap)
@@ -47,16 +46,14 @@ import qualified Graphics.Rendering.PGF as P
 data PGF = PGF
   deriving (Show, Typeable)
 
--- type PGFStack a = StateStackT PGFState P.RenderM a
-
 instance Backend PGF R2 where
   data Render  PGF R2 = P (P.Render)
   type Result  PGF R2 = Builder
   data Options PGF R2 = PGFOptions
     { _surface    :: Surface    -- ^ Surface you want to use.
     , _sizeSpec   :: SizeSpec2D -- ^ The requested size.
-    , _readable   :: Bool       -- ^ Pretty print output.
-    , _standalone :: Bool       -- ^ Should .tex output be standalone.
+    , _readable   :: Bool       -- ^ Indented lines for @.tex@ output.
+    , _standalone :: Bool       -- ^ Should @.tex@ output be standalone.
     }
 
   renderRTree _ ops rt =
@@ -70,7 +67,7 @@ instance Backend PGF R2 where
 toRender :: RTree PGF R2 a -> Render PGF R2
 toRender (Node (RPrim p) _) = render PGF p
 toRender (Node (RStyle sty) rs) = P . P.scope $ do
-  oldSty <- P.style <<%= (<> sty)
+  oldSty <- P.style <<<>= sty
 
   setClipPaths <~ op Clip
   let P r = foldMap toRender rs
@@ -78,6 +75,7 @@ toRender (Node (RStyle sty) rs) = P . P.scope $ do
 
   P.style      .= oldSty
   P.ignoreFill .= False
+
   return pgf
 -- toRender (Node (RAnnot (Href uri)) rs)
 --   = R $ do
@@ -86,20 +84,6 @@ toRender (Node (RStyle sty) rs) = P . P.scope $ do
 --       return $ (S.a ! xlinkHref (S.toValue uri)) svg
 toRender (Node _ rs) = foldMap toRender rs
 
--- toRender :: RTree PGF R2 Annotation -> Render PGF R2
--- toRender = fromRTree
---   -- . Node (RStyle (mempty # recommendFillColor (transparent :: AlphaColour Double)))
---   -- . (:[])
---     where
---       fromRTree (Node (RPrim p) _)     = render PGF p
---       fromRTree (Node (RStyle sty) rs) = P . P.scope $ do
---         let P r = foldMap fromRTree rs
---         P.style %= (<> sty)
---         setClipPaths <~ op Clip
---         pgf <- r
---         P.resetState
---         return pgf
---       fromRTree (Node _ rs)            = foldMap fromRTree rs
 
 renderP :: (Renderable a PGF, V a ~ R2) => a -> P.Render
 renderP (render PGF -> P r) = r
@@ -239,8 +223,7 @@ renderPath (Path trs) = do
       P.moveTo p
       renderP tr
 
--- | Escapes some common charcters in a string. Lots of things don't work in
---   plain TeX.
+-- | Escapes some common characters in a string.
 escapeString :: String -> String
 escapeString = concatMap escapeChar
   where

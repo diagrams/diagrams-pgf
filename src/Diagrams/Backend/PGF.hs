@@ -29,6 +29,7 @@ module Diagrams.Backend.PGF
   -- , Options (..)
     -- * Rendering functions
   , renderPGF
+  , renderPGF'
   , renderOnlinePDF
     -- * Options lenses
   , readable
@@ -57,8 +58,9 @@ import System.IO
 import System.TeXRunner
 import System.TeXRunner.Online hiding (hbox)
 
-import qualified Blaze.ByteString.Builder      as Blaze
-import qualified Data.ByteString.Char8         as B
+import qualified Blaze.ByteString.Builder   as Blaze
+import qualified Data.ByteString.Lazy.Char8 as LB
+import qualified Data.ByteString.Char8 as B
 
 import Diagrams.Backend.PGF.Hbox
 import Diagrams.Backend.PGF.Render
@@ -86,13 +88,14 @@ renderPGF' outFile ops dia = case takeExtension outFile of
     currentDir <- getCurrentDirectory
     targetDir  <- canonicalizePath (takeDirectory outFile)
 
-    flip Blaze.toByteStringIO rendered $ \source -> do
-      (_, texLog, mPDF) <- runTex (ops^.surface.command) (ops^.surface.arguments) [currentDir, targetDir] source
+    let source = Blaze.toLazyByteString rendered
 
-      case mPDF of
-        Nothing  -> putStrLn "Error, no PDF found:"
-                 >> print texLog
-        Just pdf -> B.writeFile outFile pdf
+    (_, texLog, mPDF) <- runTex (ops^.surface.command) (ops^.surface.arguments) [currentDir, targetDir] source
+
+    case mPDF of
+      Nothing  -> putStrLn "Error, no PDF found:"
+               >> print texLog
+      Just pdf -> LB.writeFile outFile pdf
 
   -- tex output
   _      -> do

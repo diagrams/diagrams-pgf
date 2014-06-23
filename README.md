@@ -9,11 +9,11 @@ PGF is a TeX macro package for generating graphics. It is platform- and format-i
 _diagrams-pgf_ is a work in progress, it supports the basic features of diagrams with the following features:
 
 - LaTeX, ConTeXt and plain TeX support
-- direct PDF generation using _pdflatex_, _context_ and _pdftex_
+- direct PDF generation using `pdflatex`, `context` and `pdftex`
 
 ## Usage
 
-A simple example that uses _diagrams-pgf_ to draw a square.
+A simple example that uses diagrams-pgf to draw a square.
 
 ```haskell
 import Diagrams.Prelude
@@ -51,7 +51,9 @@ Available options:
   -i,--interval INTERVAL   When running in a loop, check for changes every INTERVAL seconds.
 ```
 
-If no output file is given, output is send to `stdout`. Supported outputs are ".tex" and ".pdf". The tex compiler is shelled out for pdf output.
+If no output file is given, output is send to `stdout`. Supported outputs are `.tex` and `.pdf`. PDF generation is done using [texrunner].
+
+[texrunner]: http://www.github.com/cchalmers/texrunner
 
 ```
 $ ./Square -o square.tex
@@ -78,13 +80,15 @@ $ cat ./square.tex
 
 ## Typesetting
 
-TeX's text typesetting is one of the major advantages of using the PGF backend. There are experimental primitives for using TeX's features. `Typeset` is similar to `Text` with extra options. `Hbox` allows unmodified strings to be inserted. The standard `Text` is escaped for compatibility.
+pgf-diagrams allows typesetting TeX commands and can calculate the corresponding envelope.
 
-## Missing features / Shortcomings
+![hbox](diagrams/hbox.svg)
+
+## Missing features
 
 The following features are not currently supported:
 
 - text alignment (only extreme cases supported)
 - selecting fonts (italic and bold work)
+- textures
 
-Other features seems to be working OK.
