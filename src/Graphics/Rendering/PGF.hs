@@ -89,24 +89,23 @@ module Graphics.Rendering.PGF
 
 import           Blaze.ByteString.Builder           as Blaze (Builder, fromByteString)
 import           Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar, fromString)
-import           Control.Lens                       (Lens, both,
-                                                     imap, makeLenses,
-                                                     over, use, view,
-                                                     ( #~ ), (+=), (+~),
-                                                     (-=), (.=), (^#),
-                                                     (^.))
+import           Blaze.Text
+import           Control.Lens                       (Lens, both, imap,
+                                                     makeLenses, over,
+                                                     use, view, ( #~ ),
+                                                     (+=), (+~), (-=),
+                                                     (.=), (^#), (^.))
 import           Control.Monad.RWS
 import           Data.ByteString.Char8              (ByteString)
 import qualified Data.ByteString.Char8              as B (replicate)
-import           Blaze.Text
 import           Data.List                          (intersperse)
 import           Data.Maybe                         (catMaybes)
 
-import Diagrams.Prelude    hiding (Render, image, moveTo, opacity,
-                            stroke, view, (<>))
-import Diagrams.TwoD.Text  (FontSlant (..), FontWeight (..),
-                            TextAlignment (..))
 import Diagrams.Core.Transform (matrixHomRep)
+import Diagrams.Prelude        hiding (Render, image, moveTo, opacity,
+                                stroke, view, (<>))
+import Diagrams.TwoD.Text      (FontSlant (..), FontWeight (..),
+                                TextAlignment (..))
 
 import Diagrams.Backend.PGF.Surface
 
