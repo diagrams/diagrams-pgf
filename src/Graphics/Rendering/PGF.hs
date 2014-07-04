@@ -89,7 +89,6 @@ module Graphics.Rendering.PGF
 
 import           Blaze.ByteString.Builder           as Blaze (Builder, fromByteString)
 import           Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar, fromString)
-import           Blaze.Text
 import           Control.Lens                       (Lens, both, imap,
                                                      makeLenses, over,
                                                      use, view, ( #~ ),
@@ -100,6 +99,7 @@ import           Data.ByteString.Char8              (ByteString)
 import qualified Data.ByteString.Char8              as B (replicate)
 import           Data.List                          (intersperse)
 import           Data.Maybe                         (catMaybes)
+import           Numeric
 
 import Diagrams.Core.Transform (matrixHomRep)
 import Diagrams.Prelude        hiding (Render, image, moveTo, opacity,
@@ -254,7 +254,7 @@ tuplePoint (x,y) = do
 
 -- | Render a double to four decimal places.
 n :: Double -> Render
-n = tell . double
+n x = rawString $ showFFloat (Just 4) x ""
 
 -- | Render length with bp (big point = 1 px at 72 dpi) units.
 bp :: Double -> Render
