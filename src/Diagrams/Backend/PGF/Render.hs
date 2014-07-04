@@ -15,8 +15,9 @@ module Diagrams.Backend.PGF.Render
   ) where
 
 import Blaze.ByteString.Builder (Builder)
-import Control.Lens             (Lens', isn't, lens, op, use, (.=),
+import Control.Lens             (Lens', lens, op, use, uses, (.=),
                                  (<<<>=), (^.))
+import Control.Lens.Extras      (is)
 import Control.Monad            (when)
 
 import Data.Default
@@ -65,16 +66,16 @@ instance Backend PGF R2 where
   adjustDia = adjustDiaSize2D sizeSpec
 
 toRender :: RTree PGF R2 a -> Render PGF R2
-toRender (Node (RPrim p) _) = render PGF p
+toRender (Node (RPrim p) _)     = render PGF p
 toRender (Node (RStyle sty) rs) = P . P.scope $ do
   oldSty <- P.style <<<>= sty
+  P.ignoreFill .= False
 
   setClipPaths <~ op Clip
   let P r = foldMap toRender rs
   pgf <- r
 
-  P.style      .= oldSty
-  P.ignoreFill .= False
+  P.style .= oldSty
 
   return pgf
 -- toRender (Node (RAnnot (Href uri)) rs)
@@ -82,7 +83,7 @@ toRender (Node (RStyle sty) rs) = P . P.scope $ do
 --       let R r = foldMap fromRTree rs
 --       pgf <- r
 --       return $ (S.a ! xlinkHref (S.toValue uri)) svg
-toRender (Node _ rs) = foldMap toRender rs
+toRender (Node _ rs)            = foldMap toRender rs
 
 
 renderP :: (Renderable a PGF, V a ~ R2) => a -> P.Render
@@ -144,9 +145,10 @@ readable = lens getR setR
 draw :: P.Render
 draw = do
   mFillTexture <- (getFillTexture <$>) . getAttr <$> use P.style
+  canFill      <- uses P.ignoreFill not
   doFill       <- case mFillTexture of
     Nothing -> return False
-    Just t  -> setFillTexture t >> return (not $ isn't _SC t)
+    Just t  -> setFillTexture t >> return (is _SC t && canFill)
   when doFill $
     P.setFillRule <~ getFillRule
   --
