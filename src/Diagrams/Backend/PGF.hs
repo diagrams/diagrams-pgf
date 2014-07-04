@@ -166,7 +166,7 @@ renderOnlinePDF filePath sizeSp surf diaP = do
   case mPDF of
     Nothing  -> putStrLn "Error, no PDF found:"
              >> print texLog
-    Just pdf -> B.writeFile filePath pdf
+    Just pdf -> LB.writeFile filePath pdf
 
 
 -- -- | Render PGF and save to output.tex and run surface command on output.tex.

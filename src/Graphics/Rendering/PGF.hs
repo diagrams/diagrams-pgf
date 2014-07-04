@@ -98,7 +98,7 @@ import           Control.Lens                       (Lens, both,
 import           Control.Monad.RWS
 import           Data.ByteString.Char8              (ByteString)
 import qualified Data.ByteString.Char8              as B (replicate)
-import           Data.Double.Conversion.ByteString  (toFixed)
+import           Blaze.Text
 import           Data.List                          (intersperse)
 import           Data.Maybe                         (catMaybes)
 
@@ -113,11 +113,11 @@ import Diagrams.Backend.PGF.Surface
 
 -- * Types, lenses & runners
 
--- | Render state, mainly to be used for convienience when build, this module
---   only uses the indent properiy.
+-- | Render state, mainly to be used for convenience when build, this module
+--   only uses the indent properly.
 data RenderState = RenderState
   { _pos        :: P2   -- ^ Current position
-  , _indent     :: Int  -- ^ Current identation
+  , _indent     :: Int  -- ^ Current indentation
   , _ignoreFill :: Bool
   , _style      :: Style R2
   }
@@ -134,10 +134,10 @@ makeLenses ''RenderInfo
 -- | Type wrapper for render monad.
 type RenderM m = RWS RenderInfo Blaze.Builder RenderState m
 
--- | Convienient type for building.
+-- | Convenient type for building.
 type Render = RenderM ()
 
--- | Starting state for running the bulider.
+-- | Starting state for running the builder.
 initialState :: RenderState
 initialState = RenderState
   { _pos        = origin
@@ -148,7 +148,7 @@ initialState = RenderState
   }
 
 -- | Resets the parts of the state responsible for the drawing stuff
--- eg identation and position is not reset
+-- eg indentation and position is not reset
 -- resetState :: Render
 -- resetState = - do
 --   ignoreFill .= False
@@ -227,7 +227,7 @@ parens r = do
   r
   rawChar ')'
 
--- | Intersperce list of renders with commas.
+-- | Intersperse list of renders with commas.
 commaIntersperce :: [Render] -> Render
 commaIntersperce = sequence_ . intersperse (rawChar ',')
 
@@ -255,7 +255,7 @@ tuplePoint (x,y) = do
 
 -- | Render a double to four decimal places.
 n :: Double -> Render
-n = raw . toFixed 4
+n = tell . double
 
 -- | Render length with bp (big point = 1 px at 72 dpi) units.
 bp :: Double -> Render
