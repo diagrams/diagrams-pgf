@@ -51,7 +51,7 @@ import Diagrams.TwoD.Transform.ScaleInv
 
 import Diagrams.Backend.PGF.Surface
 
--- | Primative for placing raw TeX commands in a hbox.
+-- | Primitive for placing raw TeX commands in a hbox.
 data Hbox = Hbox (Transformation R2) String
   deriving Typeable
 
@@ -99,7 +99,7 @@ surfOnlineTex surf a = unsafePerformIO (surfOnlineTexIO surf a)
 surfOnlineTexIO :: Surface -> OnlineTeX a -> IO a
 surfOnlineTexIO surf = runOnlineTex (surf^.command)
                                     (surf^.arguments)
-                                    (pack $ surf^.preamble)
+                                    (pack $ surf^.preamble ++ surf^.beginDoc)
 
 -- | Hbox with bounding box envelope.
 onlineHbox :: Renderable Hbox b => String -> OnlineTeX (Diagram b R2)

@@ -1,8 +1,9 @@
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE CPP #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF.CmdLine
@@ -16,7 +17,7 @@
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.PGF.CmdLine
-       ( 
+       (
          -- * General form of @main@
          -- $mainwith
 
@@ -25,6 +26,9 @@ module Diagrams.Backend.PGF.CmdLine
          -- * Supported forms of @main@
 
        , defaultMain
+       , mainWithSurf
+       , onlineMain
+       , onlineMainWithSurf
        , multiMain
 
          -- * Backend tokens
@@ -33,15 +37,17 @@ module Diagrams.Backend.PGF.CmdLine
        , B
        ) where
 
-import Diagrams.Prelude hiding (width, height, interval)
+import Diagrams.Prelude hiding (width, height, interval, (<>))
 import Diagrams.Backend.PGF
+import Diagrams.Backend.PGF.Hbox
 import Diagrams.Backend.CmdLine
 
 import Control.Lens
+import Control.Monad (mplus)
 import Data.Default
 
 import Data.List.Split
-import qualified Options.Applicative as OP
+import Options.Applicative as OP hiding ((&))
 import qualified Data.ByteString as B
 import qualified Blaze.ByteString.Builder as Blaze
 
@@ -75,6 +81,49 @@ getModuleTime = getClockTime
 #endif
 #endif
 
+-- pgf specific stuff
+
+data PGFCmdLineOpts = PGFCmdLineOpts
+  { _cmdStandalone :: Bool
+  , _cmdReadable   :: Bool
+  }
+
+makeLenses ''PGFCmdLineOpts
+
+instance Parseable PGFCmdLineOpts where
+  parser = PGFCmdLineOpts
+        <$> switch
+            ( long "standalone"
+           <> short 'a'
+           <> help "Produce standalone .tex output"
+            )
+        <*> switch
+            ( long "readable"
+           <> short 'r'
+           <> help "Indent lines"
+            )
+
+instance ToResult d => ToResult (OnlineTeX d) where
+  type Args (OnlineTeX d) = (Surface, Args d)
+  type ResultOf (OnlineTeX d) = IO (ResultOf d)
+
+  toResult d (surf, args) = flip toResult args <$> surfOnlineTexIO surf d
+
+-- instance Mainable d => Mainable (OnlineTeX d) where
+--   type MainOpts (OnlineTeX d) = (TeXFormat, MainOpts d)
+-- 
+--   mainRender (format, opts) d = surfOnlineTexIO (formatToSurf format) d
+--                             >>= mainRender opts
+-- 
+-- instance Mainable d => Mainable (Surface, OnlineTeX d) where
+--   type MainOpts (Surface, OnlineTeX d) = MainOpts d
+-- 
+--   mainRender opts (surf,d) = surfOnlineTexIO surf d
+--                          >>= mainRender opts
+
+
+
+
 -- $mainwith
 -- The 'mainWith' method unifies all of the other forms of @main@ and is
 -- now the recommended way to build a command-line diagrams program.  It
@@ -92,7 +141,7 @@ getModuleTime = getClockTime
 -- We can run this program as follows:
 --
 -- > $ ghc --make mydiagram
--- > 
+-- >
 -- > # output image.tex built by `f 20 red`
 -- > $ ./MyDiagram -o image.tex -w 200 20 red
 
@@ -116,7 +165,7 @@ getModuleTime = getClockTime
 --
 -- Usage: ./mydiagram [-w|--width WIDTH] [-h|--height HEIGHT] [-o|--output OUTPUT] [-f|--format FORMAT] [-l|--loop] [-s|--src ARG] [-i|--interval INTERVAL]
 --   Command-line diagram generation.
--- 
+--
 -- Available options:
 --   -?,--help                Show this help text
 --   -w,--width WIDTH         Desired WIDTH of the output image
@@ -142,35 +191,97 @@ defaultMain = mainWith
 
 instance Mainable (Diagram PGF R2) where
 #ifdef CMDLINELOOP
-    type MainOpts (Diagram PGF R2) = (DiagramOpts, (TeXFormat, DiagramLoopOpts))
+    type MainOpts (Diagram PGF R2)
+      = (DiagramOpts, (TeXFormat, (PGFCmdLineOpts, DiagramLoopOpts)))
 
-    mainRender (opts,(format,loopOpts)) d = do
-        chooseRender opts format d
+    mainRender (opts,(format,(pgf,loopOpts))) d = do
+        chooseRender opts (formatToSurf format) pgf d
         when (loopOpts^.loop) (waitForChange Nothing loopOpts)
 #else
-    type MainOpts (Diagram PGF R2) = (DiagramOpts, TeXFormat)
+    type MainOpts (Diagram PGF R2) = (DiagramOpts, (TeXFormat, PGFCmdLineOpts))
 
-    mainRender (dOps, format) = chooseRender dOps format
+    mainRender (dOps, (format, pgf)) = chooseRender dOps (formatToSurf format) pgf
 #endif
 
-chooseRender :: DiagramOpts -> TeXFormat -> Diagram PGF R2 -> IO ()
-chooseRender opts format d = case splitOn "." (opts^.output) of
-    [""] -> Blaze.toByteStringIO B.putStr $ 
-              renderDia PGF (def & surface .~ surf & sizeSpec .~ size) d
-    ps | last ps == "tex" -> renderPGF (opts^.output) size surf d
-       | last ps == "pdf" -> renderPGF (opts^.output) size surf d
+chooseRender :: DiagramOpts -> Surface -> PGFCmdLineOpts -> Diagram PGF R2 -> IO ()
+chooseRender opts surf pgf d = case splitOn "." (opts^.output) of
+    [""] -> Blaze.toByteStringIO B.putStr $
+              renderDia PGF pgfOpts d
+    ps | last ps `elem` ["tex", "pdf"]
+                   -> renderPGF' (opts^.output) pgfOpts d
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
                               ++ "\nSupported file types are .tex or .pdf"
   where
+    pgfOpts = def & surface    .~ surf
+                  & sizeSpec   .~ size
+                  & readable   .~ (pgf^.cmdReadable)
+                  & standalone .~ (pgf^.cmdStandalone)
+
     size = case (opts^.width, opts^.height) of
              (Nothing, Nothing) -> Absolute
              (Just w, Nothing)  -> Width (fromIntegral w)
              (Nothing, Just h)  -> Height (fromIntegral h)
              (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
-    surf = case format of
-             LaTeX    -> latexSurface
-             ConTeXt  -> contextSurface
-             PlainTeX -> plaintexSurface
+
+formatToSurf :: TeXFormat -> Surface
+formatToSurf format = case format of
+  LaTeX    -> latexSurface
+  ConTeXt  -> contextSurface
+  PlainTeX -> plaintexSurface
+
+-- | Allows you to pick a surface the diagram will be rendered with.
+mainWithSurf :: Surface -> Diagram PGF R2 -> IO ()
+mainWithSurf = curry mainWith
+
+
+instance Mainable (Surface, Diagram PGF R2) where
+  type MainOpts (Surface, Diagram PGF R2) = (DiagramOpts, PGFCmdLineOpts)
+
+  mainRender (opts,pgf) (surf,d) = chooseRender opts surf pgf d
+
+-- online pgf diagrams
+
+onlineChooseRender :: DiagramOpts -> Surface -> PGFCmdLineOpts
+                   -> OnlineTeX (Diagram PGF R2) -> IO ()
+onlineChooseRender opts surf pgf dOL = case splitOn "." (opts^.output) of
+    [""] -> do
+      d <- surfOnlineTexIO surf dOL
+      Blaze.toByteStringIO B.putStr $ renderDia PGF pgfOpts d
+
+    _    -> renderOnlinePGF' (opts^.output) pgfOpts dOL
+  where
+    pgfOpts = def & surface    .~ surf
+                  & sizeSpec   .~ size
+                  & readable   .~ (pgf^.cmdReadable)
+                  & standalone .~ (pgf^.cmdStandalone)
+
+    size = case (opts^.width, opts^.height) of
+             (Nothing, Nothing) -> Absolute
+             (Just w, Nothing)  -> Width (fromIntegral w)
+             (Nothing, Just h)  -> Height (fromIntegral h)
+             (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
+
+instance Mainable (OnlineTeX (Diagram PGF R2)) where
+  type MainOpts (OnlineTeX (Diagram PGF R2))
+    = (DiagramOpts, (PGFCmdLineOpts, TeXFormat))
+
+  mainRender (opts,(pgf,format))
+    = onlineChooseRender opts (formatToSurf format) pgf
+
+instance Mainable (Surface, OnlineTeX (Diagram PGF R2)) where
+  type MainOpts (Surface, OnlineTeX (Diagram PGF R2))
+    = (DiagramOpts, PGFCmdLineOpts)
+
+  mainRender (opts,pgf) (surf,d) = onlineChooseRender opts surf pgf d
+
+-- | Same as @defaultMain@ but takes an online pgf diagram.
+onlineMain :: OnlineTeX (Diagram PGF R2) -> IO ()
+onlineMain = mainWith
+
+-- | Same as @mainWithSurf@ but takes an online pgf diagram.
+onlineMainWithSurf :: Surface -> OnlineTeX (Diagram PGF R2) -> IO ()
+onlineMainWithSurf = curry mainWith
+
 
 
 -- | @multiMain@ is like 'defaultMain', except instead of a single
@@ -196,7 +307,7 @@ multiMain :: [(String, Diagram PGF R2)] -> IO ()
 multiMain = mainWith
 
 instance Mainable [(String,Diagram PGF R2)] where
-    type MainOpts [(String,Diagram PGF R2)] 
+    type MainOpts [(String,Diagram PGF R2)]
         = (MainOpts (Diagram PGF R2), DiagramMultiOpts)
 
     mainRender = defaultMultiMainRender
@@ -215,7 +326,8 @@ parseFormat ('l':_) = Right LaTeX
 parseFormat ('c':_) = Right ConTeXt
 parseFormat ('p':_) = Right PlainTeX
 parseFormat ('t':_) = Right PlainTeX
-parseFormat x       = Left $ "Unknow format" ++ x
+parseFormat x       = Left $ "Unknown format" ++ x
+
 
 #ifdef CMDLINELOOP
 waitForChange :: Maybe ModuleTime -> DiagramLoopOpts -> IO ()
@@ -230,7 +342,8 @@ waitForChange lastAttempt opts = do
           (newBin, newAttempt) <- recompile lastAtt prog (opts^.src)
           if newBin
             then executeFile prog False args Nothing
-            else go prog args $ getFirst (First newAttempt <> First lastAtt)
+            else go prog args $ newAttempt `mplus` lastAttempt
+
 -- | @recompile t prog@ attempts to recompile @prog@, assuming the
 --   last attempt was made at time @t@.  If @t@ is @Nothing@ assume
 --   the last attempt time is the same as the modification time of the

@@ -10,16 +10,17 @@
 --
 -- To invoke the PGF backend, you have a number of options.
 --
--- * You can use 'renderPGF' function to render a 'Diagram' to a ".tex" file;
+-- * You can use 'renderPGF' function to render a 'Diagram' to a ".tex" or 
+--   ".pdf" file;
 --
 -- * You can use the most flexible 'renderDia' function to access the
--- resulting PGF code directly in memory. For this particular backend
--- the 'renderDia' function has the following type:
+--   resulting PGF code directly in memory. For this particular backend
+--   the 'renderDia' function has the following type:
 --
 -- > renderDia :: PGF -> Options PGF R2 -> Diagram PGF R2 -> Blaze.Builder
 --
--- The 'Surface' provides the necessary information to build a PDF using 
--- "texrunner"
+-- The 'Surface' provides the necessary information for rendering PGF code and 
+-- building a PDF using "texrunner".
 --
 
 module Diagrams.Backend.PGF
@@ -30,23 +31,25 @@ module Diagrams.Backend.PGF
     -- * Rendering functions
   , renderPGF
   , renderPGF'
-  , renderOnlinePDF
-    -- * Options lenses
+    -- ** Options lenses
   , readable
   , sizeSpec
   , surface
   , standalone
+    -- * Online TeX
+  , OnlineTeX
+  , renderOnlinePGF
+  , renderOnlinePGF'
     -- * TeX specific
   , hbox
   , onlineHbox
   , surfOnlineTex
     -- * Surfaces
     -- | These surfaces should be suitable for basic diagrams. For more 
-    --   complicated diagrams see 'Diagrams.Backend.PGF.Surface'.
+    --   complicated output options see 'Diagrams.Backend.PGF.Surface'.
+  , Surface (..)
   , TeXFormat (..)
-  , latexSurface
-  , contextSurface
-  , plaintexSurface
+  , module Diagrams.Backend.PGF.Surface
   ) where
 
 import Control.Lens ((^.), set)
@@ -69,28 +72,36 @@ import Diagrams.Backend.PGF.Surface
 
 type B = PGF
 
+-- | Render a pgf diagram and write it to the given filepath. If the file has 
+--   the extension @.pdf@, a PDF is generated in a temporary directory using 
+--   options from the given surface.
 renderPGF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
-renderPGF outFile sizeSp surf = renderPGF' outFile ops 
+renderPGF outFile sizeSp surf = renderPGF' outFile opts
   where
-    ops = case takeExtension outFile of 
-            ".pdf" -> def & surface    .~ surf
-                          & sizeSpec   .~ sizeSp
-                          & readable   .~ False
-                          & standalone .~ True
-            _      -> def & surface    .~ surf
-                          & sizeSpec   .~ sizeSp
+    opts = case takeExtension outFile of 
+             ".pdf" -> def & surface    .~ surf
+                           & sizeSpec   .~ sizeSp
+                           & readable   .~ False
+                           & standalone .~ True
 
+             _      -> def & surface  .~ surf
+                           & sizeSpec .~ sizeSp
+
+-- | Same as 'renderPGF' but takes 'Options PGF R2'.
 renderPGF' :: FilePath -> Options PGF R2 -> Diagram PGF R2 -> IO ()
-renderPGF' outFile ops dia = case takeExtension outFile of
+renderPGF' outFile opts d = case takeExtension outFile of
   ".pdf" -> do
-    let rendered = renderDia PGF (ops & standalone .~ True) dia
+    let rendered = renderDia PGF (opts & standalone .~ True) d
 
     currentDir <- getCurrentDirectory
     targetDir  <- canonicalizePath (takeDirectory outFile)
 
     let source = Blaze.toLazyByteString rendered
 
-    (_, texLog, mPDF) <- runTex (ops^.surface.command) (ops^.surface.arguments) [currentDir, targetDir] source
+    (_, texLog, mPDF) <- runTex (opts^.surface.command)
+                                (opts^.surface.arguments)
+                                [currentDir, targetDir]
+                                source
 
     case mPDF of
       Nothing  -> putStrLn "Error, no PDF found:"
@@ -98,102 +109,57 @@ renderPGF' outFile ops dia = case takeExtension outFile of
       Just pdf -> LB.writeFile outFile pdf
 
   -- tex output
-  _      -> do
-    h <- openFile outFile WriteMode
-    let rendered = renderDia PGF ops dia
-    Blaze.toByteStringIO (B.hPutStr h) rendered
-    hClose h
+  _      -> writeTexFile outFile opts d
 
--- -- | render a diagram as a pgf code, writing to the specified output
--- --   file and using the requested size and surface, ready for inclusion in a
--- --   TeX document.
--- renderPGF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
--- renderPGF filePath sizeSp surf
---   = renderPGF' filePath (def & surface .~ surf & sizeSpec .~ sizeSp)
--- 
--- -- | Similar to 'renderPDF' but takes PGFOptions instead.
--- renderPGF' :: FilePath -> Options PGF R2 -> Diagram PGF R2 -> IO ()
--- renderPGF' filePath ops dia = do
---   h <- openFile filePath WriteMode
---   let rendered = renderDia PGF ops dia
---   Blaze.toByteStringIO (B.hPutStr h) rendered
---   hClose h
--- 
--- -- | Render PDF by calling TeX in a temporary directory.
--- renderPDF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
--- renderPDF filePath sizeSp surf dia = do
--- 
---   let rendered = renderDia PGF (def & surface    .~ surf
---                                     & sizeSpec   .~ sizeSp
---                                     & readable   .~ False
---                                     & standalone .~ True)
---                                dia
--- 
---   flip Blaze.toByteStringIO rendered $ \source -> do
---     (_, texLog, mPDF) <- runTex (surf^.command) (surf^.arguments) source
--- 
---     case mPDF of
---       Nothing  -> putStrLn "Error, no PDF found:"
---                >> print texLog
---       Just pdf -> B.writeFile filePath pdf
-
-
--- | Render PDF by calling TeX in a temporary directory.
-renderOnlinePDF :: FilePath
+-- | Render online PDF by calling TeX in a temporary directory.
+renderOnlinePGF :: FilePath
                 -> SizeSpec2D
                 -> Surface
                 -> OnlineTeX (Diagram PGF R2)
                 -> IO ()
-renderOnlinePDF filePath sizeSp surf diaP = do
+renderOnlinePGF outFile sizeSp surf = renderOnlinePGF' outFile opts
+  where
+    opts = def & sizeSpec .~ sizeSp
+               & surface  .~ surf
 
-  ((), texLog, mPDF) <-
-    runOnlineTex'
-      (surf^.command)
-      (surf^.arguments)
-      (B.pack $ surf^.preamble) $ do
+-- | Same as 'renderOnlinePDF' but takes 'Options PGF R2'.
+renderOnlinePGF' :: FilePath
+                 -> Options PGF R2
+                 -> OnlineTeX (Diagram PGF R2)
+                 -> IO ()
+renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
+  ".pdf" -> do
 
-        dia <- diaP
+    ((), texLog, mPDF) <-
+      runOnlineTex'
+        (surf^.command)
+        (surf^.arguments)
+        (B.pack $ surf^.preamble ++ surf^.beginDoc) $ do
 
-        -- we've already output the preamble so don't do it again
-        let rendered = renderDia PGF (def & surface    .~ set preamble "" surf
-                                          & sizeSpec   .~ sizeSp
-                                          & readable   .~ False
-                                          & standalone .~ True
-                                     ) dia
+          d <- dOL
 
-        texPutStrLn $ Blaze.toByteString rendered
+          -- we've already output the preamble so don't do it again
+          let rendered = renderDia PGF (opts & surface    .~ (set beginDoc "" . set preamble "") surf
+                                             & readable   .~ False
+                                             & standalone .~ True
+                                       ) d
 
-  case mPDF of
-    Nothing  -> putStrLn "Error, no PDF found:"
-             >> print texLog
-    Just pdf -> LB.writeFile filePath pdf
+          texPutStrLn $ Blaze.toByteString rendered
 
+    case mPDF of
+      Nothing  -> putStrLn "Error, no PDF found:"
+               >> print texLog
+      Just pdf -> LB.writeFile outFile pdf
 
--- -- | Render PGF and save to output.tex and run surface command on output.tex.
--- --   All auxillery files are kept.
--- renderPDF' :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
--- renderPDF' filePath sizeSp surf dia = do
---   let (outDir,fileName) = splitFileName filePath
---       texFileName       = replaceExtension fileName "tex"
---   oldDir <- getCurrentDirectory
---   setCurrentDirectory outDir
---   --
---   renderPGF' texFileName (def & sizeSpec   .~ sizeSp
---                               & surface    .~ surf
---                               & standalone .~ True)
---                          dia
---   (ecode, _, _)
---     <- readProcessWithExitCode (surf^.command) (texFileName : surf^.arguments) ""
--- 
---   setCurrentDirectory oldDir
--- 
---   case ecode of
---     ExitFailure _ -> do
---       let logFile = replaceExtension filePath "log"
---       logExists <- doesFileExist logFile
---       putStrLn $ "An error occured while processing TeX file"
---               ++ if logExists
---                    then "please check " ++ logFile
---                    else "and no log file was found"
---     ExitSuccess   -> return ()
--- 
+  -- tex output
+  _      ->  surfOnlineTexIO surf dOL >>= writeTexFile outFile opts
+  where
+    surf = opts ^. surface
+
+writeTexFile :: FilePath -> Options PGF R2 -> Diagram PGF R2 -> IO ()
+writeTexFile outFile opts d = do
+  h <- openFile outFile WriteMode
+  let rendered = renderDia PGF opts d
+  Blaze.toByteStringIO (B.hPutStr h) rendered
+  hClose h
+
