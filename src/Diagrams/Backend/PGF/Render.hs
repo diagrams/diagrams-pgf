@@ -34,7 +34,7 @@ import Diagrams.Prelude
 
 import Diagrams.Backend.PGF.Hbox    (Hbox (..))
 import Diagrams.Backend.PGF.Surface (Surface)
-import Diagrams.TwoD.Adjust         (adjustDiaSize2D)
+import Diagrams.TwoD.Adjust         (adjustDia2D)
 import Diagrams.TwoD.Path
 import Diagrams.TwoD.Size           (sizePair)
 import Diagrams.TwoD.Text           (Text (..), TextAlignment (..),
@@ -64,7 +64,7 @@ instance Backend PGF R2 where
         (P r)  = toRender rt
         bounds = sizePair (ops^.sizeSpec)
 
-  adjustDia = adjustDiaSize2D sizeSpec
+  adjustDia = adjustDia2D sizeSpec
 
 toRender :: RTree PGF R2 a -> Render PGF R2
 toRender (Node (RPrim p) _)     = render PGF p

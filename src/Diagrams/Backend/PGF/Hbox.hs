@@ -9,8 +9,8 @@
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
--- A hbox a primative TeX box, typically used for holding text. This module 
--- provides fuctions for retreving the dimensions of these boxes so they may be 
+-- A hbox a primitive TeX box, typically used for holding text. This module 
+-- provides functions for retrieving the dimensions of these boxes so they may be 
 -- used as envelopes for diagrams.
 -----------------------------------------------------------------------------
 module Diagrams.Backend.PGF.Hbox
@@ -27,7 +27,7 @@ module Diagrams.Backend.PGF.Hbox
   , hbox
   , hboxInv
     -- * IO versions
-    -- | If used properly, the non-IO verions should be \'safe\'. However we 
+    -- | If used properly, the non-IO versions should be \'safe\'. However we 
     --   supply the IO versions anyway.
   , hboxIO
   , surfOnlineTexIO
@@ -115,3 +115,4 @@ onlineHbox txt = do
                 mempty
                 mempty
                 mempty
+
