@@ -1,5 +1,5 @@
 Name:                diagrams-pgf
-Version:             0.1
+Version:             0.1.0.0
 Synopsis:            PGF backend for diagrams drawing EDSL.
 License:             BSD3
 License-file:        LICENSE

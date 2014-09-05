@@ -63,10 +63,8 @@ import                               Control.Concurrent  (threadDelay)
 import qualified Control.Exception as Exc  (catch,  bracket)
 import Control.Exception (SomeException(..))
 
-
 import System.Environment  (getProgName,getArgs)
 import System.Posix.Process (executeFile)
-
 
 # if MIN_VERSION_directory(1,2,0)
 import Data.Time.Clock (UTCTime,getCurrentTime)
@@ -133,7 +131,7 @@ instance ToResult d => ToResult (OnlineTeX d) where
 -- will produce a program that looks for additional number and color arguments.
 --
 -- > ... definitions ...
--- > f :: Int -> Colour Double -> Diagram PGF R2
+-- > f :: Int -> Colour Double -> Diagram PGF V2 n
 -- > f i c = ...
 -- >
 -- > main = mainWith f
@@ -186,24 +184,29 @@ instance ToResult d => ToResult (OnlineTeX d) where
 -- $ ./mydiagram -o image.tex -w 400
 -- @
 
-defaultMain :: Diagram PGF R2 -> IO ()
+defaultMain :: DataFloat n => Diagram PGF V2 n -> IO ()
 defaultMain = mainWith
 
-instance Mainable (Diagram PGF R2) where
+instance DataFloat n => Mainable (Diagram PGF V2 n) where
 #ifdef CMDLINELOOP
-    type MainOpts (Diagram PGF R2)
+    type MainOpts (Diagram PGF V2 n)
       = (DiagramOpts, (TeXFormat, (PGFCmdLineOpts, DiagramLoopOpts)))
 
     mainRender (opts,(format,(pgf,loopOpts))) d = do
         chooseRender opts (formatToSurf format) pgf d
         when (loopOpts^.loop) (waitForChange Nothing loopOpts)
 #else
-    type MainOpts (Diagram PGF R2) = (DiagramOpts, (TeXFormat, PGFCmdLineOpts))
+    type MainOpts (Diagram PGF V2 n) = (DiagramOpts, (TeXFormat, PGFCmdLineOpts))
 
     mainRender (dOps, (format, pgf)) = chooseRender dOps (formatToSurf format) pgf
 #endif
 
-chooseRender :: DiagramOpts -> Surface -> PGFCmdLineOpts -> Diagram PGF R2 -> IO ()
+chooseRender :: DataFloat n
+             => DiagramOpts
+             -> Surface
+             -> PGFCmdLineOpts
+             -> Diagram PGF V2 n
+             -> IO ()
 chooseRender opts surf pgf d = case splitOn "." (opts^.output) of
     [""] -> Blaze.toByteStringIO B.putStr $
               renderDia PGF pgfOpts d
@@ -230,19 +233,23 @@ formatToSurf format = case format of
   PlainTeX -> plaintexSurface
 
 -- | Allows you to pick a surface the diagram will be rendered with.
-mainWithSurf :: Surface -> Diagram PGF R2 -> IO ()
+mainWithSurf :: DataFloat n => Surface -> Diagram PGF V2 n -> IO ()
 mainWithSurf = curry mainWith
 
 
-instance Mainable (Surface, Diagram PGF R2) where
-  type MainOpts (Surface, Diagram PGF R2) = (DiagramOpts, PGFCmdLineOpts)
+instance DataFloat n => Mainable (Surface, Diagram PGF V2 n) where
+  type MainOpts (Surface, Diagram PGF V2 n) = (DiagramOpts, PGFCmdLineOpts)
 
   mainRender (opts,pgf) (surf,d) = chooseRender opts surf pgf d
 
 -- online pgf diagrams
 
-onlineChooseRender :: DiagramOpts -> Surface -> PGFCmdLineOpts
-                   -> OnlineTeX (Diagram PGF R2) -> IO ()
+onlineChooseRender :: DataFloat n
+                   => DiagramOpts
+                   -> Surface
+                   -> PGFCmdLineOpts
+                   -> OnlineTeX (Diagram PGF V2 n)
+                   -> IO ()
 onlineChooseRender opts surf pgf dOL = case splitOn "." (opts^.output) of
     [""] -> do
       d <- surfOnlineTexIO surf dOL
@@ -261,25 +268,25 @@ onlineChooseRender opts surf pgf dOL = case splitOn "." (opts^.output) of
              (Nothing, Just h)  -> Height (fromIntegral h)
              (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
 
-instance Mainable (OnlineTeX (Diagram PGF R2)) where
-  type MainOpts (OnlineTeX (Diagram PGF R2))
+instance DataFloat n => Mainable (OnlineTeX (Diagram PGF V2 n)) where
+  type MainOpts (OnlineTeX (Diagram PGF V2 n))
     = (DiagramOpts, (PGFCmdLineOpts, TeXFormat))
 
   mainRender (opts,(pgf,format))
     = onlineChooseRender opts (formatToSurf format) pgf
 
-instance Mainable (Surface, OnlineTeX (Diagram PGF R2)) where
-  type MainOpts (Surface, OnlineTeX (Diagram PGF R2))
+instance DataFloat n => Mainable (Surface, OnlineTeX (Diagram PGF V2 n)) where
+  type MainOpts (Surface, OnlineTeX (Diagram PGF V2 n))
     = (DiagramOpts, PGFCmdLineOpts)
 
   mainRender (opts,pgf) (surf,d) = onlineChooseRender opts surf pgf d
 
 -- | Same as @defaultMain@ but takes an online pgf diagram.
-onlineMain :: OnlineTeX (Diagram PGF R2) -> IO ()
+onlineMain :: DataFloat n => OnlineTeX (Diagram PGF V2 n) -> IO ()
 onlineMain = mainWith
 
 -- | Same as @mainWithSurf@ but takes an online pgf diagram.
-onlineMainWithSurf :: Surface -> OnlineTeX (Diagram PGF R2) -> IO ()
+onlineMainWithSurf :: DataFloat n => Surface -> OnlineTeX (Diagram PGF V2 n) -> IO ()
 onlineMainWithSurf = curry mainWith
 
 
@@ -303,23 +310,23 @@ onlineMainWithSurf = curry mainWith
 -- $ ./MultiTest --selection bar -o Bar.eps -w 200
 -- @
 
-multiMain :: [(String, Diagram PGF R2)] -> IO ()
+multiMain :: DataFloat n => [(String, Diagram PGF V2 n)] -> IO ()
 multiMain = mainWith
 
-instance Mainable [(String,Diagram PGF R2)] where
-    type MainOpts [(String,Diagram PGF R2)]
-        = (MainOpts (Diagram PGF R2), DiagramMultiOpts)
+instance DataFloat n => Mainable [(String,Diagram PGF V2 n)] where
+    type MainOpts [(String,Diagram PGF V2 n)]
+        = (MainOpts (Diagram PGF V2 n), DiagramMultiOpts)
 
     mainRender = defaultMultiMainRender
 
 instance Parseable TeXFormat where
-  parser = OP.nullOption $ OP.eitherReader parseFormat
-                     OP.<> OP.short   'f'
-                     OP.<> OP.long    "format"
-                     OP.<> OP.help    "l for LaTeX, c for ConTeXt, p for plain TeX"
-                     OP.<> OP.metavar "FORMAT"
-                     OP.<> OP.value LaTeX
-                     OP.<> OP.showDefault
+  parser = nullOption $ eitherReader parseFormat
+                     <> short   'f'
+                     <> long    "format"
+                     <> help    "l for LaTeX, c for ConTeXt, p for plain TeX"
+                     <> metavar "FORMAT"
+                     <> OP.value LaTeX
+                     <> showDefault
 
 parseFormat :: String -> Either String TeXFormat
 parseFormat ('l':_) = Right LaTeX

@@ -10,7 +10,7 @@
 --
 -- To invoke the PGF backend, you have a number of options.
 --
--- * You can use 'renderPGF' function to render a 'Diagram' to a ".tex" or 
+-- * You can use 'renderPGF' function to render a 'Diagram' to a ".tex" or
 --   ".pdf" file;
 --
 -- * You can use the most flexible 'renderDia' function to access the
@@ -19,7 +19,7 @@
 --
 -- > renderDia :: PGF -> Options PGF R2 -> Diagram PGF R2 -> Blaze.Builder
 --
--- The 'Surface' provides the necessary information for rendering PGF code and 
+-- The 'Surface' provides the necessary information for rendering PGF code and
 -- building a PDF using "texrunner".
 --
 
@@ -45,40 +45,45 @@ module Diagrams.Backend.PGF
   , onlineHbox
   , surfOnlineTex
     -- * Surfaces
-    -- | These surfaces should be suitable for basic diagrams. For more 
+    -- | These surfaces should be suitable for basic diagrams. For more
     --   complicated output options see 'Diagrams.Backend.PGF.Surface'.
   , Surface (..)
   , TeXFormat (..)
   , module Diagrams.Backend.PGF.Surface
   ) where
 
-import Control.Lens ((^.), set)
+import Control.Lens            (set, (^.))
 import Data.Default
-import Diagrams.Prelude     hiding (r2, view, (<.>))
-import System.Directory hiding (readable)
+import System.Directory        hiding (readable)
 import System.FilePath
 import System.IO
 import System.TeXRunner
 import System.TeXRunner.Online hiding (hbox)
 
 import qualified Blaze.ByteString.Builder   as Blaze
+import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as LB
-import qualified Data.ByteString.Char8 as B
 
 import Diagrams.Backend.PGF.Hbox
 import Diagrams.Backend.PGF.Render
 import Diagrams.Backend.PGF.Surface
+import Diagrams.Prelude             hiding (r2, view)
 
 
 type B = PGF
 
--- | Render a pgf diagram and write it to the given filepath. If the file has 
---   the extension @.pdf@, a PDF is generated in a temporary directory using 
+-- | Render a pgf diagram and write it to the given filepath. If the file has
+--   the extension @.pdf@, a PDF is generated in a temporary directory using
 --   options from the given surface.
-renderPGF :: FilePath -> SizeSpec2D -> Surface -> Diagram PGF R2 -> IO ()
+renderPGF :: DataFloat n
+          => FilePath         -- ^ path to output
+          -> SizeSpec2D n     -- ^ size of output
+          -> Surface          -- ^ 'Surface' to use
+          -> Diagram PGF V2 n -- ^ 'Diagram' to render
+          -> IO ()
 renderPGF outFile sizeSp surf = renderPGF' outFile opts
   where
-    opts = case takeExtension outFile of 
+    opts = case takeExtension outFile of
              ".pdf" -> def & surface    .~ surf
                            & sizeSpec   .~ sizeSp
                            & readable   .~ False
@@ -88,7 +93,7 @@ renderPGF outFile sizeSp surf = renderPGF' outFile opts
                            & sizeSpec .~ sizeSp
 
 -- | Same as 'renderPGF' but takes 'Options PGF R2'.
-renderPGF' :: FilePath -> Options PGF R2 -> Diagram PGF R2 -> IO ()
+renderPGF' :: DataFloat n => FilePath -> Options PGF V2 n -> Diagram PGF V2 n -> IO ()
 renderPGF' outFile opts d = case takeExtension outFile of
   ".pdf" -> do
     let rendered = renderDia PGF (opts & standalone .~ True) d
@@ -112,10 +117,11 @@ renderPGF' outFile opts d = case takeExtension outFile of
   _      -> writeTexFile outFile opts d
 
 -- | Render online PDF by calling TeX in a temporary directory.
-renderOnlinePGF :: FilePath
-                -> SizeSpec2D
+renderOnlinePGF :: DataFloat n
+                => FilePath
+                -> SizeSpec2D n
                 -> Surface
-                -> OnlineTeX (Diagram PGF R2)
+                -> OnlineTeX (Diagram PGF V2 n)
                 -> IO ()
 renderOnlinePGF outFile sizeSp surf = renderOnlinePGF' outFile opts
   where
@@ -123,9 +129,10 @@ renderOnlinePGF outFile sizeSp surf = renderOnlinePGF' outFile opts
                & surface  .~ surf
 
 -- | Same as 'renderOnlinePDF' but takes 'Options PGF R2'.
-renderOnlinePGF' :: FilePath
-                 -> Options PGF R2
-                 -> OnlineTeX (Diagram PGF R2)
+renderOnlinePGF' :: DataFloat n
+                 => FilePath
+                 -> Options PGF V2 n
+                 -> OnlineTeX (Diagram PGF V2 n)
                  -> IO ()
 renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
   ".pdf" -> do
@@ -139,10 +146,11 @@ renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
           d <- dOL
 
           -- we've already output the preamble so don't do it again
-          let rendered = renderDia PGF (opts & surface    .~ (set beginDoc "" . set preamble "") surf
-                                             & readable   .~ False
-                                             & standalone .~ True
-                                       ) d
+          let opts' = opts & surface    %~ set beginDoc "" . set preamble ""
+                           & readable   .~ False
+                           & standalone .~ True
+
+              rendered = renderDia PGF opts' d
 
           texPutStrLn $ Blaze.toByteString rendered
 
@@ -156,7 +164,7 @@ renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
   where
     surf = opts ^. surface
 
-writeTexFile :: FilePath -> Options PGF R2 -> Diagram PGF R2 -> IO ()
+writeTexFile :: DataFloat n => FilePath -> Options PGF V2 n -> Diagram PGF V2 n -> IO ()
 writeTexFile outFile opts d = do
   h <- openFile outFile WriteMode
   let rendered = renderDia PGF opts d

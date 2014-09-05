@@ -89,7 +89,7 @@ module Graphics.Rendering.PGF
 
 import           Blaze.ByteString.Builder           as Blaze (Builder, fromByteString)
 import           Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar, fromString)
-import           Control.Lens                       (Lens, both, imap,
+import           Control.Lens                       (Lens, both, ifoldMap,
                                                      makeLenses, over,
                                                      use, view, ( #~ ),
                                                      (+=), (+~), (-=),
@@ -99,9 +99,11 @@ import           Data.ByteString.Char8              (ByteString)
 import qualified Data.ByteString.Char8              as B (replicate)
 import           Data.List                          (intersperse)
 import           Data.Maybe                         (catMaybes)
+import Data.Typeable
 import           Numeric
 
 import Diagrams.Core.Transform (matrixHomRep)
+import Diagrams.TwoD.Types
 import Diagrams.Prelude        hiding (Render, image, moveTo, opacity,
                                 stroke, view, (<>))
 import Diagrams.TwoD.Text      (FontSlant (..), FontWeight (..),
@@ -114,11 +116,11 @@ import Diagrams.Backend.PGF.Surface
 
 -- | Render state, mainly to be used for convenience when build, this module
 --   only uses the indent properly.
-data RenderState = RenderState
-  { _pos        :: P2   -- ^ Current position
+data RenderState n = RenderState
+  { _pos        :: P2 n -- ^ Current position
   , _indent     :: Int  -- ^ Current indentation
   , _ignoreFill :: Bool
-  , _style      :: Style R2
+  , _style      :: Style V2 n
   }
 
 makeLenses ''RenderState
@@ -131,13 +133,13 @@ data RenderInfo = RenderInfo
 makeLenses ''RenderInfo
 
 -- | Type wrapper for render monad.
-type RenderM m = RWS RenderInfo Blaze.Builder RenderState m
+type RenderM n m = RWS RenderInfo Blaze.Builder (RenderState n) m
 
 -- | Convenient type for building.
-type Render = RenderM ()
+type Render n = RenderM n ()
 
 -- | Starting state for running the builder.
-initialState :: RenderState
+initialState :: (Floating n, Typeable n) => RenderState n
 initialState = RenderState
   { _pos        = origin
   , _indent     = 0
@@ -154,7 +156,8 @@ initialState = RenderState
 --   style      .= mempty # lc black
 --                        # fontSize (Output 1)
 
-renderWith :: Surface -> Bool -> Bool -> (Double,Double) -> Render -> Builder
+renderWith :: (RealFloat n, Typeable n)
+  => Surface -> Bool -> Bool -> (n,n) -> Render n -> Builder
 renderWith s readable standalone bounds r = builder
   where
     (_,builder) = evalRWS r'
@@ -173,38 +176,38 @@ renderWith s readable standalone bounds r = builder
 ----------------------------------------------------------------------
 
 -- builder functions
-raw :: ByteString -> Render
+raw :: ByteString -> Render n
 raw = tell . Blaze.fromByteString
 
-rawString :: String -> Render
+rawString :: String -> Render n
 rawString = tell . Blaze.fromString
 
-pgf :: ByteString -> Render
+pgf :: ByteString -> Render n
 pgf c = raw "\\pgf" >> raw c
 
-rawChar :: Char -> Render
+rawChar :: Char -> Render n
 rawChar = tell . Blaze.fromChar
 
-emit :: Render
+emit :: Render n
 emit = do
   tab <- use indent
   raw $ B.replicate tab ' '
 
-ln :: Render -> Render
+ln :: Render n -> Render n
 ln r = do
   pp <- view pprint
   if pp
     then emit >> r >> rawChar '\n'
     else r >> rawChar '\n'
 
--- | Wrap a `Render` in { .. }.
-bracers :: Render -> Render
+-- | Wrap a `Render n` in { .. }.
+bracers :: Render n -> Render n
 bracers r = do
   rawChar '{'
   r
   rawChar '}'
 
-bracersBlock :: Render -> Render
+bracersBlock :: Render n -> Render n
 bracersBlock rs = do
   raw "{\n"
   inBlock rs
@@ -213,27 +216,27 @@ bracersBlock rs = do
     then rawChar '}'
     else emit >> rawChar '}'
 
--- | Wrap a `Render` in [ .. ].
-brackets :: Render -> Render
+-- | Wrap a `Render n` in [ .. ].
+brackets :: Render n -> Render n
 brackets r = do
   rawChar '['
   r
   rawChar ']'
 
-parens :: Render -> Render
+parens :: Render n -> Render n
 parens r = do
   rawChar '('
   r
   rawChar ')'
 
--- | Intersperse list of renders with commas.
-commaIntersperce :: [Render] -> Render
+-- | Intersperse list of Render ns with commas.
+commaIntersperce :: [Render n] -> Render n
 commaIntersperce = sequence_ . intersperse (rawChar ',')
 
 -- state stuff
 
--- | Place a render in an indented block
-inBlock :: Render -> Render
+-- | Place a Render n in an indented block
+inBlock :: Render n -> Render n
 inBlock r = do
   indent += 2
   r
@@ -241,52 +244,55 @@ inBlock r = do
 
 -- * number and points
 
--- | Render a point.
-point :: P2 -> Render
+-- | Render n a point.
+point :: RealFloat n => P2 n -> Render a
 point = tuplePoint . unp2
 
--- | Render a tuple as a point.
-tuplePoint :: (Double,Double) -> Render
+-- | Render n a tuple as a point.
+tuplePoint :: RealFloat n => (n,n) -> Render a
 tuplePoint (x,y) = do
   pgf "qpoint"
   bracers (bp x)
   bracers (bp y)
 
--- | Render a double to four decimal places.
-n :: Double -> Render
+-- | Render n a n to four decimal places.
+n :: RealFloat a => a -> Render n
 n x = rawString $ showFFloat (Just 4) x ""
 
--- | Render length with bp (big point = 1 px at 72 dpi) units.
-bp :: Double -> Render
+-- | Render n length with bp (big point = 1 px at 72 dpi) units.
+bp :: RealFloat a => a -> Render n
 bp = (>> raw "bp") . n
 
--- | Render length with px units.
-px :: Double -> Render
+-- | Render n length with px units.
+px :: RealFloat a => a -> Render n
 px = (>> raw "px") . n
 
--- | Render length with mm units.
-mm :: Double -> Render
+-- | Render n length with mm units.
+mm :: RealFloat a => a -> Render n
 mm = (>> raw "mm") . n -- . (*0.35278)
 
--- | Render length with pt units.
-pt :: Double -> Render
+-- | Render n length with pt units.
+pt :: RealFloat a => a -> Render n
 pt = (>> raw "pt") . n -- . (*1.00375)
+
+fromReal :: (Real a, Fractional n) => a -> n
+fromReal = fromRational . toRational
 
 
 -- | ε = 0.0001 is the limit at which lines are no longer stroked.
-epsilon :: Double
+epsilon :: Fractional n => n
 epsilon = 0.0001
 
 
 -- * PGF environments
 
-picture :: Render -> Render
+picture :: Render n -> Render n
 picture r = do
   beginPicture
   inBlock r
   endPicture
 
-beginPicture :: Render
+beginPicture :: Render n
 beginPicture = do
   f <- view format
   ln . raw $ case f of
@@ -294,7 +300,7 @@ beginPicture = do
     ConTeXt  -> "\\startpgfpicture"
     PlainTeX -> "\\pgfpicture"
 
-endPicture :: Render
+endPicture :: Render n
 endPicture = do
   f <- view format
   ln . raw $ case f of
@@ -302,7 +308,7 @@ endPicture = do
     ConTeXt  -> "\\stoppgfpicture"
     PlainTeX -> "\\endpgfpicture"
 
-rectangleBoundingBox :: (Double,Double) -> Render
+rectangleBoundingBox :: RealFloat n => (n,n) -> Render n
 rectangleBoundingBox bounds = do
   ln $ do
     pgf "pathrectangle"
@@ -312,8 +318,8 @@ rectangleBoundingBox bounds = do
     pgf "usepath"
     bracers $ raw "use as bounding box"
 
--- | Wrap the rendering in a scope.
-scope :: Render -> Render
+-- | Wrap the Render ning in a scope.
+scope :: Render n -> Render n
 scope r = do
   scopeHeader
   -- resetState
@@ -321,7 +327,7 @@ scope r = do
   scopeFooter
 
 -- | Header for starting a scope.
-scopeHeader :: Render
+scopeHeader :: Render n
 scopeHeader = do
   f <- view format
   ln . raw $ case f of
@@ -330,7 +336,7 @@ scopeHeader = do
     PlainTeX -> "\\pgfscope"
 
 -- | Footer for ending a scope.
-scopeFooter :: Render
+scopeFooter :: Render n
 scopeFooter = do
   f <- view format
   ln . raw $ case f of
@@ -340,7 +346,7 @@ scopeFooter = do
 
 -- * Colours
 
-texColor :: Double -> Double -> Double -> Render
+texColor :: RealFloat a => a -> a -> a -> Render n
 texColor r g b = do
   n r
   rawChar ','
@@ -348,7 +354,7 @@ texColor r g b = do
   rawChar ','
   n b
 
-contextColor :: Double -> Double -> Double -> Render
+contextColor :: RealFloat a => a -> a -> a -> Render n
 contextColor r g b = do
   raw "r=" >> n r
   rawChar ','
@@ -357,7 +363,7 @@ contextColor r g b = do
   raw "b=" >> n b
 
 -- | Defines an RGB colour with the given name, using the TeX format.
-defineColour :: ByteString -> Double -> Double -> Double -> Render
+defineColour :: RealFloat a => ByteString -> a -> a -> a -> Render n
 defineColour name r g b = do
   f <- view format
   ln $ case f of
@@ -371,30 +377,30 @@ defineColour name r g b = do
       bracers $ raw "rgb"
       bracers $ texColor r g b
 
-parensColor :: Color c => c -> Render
+parensColor :: Color c => c -> Render n
 parensColor c = parens $ texColor r g b
   where (r,g,b,_) = colorToSRGBA c
 
 -- | Apply the opacity from a style to a given color.
-applyOpacity :: Color c => c -> Style v -> AlphaColour Double
+applyOpacity :: Color c => c -> Style V2 n -> AlphaColour Double
 applyOpacity c s = dissolve (maybe 1 getOpacity (getAttr s)) (toAlphaColour c)
 
 
 -- Path commands
 
 -- | Close the current path.
-closePath :: Render
+closePath :: Render n
 closePath = ln $ pgf "pathclose"
 
 -- | Move path to point.
-moveTo :: P2 -> Render
+moveTo :: RealFloat n => P2 n -> Render n
 moveTo v = ln $ do
   pos .= v
   pgf "pathmoveto"
   bracers $ point v
 
 -- | Move path by vector.
-lineTo :: R2 -> Render
+lineTo :: RealFloat n => V2 n -> Render n
 lineTo v = ln $ do
   p <- use pos
   let v' = p .+^ v
@@ -403,7 +409,7 @@ lineTo v = ln $ do
   bracers $ point v'
 
 -- | Make curved path from vectors.
-curveTo :: R2 -> R2 -> R2 -> Render
+curveTo :: RealFloat n => V2 n -> V2 n -> V2 n -> Render n
 curveTo v2 v3 v4 = ln $ do
   p <- use pos
   let [v2',v3',v4'] = map (p .+^) [v2,v3,v4]
@@ -415,20 +421,20 @@ curveTo v2 v3 v4 = ln $ do
 
 
 -- | Stroke the defined path using parameters from current scope.
-stroke :: Render
+stroke :: Render n
 stroke = ln $ pgf "usepath{stroke}"
 
 -- | Fill the defined path using parameters from current scope.
-fill :: Render
+fill :: Render n
 fill = ln $ pgf "usepath{fill}"
 
 -- | Use the defined path a clip for everything that follows in the current
 --   scope. Stacks.
-clip :: Render
+clip :: Render n
 clip = ln $ pgf "usepath{clip}"
 
 -- | @usePath fill stroke clip@ combined in one function.
-usePath :: Bool -> Bool -> Bool -> Render
+usePath :: Bool -> Bool -> Bool -> Render n
 usePath False False False      = return ()
 usePath doFill doStroke doClip = ln $ do
   pgf "usepath"
@@ -439,12 +445,12 @@ usePath doFill doStroke doClip = ln $ do
     ]
 
 -- | Uses the current path as the bounding box for whole picture.
-asBoundingBox :: Render
+asBoundingBox :: Render n
 asBoundingBox = ln $ do
   pgf "usepath"
   bracers $ raw "use as bounding box"
 
--- rectangleBoundingBox :: (Double,Double) -> Render
+-- rectangleBoundingBox :: (n,n) -> Render n
 -- rectangleBoundingBox xy = do
 --   ln $ do
 --     pgf "pathrectangle"
@@ -456,27 +462,27 @@ asBoundingBox = ln $ do
 -- Line properties
 
 -- | Sets the line width in current scope. Must be done before stroking.
-setLineWidth :: Double -> Render
+setLineWidth :: RealFloat n => n -> Render n
 setLineWidth w = ln $ do
   pgf "setlinewidth"
   bracers $ bp w
 
 -- | Sets the line cap in current scope. Must be done before stroking.
-setLineCap :: LineCap -> Render
+setLineCap :: LineCap -> Render n
 setLineCap cap = ln . pgf $ case cap of
    LineCapButt   -> "setbuttcap"
    LineCapRound  -> "setroundcap"
    LineCapSquare -> "setrectcap"
 
 -- | Sets the line join in current scope. Must be done before stroking.
-setLineJoin :: LineJoin -> Render
+setLineJoin :: LineJoin -> Render n
 setLineJoin lJoin = ln . pgf $ case lJoin of
    LineJoinBevel -> "setbeveljoin"
    LineJoinRound -> "setroundjoin"
    LineJoinMiter -> "setmiterjoin"
 
 -- | Sets the miter limit in the current scope. Must be done before stroking.
-setMiterLimit :: Double -> Render
+setMiterLimit :: RealFloat n => n -> Render n
 setMiterLimit l = do
   pgf "setmiterlimit"
   bracers $ bp l
@@ -484,13 +490,13 @@ setMiterLimit l = do
 -- stroke parameters
 
 -- | Sets the dash for the current scope. Must be done before stroking.
-setDash :: Dashing -> Render
+setDash :: RealFloat n => Dashing n -> Render n
 setDash (Dashing ds offs) = setDash' (map fromOutput ds) (fromOutput offs)
 
 
 -- \pgfsetdash{{0.5cm}{0.5cm}{0.1cm}{0.2cm}}{0cm}
 -- | Takes the dash distances and offset, must be done before stroking.
-setDash' :: [Double] -> Double -> Render
+setDash' :: RealFloat n => [n] -> n -> Render n
 setDash' ds off = ln $ do
   pgf "setdash"
   bracers $ mapM_ (bracers . bp) ds
@@ -498,18 +504,18 @@ setDash' ds off = ln $ do
 
 -- | Sets the stroke colour in current scope. If colour has opacity < 1, the
 --   scope opacity is set accordingly. Must be done before stroking.
-setLineColor :: (Color c) => c -> Render
+setLineColor :: (RealFloat a, Color c) => c -> Render a
 setLineColor c = do
   defineColour "sc" r g b
   ln $ pgf "setstrokecolor{sc}"
   --
-  when (a /= 1) $ setLineOpacity a
+  when (a /= 1) $ setLineOpacity (fromReal a)
   where
     (r,g,b,a) = colorToSRGBA c
 
 -- | Sets the stroke opacity for the current scope. Should be a value between 0
 --   and 1. Must be done  before stroking.
-setLineOpacity :: Double -> Render
+setLineOpacity :: RealFloat n => n -> Render n
 setLineOpacity a = ln $ do
   pgf "setstrokeopacity"
   bracers $ n a
@@ -519,23 +525,23 @@ setLineOpacity a = ln $ do
 
 -- | Set the fill rule to winding or even-odd for current scope. Must be done
 --   before filling.
-setFillRule :: FillRule -> Render
+setFillRule :: FillRule -> Render n
 setFillRule rule = ln $ case rule of
   Winding -> pgf "setnonzerorule"
   EvenOdd -> pgf "seteorule"
 
 -- | Sets the fill colour for current scope. If an alpha colour is used, the
 --   fill opacity is set accordingly. Must be done before filling.
-setFillColor :: (Color c) => c -> Render
+setFillColor :: (RealFloat n, Color c) => c -> Render n
 setFillColor (colorToSRGBA -> (r,g,b,a)) = do
   defineColour "fc" r g b
   ln $ pgf "setfillcolor{fc}"
   --
-  when (a /= 1) $ setFillOpacity a
+  when (a /= 1) $ setFillOpacity (fromReal a)
 
 -- | Sets the stroke opacity for the current scope. Should be a value between 0
 --   and 1. Must be done  before stroking.
-setFillOpacity :: Double -> Render
+setFillOpacity :: RealFloat n => n -> Render n
 setFillOpacity a = ln $ do
   pgf "setfillopacity"
   bracers $ n a
@@ -543,21 +549,21 @@ setFillOpacity a = ln $ do
 
 -- transformations
 
-getMatrix :: Transformation R2
-          -> (Double, Double, Double, Double, Double, Double)
+getMatrix :: Num n => Transformation V2 n
+          -> (n, n, n, n, n, n)
 getMatrix t = (a1,a2,b1,b2,c1,c2)
  where
    [[a1, a2], [b1, b2], [c1, c2]] = matrixHomRep t
-  -- (R2 a1 a2) = apply t unitX
-  -- (R2 b1 b2) = apply t unitY
-  -- (R2 c1 c2) = transl t
+  -- (V2 a1 a2) = apply t unitX
+  -- (V2 b1 b2) = apply t unitY
+  -- (V2 c1 c2) = transl t
 
 -- \pgftransformcm{⟨a⟩}{⟨b⟩}{⟨c⟩}{⟨d⟩}{⟨pointa}
 
 -- | Applies a transformation to the current scope. This transformation only
 --   effects coordinates and text, not line withs or dash spacing. (See
 --   applyDeepTransform). Must be set before the path is used.
-applyTransform :: Transformation R2 -> Render
+applyTransform :: RealFloat n => Transformation V2 n -> Render n
 applyTransform t
   | isID      = return ()
   | shiftOnly = ln $ do
@@ -574,35 +580,35 @@ applyTransform t
     isID      = shiftOnly && (e,f) == (0,0)
 
 -- | Resets the transform and sets it. Must be set before the path is used.
-setTransform :: Transformation R2 -> Render
+setTransform :: RealFloat n => Transformation V2 n -> Render n
 setTransform t = do
   pgf "settransformentries"
   mapM_ (bracers . n) [a, b, c, d] >> mapM_ (bracers . bp) [e, f]
   where
     (a,b,c,d,e,f) = getMatrix t
 
-applyScale :: Double -> Render
+applyScale :: RealFloat n => n -> Render n
 applyScale s = ln $ do
   pgf "transformscale"
   bracers $ n s
 
-resetNonTranslations :: Render
+resetNonTranslations :: Render n
 resetNonTranslations = ln $ pgf "transformresetnontranslations"
 
 -- | Base transforms are applied by the document reader.
-baseTransform :: Transformation R2 -> Render
+baseTransform :: RealFloat n => Transformation V2 n -> Render n
 baseTransform t = do
   pgf "lowlevel"
   bracers $ setTransform t
 
--- setShadetransform :: Transformation R2 -> Render
+-- setShadetransform :: Transformation V2 -> Render n
 -- setShadetransform (dropTransl -> t) = do
 --   pgf "setadditionalshadetransform"
 --   bracersBlock $ applyTransform t
 
 -- shading
 
-linearGradient :: LGradient -> Render
+linearGradient :: RealFloat n => LGradient n -> Render n
 linearGradient (LGradient stops g0 g1 gt sm) = do
   let d      = transform gt (g0 .-. g1)
       stops' = adjustStops stops sm
@@ -610,10 +616,10 @@ linearGradient (LGradient stops g0 g1 gt sm) = do
     pgf "declarehorizontalshading"
     bracers $ raw "ft"
     bracers $ raw "100cm" -- must be a better way?
-    bracersBlock $ colorSpec (magnitude d) stops'
-  shadePath (direction d) $ raw "ft"
+    bracersBlock $ colorSpec (norm d) stops'
+  shadePath (direction d ^. _theta) $ raw "ft"
 
-radialGradient :: RGradient -> Render
+radialGradient :: RealFloat n => RGradient n -> Render n
 radialGradient (RGradient stops c0 r0 c1 r1 gt sm) = do
   let d = transform gt (c0 .-. c1)
       stops' = adjustStops stops sm
@@ -622,10 +628,10 @@ radialGradient (RGradient stops c0 r0 c1 r1 gt sm) = do
     bracers $ raw "ft"
     bracers $ point c0
     bracersBlock $ colorSpec r1 stops'
-  shadePath (direction d) $ raw "ft"
+  shadePath (direction d ^. _theta) $ raw "ft"
 
 -- Dirty adjustments for spread methods (PGF doesn't seem to have them).
-adjustStops :: [GradientStop] -> SpreadMethod -> [GradientStop]
+adjustStops :: RealFloat n => [GradientStop n] -> SpreadMethod -> [GradientStop n]
 adjustStops stops method =
   case method of
     GradPad     -> (stopFraction .~ 0) (head stops)
@@ -636,7 +642,7 @@ adjustStops stops method =
     GradRepeat  -> correct . replicate 10 $ stops
 
   where
-    correct  = concat . imap (\i -> map (stopFraction +~ (lastStop * fromIntegral i)) )
+    correct  = ifoldMap (\i -> map (stopFraction +~ (lastStop * fromIntegral i)) )
     lastStop = last stops ^. stopFraction
 
 (.§) :: Lens s t b b -> s -> s -> t
@@ -644,7 +650,7 @@ adjustStops stops method =
 {-# INLINE (.§) #-}
 
 
-colorSpec :: Double -> [GradientStop] -> Render
+colorSpec :: RealFloat n => n -> [GradientStop n] -> Render n
 colorSpec d = mapM_ ln
             . combinePairs
             . intersperse (rawChar ';')
@@ -661,7 +667,7 @@ combinePairs []  = []
 combinePairs [x] = [x]
 combinePairs (x1:x2:xs) = (x1 >> x2) : combinePairs xs
 
-shadePath :: Angle -> Render -> Render
+shadePath :: RealFloat n => Angle n -> Render n -> Render n
 shadePath (view deg -> θ) name = ln $ do
   pgf "shadepath"
   bracers name
@@ -673,7 +679,7 @@ shadePath (view deg -> θ) name = ln $ do
 -- \pgfimage[⟨options ⟩]{⟨filename ⟩}
 
 -- | Images are wraped in a \pgftext.
-image :: DImage External -> Render
+image :: RealFloat n => DImage n External -> Render n
 image (DImage (ImageRef path) w h t2) = do
   applyTransform t2
   ln $ do
@@ -681,15 +687,15 @@ image (DImage (ImageRef path) w h t2) = do
     bracers $ do
       pgf "image"
       brackets $ do
-        raw "width=" >> bp (fromIntegral w)
+        raw "width=" >> bp (fromIntegral w :: Double)
         rawChar ','
-        raw "height=" >> bp (fromIntegral h)
+        raw "height=" >> bp (fromIntegral h :: Double)
       bracers $ rawString path
 
 
 -- text
 
-renderText :: [Render] -> Render -> Render
+renderText :: [Render n] -> Render n -> Render n
 renderText ops txt = ln $ do
   pgf "text"
   brackets . commaIntersperce $ ops
@@ -697,7 +703,7 @@ renderText ops txt = ln $ do
 
 -- | Returns a list of values to be put in square brackets like
 --   @\pgftext[left,top]{txt}@.
-setTextAlign :: TextAlignment -> [Render]
+setTextAlign :: RealFloat n => TextAlignment n -> [Render n]
 setTextAlign a = case a of
   BaselineText         -> [raw "base", raw "left"]
   BoxAlignedText xt yt -> catMaybes [xt', yt']
@@ -709,19 +715,19 @@ setTextAlign a = case a of
           | yt < 0.25 = Just $ raw "bottom"
           | otherwise = Nothing
 
-setTextRotation :: Angle -> [Render]
+setTextRotation :: RealFloat n => Angle n -> [Render n]
 setTextRotation a = case a^.deg of
   0 -> []
   θ -> [raw "rotate=" >> n θ]
 
--- | Set the font weight by rendering @\bf @. Nothing is done for normal
+-- | Set the font weight by Render ning @\bf @. Nothing is done for normal
 --   weight.
-setFontWeight :: FontWeight -> Render
+setFontWeight :: FontWeight -> Render n
 setFontWeight FontWeightNormal = return ()
 setFontWeight FontWeightBold   = raw "\\bf "
 
--- | Set the font slant by rendering @\bf @. Nothing is done for normal weight.
-setFontSlant :: FontSlant -> Render
+-- | Set the font slant by Render ning @\bf @. Nothing is done for normal weight.
+setFontSlant :: FontSlant -> Render n
 setFontSlant FontSlantNormal  = return ()
 setFontSlant FontSlantItalic  = raw "\\it "
 setFontSlant FontSlantOblique = raw "\\sl "
