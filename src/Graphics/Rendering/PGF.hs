@@ -318,7 +318,7 @@ rectangleBoundingBox bounds = do
     pgf "usepath"
     bracers $ raw "use as bounding box"
 
--- | Wrap the Render ning in a scope.
+-- | Wrap the rendering in a scope.
 scope :: Render n -> Render n
 scope r = do
   scopeHeader
@@ -720,13 +720,13 @@ setTextRotation a = case a^.deg of
   0 -> []
   θ -> [raw "rotate=" >> n θ]
 
--- | Set the font weight by Render ning @\bf @. Nothing is done for normal
+-- | Set the font weight by rendering @\bf @. Nothing is done for normal
 --   weight.
 setFontWeight :: FontWeight -> Render n
 setFontWeight FontWeightNormal = return ()
 setFontWeight FontWeightBold   = raw "\\bf "
 
--- | Set the font slant by Render ning @\bf @. Nothing is done for normal weight.
+-- | Set the font slant by rendering @\bf @. Nothing is done for normal weight.
 setFontSlant :: FontSlant -> Render n
 setFontSlant FontSlantNormal  = return ()
 setFontSlant FontSlantItalic  = raw "\\it "

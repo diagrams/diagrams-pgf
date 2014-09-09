@@ -9,16 +9,16 @@
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
--- A hbox a primitive TeX box, typically used for holding text. This module 
--- provides functions for retrieving the dimensions of these boxes so they may be 
+-- A hbox a primitive TeX box, typically used for holding text. This module
+-- provides functions for retrieving the dimensions of these boxes so they may be
 -- used as envelopes for diagrams.
 -----------------------------------------------------------------------------
 module Diagrams.Backend.PGF.Hbox
   ( Hbox (..)
     -- * Enveloped diagrams
-    -- | The dimensions of a hbox can be recovered by calling TeX. The 
+    -- | The dimensions of a hbox can be recovered by calling TeX. The
     --   resulting envelope has its origin at the baseline of the text.
-    --   
+    --
     --   <<diagrams/hbox.svg#width=200 hbox>>
   , onlineHbox
   , surfOnlineTex
@@ -27,33 +27,29 @@ module Diagrams.Backend.PGF.Hbox
   , hbox
   , hboxInv
     -- * IO versions
-    -- | If used properly, the non-IO versions should be \'safe\'. However we 
+    -- | If used properly, the non-IO versions should be \'safe\'. However we
     --   supply the IO versions anyway.
   , hboxIO
   , surfOnlineTexIO
   ) where
 
-import Control.Lens            ((^.))
-import Data.ByteString.Char8   (pack)
-import Data.Monoid
-import Data.Typeable
-import System.IO.Unsafe
-import System.TeXRunner.Online hiding (hbox)
-import System.TeXRunner.Parse
+import           Control.Lens                     ((^.))
+import           Data.ByteString.Char8            (pack)
+import           Data.Monoid
+import           Data.Typeable
+import           System.IO.Unsafe
+import           System.TeXRunner.Online          hiding (hbox)
+import           System.TeXRunner.Parse
+import qualified System.TeXRunner.Online          as Online
 
-import qualified System.TeXRunner.Online as Online
+import           Diagrams.BoundingBox
+import           Diagrams.Core
+import           Diagrams.Core.Envelope           (pointEnvelope)
+import           Diagrams.Points
+import           Diagrams.TwoD
+import           Diagrams.TwoD.Transform.ScaleInv
 
-
-import Diagrams.BoundingBox
-import Diagrams.Core.Envelope           (pointEnvelope)
-import Diagrams.TwoD
-import Diagrams.TwoD.Types
-import Diagrams.Core
-import Diagrams.TwoD.Transform.ScaleInv
-
-import Diagrams.Backend.PGF.Surface
-
-import Diagrams.Points
+import           Diagrams.Backend.PGF.Surface
 
 -- | Primitive for placing raw TeX commands in a hbox.
 data Hbox n = Hbox (Transformation V2 n) String
