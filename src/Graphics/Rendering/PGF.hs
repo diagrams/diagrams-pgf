@@ -87,8 +87,9 @@ module Graphics.Rendering.PGF
   , setFontSlant
   ) where
 
-import           Blaze.ByteString.Builder           as Blaze (Builder, fromByteString)
-import           Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar, fromString)
+-- import           Blaze.ByteString.Builder           as Blaze (Builder, fromByteString)
+-- import           Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar, fromString)
+import           Data.ByteString.Builder
 import           Control.Lens                       (Lens, both, ifoldMap,
                                                      makeLenses, over,
                                                      use, view, ( #~ ),
@@ -133,7 +134,7 @@ data RenderInfo = RenderInfo
 makeLenses ''RenderInfo
 
 -- | Type for render monad.
-type RenderM n m = RWS RenderInfo Blaze.Builder (RenderState n) m
+type RenderM n m = RWS RenderInfo Builder (RenderState n) m
 
 -- | Convenient type for building.
 type Render n = RenderM n ()
@@ -176,22 +177,25 @@ renderWith s readable standalone bounds r = builder
 ----------------------------------------------------------------------
 
 -- builder functions
-raw :: ByteString -> Render n
-raw = tell . Blaze.fromByteString
+raw :: Builder -> Render n
+raw = tell
+
+rawByteString :: ByteString -> Render n
+rawByteString = tell . byteString
 
 rawString :: String -> Render n
-rawString = tell . Blaze.fromString
+rawString = tell . string8
 
-pgf :: ByteString -> Render n
+pgf :: Builder -> Render n
 pgf c = raw "\\pgf" >> raw c
 
 rawChar :: Char -> Render n
-rawChar = tell . Blaze.fromChar
+rawChar = tell . char8
 
 emit :: Render n
 emit = do
   tab <- use indent
-  raw $ B.replicate tab ' '
+  rawByteString $ B.replicate tab ' '
 
 ln :: Render n -> Render n
 ln r = do
@@ -369,11 +373,11 @@ defineColour name r g b = do
   ln $ case f of
     ConTeXt  -> do
       raw "\\definecolor"
-      brackets $ raw name
+      brackets $ rawByteString name
       brackets $ contextColor r g b
     _        -> do
       raw "\\definecolor"
-      bracers $ raw name
+      bracers $ rawByteString name
       bracers $ raw "rgb"
       bracers $ texColor r g b
 

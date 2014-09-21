@@ -19,7 +19,7 @@ module Diagrams.Backend.PGF.Render
   , escapeString
   ) where
 
-import Blaze.ByteString.Builder (Builder)
+import Data.ByteString.Builder
 import Control.Lens             (Lens', lens, op, use, uses, (.=),
                                  (<<<>=), (^.))
 import Control.Lens.Extras      (is)

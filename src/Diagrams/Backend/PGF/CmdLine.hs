@@ -17,8 +17,7 @@
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.PGF.CmdLine
-       (
-         -- * General form of @main@
+       ( -- * General form of @main@
          -- $mainwith
 
          mainWith
@@ -31,10 +30,7 @@ module Diagrams.Backend.PGF.CmdLine
        , onlineMainWithSurf
        , multiMain
 
-         -- * Backend tokens
-
-       , PGF
-       , B
+       , module Diagrams.Backend.PGF
        ) where
 
 import           Diagrams.Backend.CmdLine
@@ -46,9 +42,7 @@ import           Control.Lens
 import           Control.Monad             (mplus)
 import           Data.Default
 
-import qualified Blaze.ByteString.Builder  as Blaze
-import qualified Data.ByteString           as B
-import           Data.List.Split
+import           Data.ByteString.Builder
 import           Options.Applicative       as OP
 
 #ifdef CMDLINELOOP
@@ -174,17 +168,35 @@ defaultMain = mainWith
 
 instance DataFloat n => Mainable (Diagram PGF V2 n) where
 #ifdef CMDLINELOOP
-    type MainOpts (Diagram PGF V2 n)
-      = (DiagramOpts, (TeXFormat, (PGFCmdLineOpts, DiagramLoopOpts)))
+  type MainOpts (Diagram PGF V2 n)
+    = (DiagramOpts, (TeXFormat, (PGFCmdLineOpts, DiagramLoopOpts)))
 
-    mainRender (opts,(format,(pgf,loopOpts))) d = do
-        chooseRender opts (formatToSurf format) pgf d
-        when (loopOpts^.loop) (waitForChange Nothing loopOpts)
+  mainRender (diaOpts,(format,(pgfOpts,loopOpts))) d = do
+      let opts = cmdLineOpts diaOpts (formatToSurf format) pgfOpts
+      case diaOpts^.output of
+        ""  -> hPutBuilder stdout $ renderDia PGF opts d
+        out -> renderPGF' out opts d
+      when (loopOpts^.loop) (waitForChange Nothing loopOpts)
 #else
-    type MainOpts (Diagram PGF V2 n) = (DiagramOpts, (TeXFormat, PGFCmdLineOpts))
+  type MainOpts (Diagram PGF V2 n) = (DiagramOpts, (TeXFormat, PGFCmdLineOpts))
 
-    mainRender (dOps, (format, pgf)) = chooseRender dOps (formatToSurf format) pgf
+  mainRender (diaOpts, (format, pgfOpts))
+    = let opts = cmdLineOpts diaOpts (formatToSurf format) pgfOpts
+      in  case diaOpts^.output of
+            ""  -> hPutBuilder stdout $ renderDia PGF pgfOpts d
+            out -> renderPGF' out opts d
 #endif
+
+cmdLineOpts :: DataFloat n
+   => DiagramOpts -> Surface -> PGFCmdLineOpts -> Options PGF V2 n
+cmdLineOpts opts surf pgf
+  = def & surface    .~ surf
+        & sizeSpec   .~ sz
+        & readable   .~ pgf^.cmdReadable
+        & standalone .~ pgf^.cmdStandalone
+  where
+    sz = mkSizeSpec (f $ opts^.width) (f $ opts^.height)
+    f  = fmap fromIntegral
 
 chooseRender :: DataFloat n
              => DiagramOpts
@@ -192,18 +204,14 @@ chooseRender :: DataFloat n
              -> PGFCmdLineOpts
              -> Diagram PGF V2 n
              -> IO ()
-chooseRender opts surf pgf d = case splitOn "." (opts^.output) of
-    [""] -> Blaze.toByteStringIO B.putStr $
-              renderDia PGF pgfOpts d
-    ps | last ps `elem` ["tex", "pdf"]
-                   -> renderPGF' (opts^.output) pgfOpts d
-       | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
-                              ++ "\nSupported file types are .tex or .pdf"
+chooseRender opts surf pgf d = case opts^.output of
+    ""  -> hPutBuilder stdout $ renderDia PGF pgfOpts d
+    out -> renderPGF' out pgfOpts d
   where
     pgfOpts = def & surface    .~ surf
                   & sizeSpec   .~ sz
-                  & readable   .~ (pgf^.cmdReadable)
-                  & standalone .~ (pgf^.cmdStandalone)
+                  & readable   .~ pgf^.cmdReadable
+                  & standalone .~ pgf^.cmdStandalone
 
     sz = case (opts^.width, opts^.height) of
            (Nothing, Nothing) -> Absolute
@@ -235,12 +243,11 @@ onlineChooseRender :: DataFloat n
                    -> PGFCmdLineOpts
                    -> OnlineTeX (Diagram PGF V2 n)
                    -> IO ()
-onlineChooseRender opts surf pgf dOL = case splitOn "." (opts^.output) of
-    [""] -> do
-      d <- surfOnlineTexIO surf dOL
-      Blaze.toByteStringIO B.putStr $ renderDia PGF pgfOpts d
+onlineChooseRender opts surf pgf dOL = case opts^.output of
+    ""  -> do d <- surfOnlineTexIO surf dOL
+              hPutBuilder stdout $ renderDia PGF pgfOpts d
 
-    _    -> renderOnlinePGF' (opts^.output) pgfOpts dOL
+    out -> renderOnlinePGF' out pgfOpts dOL
   where
     pgfOpts = def & surface    .~ surf
                   & sizeSpec   .~ sz
@@ -257,8 +264,14 @@ instance DataFloat n => Mainable (OnlineTeX (Diagram PGF V2 n)) where
   type MainOpts (OnlineTeX (Diagram PGF V2 n))
     = (DiagramOpts, (PGFCmdLineOpts, TeXFormat))
 
-  mainRender (opts,(pgf,format))
-    = onlineChooseRender opts (formatToSurf format) pgf
+  mainRender (diaOpts,(pgfOpts,format)) dOL
+    -- = onlineChooseRender opts (formatToSurf format) pgf
+    = let surf = formatToSurf format
+          opts = cmdLineOpts diaOpts surf pgfOpts
+      in  case diaOpts^.output of
+            -- ""  -> hPutBuilder stdout $ renderDia PGF opts d
+            ""  -> surfOnlineTexIO surf dOL >>= hPutBuilder stdout . renderDia PGF opts
+            out -> renderOnlinePGF' out opts dOL
 
 instance DataFloat n => Mainable (Surface, OnlineTeX (Diagram PGF V2 n)) where
   type MainOpts (Surface, OnlineTeX (Diagram PGF V2 n))

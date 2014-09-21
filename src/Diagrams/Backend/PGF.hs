@@ -54,13 +54,13 @@ module Diagrams.Backend.PGF
 
 import Control.Lens            (set, (^.))
 import Data.Default
+import Data.ByteString.Builder
 import System.Directory        hiding (readable)
 import System.FilePath
 import System.IO
 import System.TeXRunner
 import System.TeXRunner.Online hiding (hbox)
 
-import qualified Blaze.ByteString.Builder   as Blaze
 import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as LB
 
@@ -101,7 +101,7 @@ renderPGF' outFile opts d = case takeExtension outFile of
     currentDir <- getCurrentDirectory
     targetDir  <- canonicalizePath (takeDirectory outFile)
 
-    let source = Blaze.toLazyByteString rendered
+    let source = toLazyByteString rendered
 
     (_, texLog, mPDF) <- runTex (opts^.surface.command)
                                 (opts^.surface.arguments)
@@ -152,7 +152,7 @@ renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
 
               rendered = renderDia PGF opts' d
 
-          texPutStrLn $ Blaze.toByteString rendered
+          texPutStrLn $ (LB.toStrict . toLazyByteString) rendered
 
     case mPDF of
       Nothing  -> putStrLn "Error, no PDF found:"
@@ -164,10 +164,10 @@ renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
   where
     surf = opts ^. surface
 
+-- | Write the rendered diagram to a text file, ignoring the extension.
 writeTexFile :: DataFloat n => FilePath -> Options PGF V2 n -> Diagram PGF V2 n -> IO ()
 writeTexFile outFile opts d = do
   h <- openFile outFile WriteMode
-  let rendered = renderDia PGF opts d
-  Blaze.toByteStringIO (B.hPutStr h) rendered
+  hPutBuilder h $ renderDia PGF opts d
   hClose h
 
