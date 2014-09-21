@@ -132,14 +132,14 @@ data RenderInfo = RenderInfo
 
 makeLenses ''RenderInfo
 
--- | Type wrapper for render monad.
+-- | Type for render monad.
 type RenderM n m = RWS RenderInfo Blaze.Builder (RenderState n) m
 
 -- | Convenient type for building.
 type Render n = RenderM n ()
 
 -- | Starting state for running the builder.
-initialState :: (Floating n, Typeable n) => RenderState n
+initialState :: (Typeable n, Floating n) => RenderState n
 initialState = RenderState
   { _pos        = origin
   , _indent     = 0

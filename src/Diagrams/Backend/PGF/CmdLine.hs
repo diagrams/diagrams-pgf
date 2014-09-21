@@ -37,44 +37,44 @@ module Diagrams.Backend.PGF.CmdLine
        , B
        ) where
 
-import Diagrams.Prelude hiding (width, height, interval, (<>))
-import Diagrams.Backend.PGF
-import Diagrams.Backend.PGF.Hbox
-import Diagrams.Backend.CmdLine
+import           Diagrams.Backend.CmdLine
+import           Diagrams.Backend.PGF
+import           Diagrams.Backend.PGF.Hbox
+import           Diagrams.Prelude          hiding (height, interval, width, (<>))
 
-import Control.Lens
-import Control.Monad (mplus)
-import Data.Default
+import           Control.Lens
+import           Control.Monad             (mplus)
+import           Data.Default
 
-import Data.List.Split
-import Options.Applicative as OP hiding ((&))
-import qualified Data.ByteString as B
-import qualified Blaze.ByteString.Builder as Blaze
+import qualified Blaze.ByteString.Builder  as Blaze
+import qualified Data.ByteString           as B
+import           Data.List.Split
+import           Options.Applicative       as OP
 
 #ifdef CMDLINELOOP
-import           Data.Maybe          (fromMaybe)
-import           Control.Monad       (when)
-import           System.Directory    (getModificationTime)
-import           System.Process      (runProcess, waitForProcess)
-import           System.IO           (openFile, hClose, IOMode(..),
-                                      hSetBuffering, BufferMode(..), stdout)
-import           System.Exit         (ExitCode(..))
-import                               Control.Concurrent  (threadDelay)
-import qualified Control.Exception as Exc  (catch,  bracket)
-import Control.Exception (SomeException(..))
+import           Control.Concurrent        (threadDelay)
+import           Control.Exception         (SomeException (..))
+import qualified Control.Exception         as Exc (bracket, catch)
+import           Control.Monad             (when)
+import           Data.Maybe                (fromMaybe)
+import           System.Directory          (getModificationTime)
+import           System.Exit               (ExitCode (..))
+import           System.IO                 (BufferMode (..), IOMode (..), hClose, hSetBuffering,
+                                            openFile, stdout)
+import           System.Process            (runProcess, waitForProcess)
 
-import System.Environment  (getProgName,getArgs)
-import System.Posix.Process (executeFile)
+import           System.Environment        (getArgs, getProgName)
+import           System.Posix.Process      (executeFile)
 
 # if MIN_VERSION_directory(1,2,0)
-import Data.Time.Clock (UTCTime,getCurrentTime)
+import           Data.Time.Clock           (UTCTime, getCurrentTime)
 type ModuleTime = UTCTime
 getModuleTime :: IO ModuleTime
 getModuleTime = getCurrentTime
 #else
-import System.Time         (ClockTime, getClockTime)
+import           System.Time               (ClockTime, getClockTime)
 type ModuleTime = ClockTime
-getModuleTime :: IO  ModuleTime
+getModuleTime :: IO ModuleTime
 getModuleTime = getClockTime
 #endif
 #endif
@@ -106,21 +106,6 @@ instance ToResult d => ToResult (OnlineTeX d) where
   type ResultOf (OnlineTeX d) = IO (ResultOf d)
 
   toResult d (surf, args) = flip toResult args <$> surfOnlineTexIO surf d
-
--- instance Mainable d => Mainable (OnlineTeX d) where
---   type MainOpts (OnlineTeX d) = (TeXFormat, MainOpts d)
--- 
---   mainRender (format, opts) d = surfOnlineTexIO (formatToSurf format) d
---                             >>= mainRender opts
--- 
--- instance Mainable d => Mainable (Surface, OnlineTeX d) where
---   type MainOpts (Surface, OnlineTeX d) = MainOpts d
--- 
---   mainRender opts (surf,d) = surfOnlineTexIO surf d
---                          >>= mainRender opts
-
-
-
 
 -- $mainwith
 -- The 'mainWith' method unifies all of the other forms of @main@ and is
@@ -216,15 +201,15 @@ chooseRender opts surf pgf d = case splitOn "." (opts^.output) of
                               ++ "\nSupported file types are .tex or .pdf"
   where
     pgfOpts = def & surface    .~ surf
-                  & sizeSpec   .~ size
+                  & sizeSpec   .~ sz
                   & readable   .~ (pgf^.cmdReadable)
                   & standalone .~ (pgf^.cmdStandalone)
 
-    size = case (opts^.width, opts^.height) of
-             (Nothing, Nothing) -> Absolute
-             (Just w, Nothing)  -> Width (fromIntegral w)
-             (Nothing, Just h)  -> Height (fromIntegral h)
-             (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
+    sz = case (opts^.width, opts^.height) of
+           (Nothing, Nothing) -> Absolute
+           (Just w, Nothing)  -> Width (fromIntegral w)
+           (Nothing, Just h)  -> Height (fromIntegral h)
+           (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
 
 formatToSurf :: TeXFormat -> Surface
 formatToSurf format = case format of
@@ -258,15 +243,15 @@ onlineChooseRender opts surf pgf dOL = case splitOn "." (opts^.output) of
     _    -> renderOnlinePGF' (opts^.output) pgfOpts dOL
   where
     pgfOpts = def & surface    .~ surf
-                  & sizeSpec   .~ size
+                  & sizeSpec   .~ sz
                   & readable   .~ (pgf^.cmdReadable)
                   & standalone .~ (pgf^.cmdStandalone)
 
-    size = case (opts^.width, opts^.height) of
-             (Nothing, Nothing) -> Absolute
-             (Just w, Nothing)  -> Width (fromIntegral w)
-             (Nothing, Just h)  -> Height (fromIntegral h)
-             (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
+    sz = case (opts^.width, opts^.height) of
+           (Nothing, Nothing) -> Absolute
+           (Just w, Nothing)  -> Width (fromIntegral w)
+           (Nothing, Just h)  -> Height (fromIntegral h)
+           (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
 
 instance DataFloat n => Mainable (OnlineTeX (Diagram PGF V2 n)) where
   type MainOpts (OnlineTeX (Diagram PGF V2 n))
@@ -288,8 +273,6 @@ onlineMain = mainWith
 -- | Same as @mainWithSurf@ but takes an online pgf diagram.
 onlineMainWithSurf :: DataFloat n => Surface -> OnlineTeX (Diagram PGF V2 n) -> IO ()
 onlineMainWithSurf = curry mainWith
-
-
 
 -- | @multiMain@ is like 'defaultMain', except instead of a single
 --   diagram it takes a list of diagrams paired with names as input.
@@ -320,8 +303,8 @@ instance DataFloat n => Mainable [(String,Diagram PGF V2 n)] where
     mainRender = defaultMultiMainRender
 
 instance Parseable TeXFormat where
-  parser = nullOption $ eitherReader parseFormat
-                     <> short   'f'
+  parser = OP.option (eitherReader parseFormat)
+                      $ short   'f'
                      <> long    "format"
                      <> help    "l for LaTeX, c for ConTeXt, p for plain TeX"
                      <> metavar "FORMAT"

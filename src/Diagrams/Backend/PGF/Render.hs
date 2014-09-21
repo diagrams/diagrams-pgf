@@ -8,11 +8,15 @@
 module Diagrams.Backend.PGF.Render
   ( PGF (..)
   , Options (..)
+
   -- * Lenses
   , surface
   , sizeSpec
   , readable
   , standalone
+
+  -- * Utilities
+  , escapeString
   ) where
 
 import Blaze.ByteString.Builder (Builder)
@@ -186,7 +190,7 @@ applyOpacity c s = dissolve (maybe 1 getOpacity (getAttr s)) (toAlphaColour c)
 getNumAttr :: AttributeClass (a n) => (a n -> t) -> Style V2 n -> Maybe t
 getNumAttr f = (f <$>) . getAttr
 
-getMeasuredAttr :: AttributeClass (a n) => (a n -> Measure t) -> Style V2 n -> Maybe t
+getMeasuredAttr :: (AttributeClass (a n), Num t) => (a n -> Measure t) -> Style V2 n -> Maybe t
 getMeasuredAttr f = (fromOutput . f <$>) . getAttr
 
 -- | Queries the current style and decides if the path should be stroked. Paths
@@ -257,7 +261,7 @@ renderText (Text tt tn txtAlign str) = do
   P.renderText (P.setTextAlign txtAlign) $ do
     P.setFontWeight <~ getFontWeight
     P.setFontSlant  <~ getFontSlant
-    P.rawString $ escapeString str
+    P.rawString str
 
 renderHbox :: RealFloat n => Hbox n -> P.Render n
 renderHbox (Hbox tt str) = do
