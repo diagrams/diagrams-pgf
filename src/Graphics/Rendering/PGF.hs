@@ -251,9 +251,14 @@ inBlock r = do
 
 -- * number and points
 
--- | Render n a point.
+-- | Render a point.
 point :: RealFloat n => P2 n -> Render a
 point = tuplePoint . unp2
+
+bracerPoint :: RealFloat n => P2 n -> Render a
+bracerPoint (P (V2 x y)) = do
+  bracers (bp x)
+  bracers (bp y)
 
 -- | Render n a tuple as a point.
 tuplePoint :: RealFloat n => (n,n) -> Render a
@@ -403,8 +408,8 @@ closePath = ln $ pgf "pathclose"
 moveTo :: RealFloat n => P2 n -> Render n
 moveTo v = ln $ do
   pos .= v
-  pgf "pathmoveto"
-  bracers $ point v
+  pgf "pathqmoveto"
+  bracerPoint v
 
 -- | Move path by vector.
 lineTo :: RealFloat n => V2 n -> Render n
@@ -412,8 +417,8 @@ lineTo v = ln $ do
   p <- use pos
   let v' = p .+^ v
   pos .= v'
-  pgf "pathlineto"
-  bracers $ point v'
+  pgf "pathqlineto"
+  bracerPoint v'
 
 -- | Make curved path from vectors.
 curveTo :: RealFloat n => V2 n -> V2 n -> V2 n -> Render n
@@ -421,34 +426,33 @@ curveTo v2 v3 v4 = ln $ do
   p <- use pos
   let [v2',v3',v4'] = map (p .+^) [v2,v3,v4]
   pos .= v4'
-  pgf "pathcurveto"
-  mapM_ (bracers . point) [v2', v3', v4']
+  pgf "pathqcurveto"
+  mapM_ bracerPoint [v2', v3', v4']
 
 -- using paths
 
 
 -- | Stroke the defined path using parameters from current scope.
 stroke :: Render n
-stroke = ln $ pgf "usepath{stroke}"
+stroke = ln $ pgf "usepathqstroke"
 
 -- | Fill the defined path using parameters from current scope.
 fill :: Render n
-fill = ln $ pgf "usepath{fill}"
+fill = ln $ pgf "usepathqfill"
 
 -- | Use the defined path a clip for everything that follows in the current
 --   scope. Stacks.
 clip :: Render n
-clip = ln $ pgf "usepath{clip}"
+clip = ln $ pgf "usepathqclip"
 
 -- | @usePath fill stroke clip@ combined in one function.
-usePath :: Bool -> Bool -> Bool -> Render n
-usePath False False False      = return ()
-usePath doFill doStroke doClip = ln $ do
-  pgf "usepath"
-  bracers . commaIntersperce . map snd $ filter fst
+usePath :: Bool -> Bool -> Render n
+usePath False False     = return ()
+usePath doFill doStroke = ln $ do
+  pgf "usepathq"
+  mapM_ snd $ filter fst
     [ (doFill,   raw "fill")
     , (doStroke, raw "stroke")
-    , (doClip,   raw "clip")
     ]
 
 -- | Uses the current path as the bounding box for whole picture.

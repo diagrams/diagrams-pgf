@@ -150,7 +150,7 @@ draw = do
     P.setLineCap   <~ getLineCap
     P.setDash      <~ getDashing
   --
-  P.usePath doFill doStroke False
+  P.usePath doFill doStroke
 
 -- helper function to easily get options and set them
 (<~) :: (AttributeClass a) => (b -> P.Render n) -> (a -> b) -> P.Render n
