@@ -95,6 +95,7 @@ instance Parseable PGFCmdLineOpts where
            <> help "Indent lines"
             )
 
+-- not sure if this is of any use
 instance ToResult d => ToResult (OnlineTeX d) where
   type Args (OnlineTeX d) = (Surface, Args d)
   type ResultOf (OnlineTeX d) = IO (ResultOf d)
@@ -138,33 +139,57 @@ instance ToResult d => ToResult (OnlineTeX d) where
 --   options. Currently it looks something like
 --
 -- @
--- ./mydiagram
---
--- Usage: ./mydiagram [-w|--width WIDTH] [-h|--height HEIGHT] [-o|--output OUTPUT] [-f|--format FORMAT] [-l|--loop] [-s|--src ARG] [-i|--interval INTERVAL]
+-- mydiagram
+-- 
+-- Usage: mydiagram [-?|--help] [-w|--width WIDTH] [-h|--height HEIGHT]
+--                  [-o|--output OUTPUT] [-f|--format FORMAT] [-a|--standalone]
+--                  [-r|--readable] [-l|--loop] [-s|--src ARG]
+--                  [-i|--interval INTERVAL]
 --   Command-line diagram generation.
---
+-- 
 -- Available options:
 --   -?,--help                Show this help text
 --   -w,--width WIDTH         Desired WIDTH of the output image
 --   -h,--height HEIGHT       Desired HEIGHT of the output image
 --   -o,--output OUTPUT       OUTPUT file
---   -f,--format FORMAT       l for LaTeX, c for ConTeXt, p for plain TeX (default: LaTeX)
+--   -f,--format FORMAT       l for LaTeX, c for ConTeXt, p for plain
+--                            TeX (default: LaTeX)
+--   -a,--standalone          Produce standalone .tex output
+--   -r,--readable            Indent lines
 --   -l,--loop                Run in a self-recompiling loop
 --   -s,--src ARG             Source file to watch
---   -i,--interval INTERVAL   When running in a loop, check for changes every INTERVAL seconds.
+--   -i,--interval INTERVAL   When running in a loop, check for changes every
+--                            INTERVAL seconds.
 -- @
 --
 --   For example, a common scenario is
 --
 -- @
--- $ ghc --make MyDiagram
+-- $ ghc --make mydiagram
 --
---   # output image.tex with a width of 400pt (and auto-determined height)
+--   # output image.tex with a width of 400bp (and auto-determined height)
+--   # (bp = big point = 1px at 72dpi)
 -- $ ./mydiagram -o image.tex -w 400
 -- @
 
 defaultMain :: DataFloat n => Diagram PGF V2 n -> IO ()
 defaultMain = mainWith
+
+-- | Allows you to pick a surface the diagram will be rendered with.
+mainWithSurf :: DataFloat n => Surface -> Diagram PGF V2 n -> IO ()
+mainWithSurf = curry mainWith
+
+-- For online diagrams.
+
+-- | Same as @defaultMain@ but takes an online pgf diagram.
+onlineMain :: DataFloat n => OnlineTeX (Diagram PGF V2 n) -> IO ()
+onlineMain = mainWith
+
+-- | Same as @mainWithSurf@ but takes an online pgf diagram.
+onlineMainWithSurf :: DataFloat n => Surface -> OnlineTeX (Diagram PGF V2 n) -> IO ()
+onlineMainWithSurf = curry mainWith
+
+-- Mainable instances
 
 instance DataFloat n => Mainable (Diagram PGF V2 n) where
 #ifdef CMDLINELOOP
@@ -187,6 +212,33 @@ instance DataFloat n => Mainable (Diagram PGF V2 n) where
             out -> renderPGF' out opts d
 #endif
 
+instance DataFloat n => Mainable (Surface, Diagram PGF V2 n) where
+  type MainOpts (Surface, Diagram PGF V2 n) = (DiagramOpts, PGFCmdLineOpts)
+
+  mainRender (opts,pgf) (surf,d) = chooseRender opts surf pgf d
+
+-- Online diagrams
+
+instance DataFloat n => Mainable (OnlineTeX (Diagram PGF V2 n)) where
+  type MainOpts (OnlineTeX (Diagram PGF V2 n))
+    = (DiagramOpts, (PGFCmdLineOpts, TeXFormat))
+
+  mainRender (diaOpts,(pgfOpts,format)) = chooseOnlineRender diaOpts (formatToSurf format) pgfOpts
+
+instance DataFloat n => Mainable (Surface, OnlineTeX (Diagram PGF V2 n)) where
+  type MainOpts (Surface, OnlineTeX (Diagram PGF V2 n))
+    = (DiagramOpts, PGFCmdLineOpts)
+
+  mainRender (diaOpts,pgfOpts) (surf,dOL) = chooseOnlineRender diaOpts surf pgfOpts dOL
+
+-- Internals
+
+formatToSurf :: TeXFormat -> Surface
+formatToSurf format = case format of
+  LaTeX    -> latexSurface
+  ConTeXt  -> contextSurface
+  PlainTeX -> plaintexSurface
+
 cmdLineOpts :: DataFloat n
    => DiagramOpts -> Surface -> PGFCmdLineOpts -> Options PGF V2 n
 cmdLineOpts opts surf pgf
@@ -199,93 +251,23 @@ cmdLineOpts opts surf pgf
     f  = fmap fromIntegral
 
 chooseRender :: DataFloat n
-             => DiagramOpts
-             -> Surface
-             -> PGFCmdLineOpts
-             -> Diagram PGF V2 n
-             -> IO ()
-chooseRender opts surf pgf d = case opts^.output of
-    ""  -> hPutBuilder stdout $ renderDia PGF pgfOpts d
-    out -> renderPGF' out pgfOpts d
+  => DiagramOpts -> Surface -> PGFCmdLineOpts -> Diagram PGF V2 n -> IO ()
+chooseRender diaOpts surf pgfOpts d =
+  case diaOpts^.output of
+    ""  -> hPutBuilder stdout $ renderDia PGF opts d
+    out -> renderPGF' out opts d
   where
-    pgfOpts = def & surface    .~ surf
-                  & sizeSpec   .~ sz
-                  & readable   .~ pgf^.cmdReadable
-                  & standalone .~ pgf^.cmdStandalone
+    opts = cmdLineOpts diaOpts surf pgfOpts
 
-    sz = case (opts^.width, opts^.height) of
-           (Nothing, Nothing) -> Absolute
-           (Just w, Nothing)  -> Width (fromIntegral w)
-           (Nothing, Just h)  -> Height (fromIntegral h)
-           (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
-
-formatToSurf :: TeXFormat -> Surface
-formatToSurf format = case format of
-  LaTeX    -> latexSurface
-  ConTeXt  -> contextSurface
-  PlainTeX -> plaintexSurface
-
--- | Allows you to pick a surface the diagram will be rendered with.
-mainWithSurf :: DataFloat n => Surface -> Diagram PGF V2 n -> IO ()
-mainWithSurf = curry mainWith
-
-
-instance DataFloat n => Mainable (Surface, Diagram PGF V2 n) where
-  type MainOpts (Surface, Diagram PGF V2 n) = (DiagramOpts, PGFCmdLineOpts)
-
-  mainRender (opts,pgf) (surf,d) = chooseRender opts surf pgf d
-
--- online pgf diagrams
-
-onlineChooseRender :: DataFloat n
-                   => DiagramOpts
-                   -> Surface
-                   -> PGFCmdLineOpts
-                   -> OnlineTeX (Diagram PGF V2 n)
-                   -> IO ()
-onlineChooseRender opts surf pgf dOL = case opts^.output of
-    ""  -> do d <- surfOnlineTexIO surf dOL
-              hPutBuilder stdout $ renderDia PGF pgfOpts d
-
-    out -> renderOnlinePGF' out pgfOpts dOL
+chooseOnlineRender :: DataFloat n
+  => DiagramOpts -> Surface -> PGFCmdLineOpts -> OnlineTeX (Diagram PGF V2 n) -> IO ()
+chooseOnlineRender diaOpts surf pgfOpts dOL =
+    case diaOpts^.output of
+      ""  -> surfOnlineTexIO surf dOL >>= hPutBuilder stdout . renderDia PGF opts
+      out -> renderOnlinePGF' out opts dOL
   where
-    pgfOpts = def & surface    .~ surf
-                  & sizeSpec   .~ sz
-                  & readable   .~ (pgf^.cmdReadable)
-                  & standalone .~ (pgf^.cmdStandalone)
+    opts = cmdLineOpts diaOpts surf pgfOpts
 
-    sz = case (opts^.width, opts^.height) of
-           (Nothing, Nothing) -> Absolute
-           (Just w, Nothing)  -> Width (fromIntegral w)
-           (Nothing, Just h)  -> Height (fromIntegral h)
-           (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
-
-instance DataFloat n => Mainable (OnlineTeX (Diagram PGF V2 n)) where
-  type MainOpts (OnlineTeX (Diagram PGF V2 n))
-    = (DiagramOpts, (PGFCmdLineOpts, TeXFormat))
-
-  mainRender (diaOpts,(pgfOpts,format)) dOL
-    -- = onlineChooseRender opts (formatToSurf format) pgf
-    = let surf = formatToSurf format
-          opts = cmdLineOpts diaOpts surf pgfOpts
-      in  case diaOpts^.output of
-            -- ""  -> hPutBuilder stdout $ renderDia PGF opts d
-            ""  -> surfOnlineTexIO surf dOL >>= hPutBuilder stdout . renderDia PGF opts
-            out -> renderOnlinePGF' out opts dOL
-
-instance DataFloat n => Mainable (Surface, OnlineTeX (Diagram PGF V2 n)) where
-  type MainOpts (Surface, OnlineTeX (Diagram PGF V2 n))
-    = (DiagramOpts, PGFCmdLineOpts)
-
-  mainRender (opts,pgf) (surf,d) = onlineChooseRender opts surf pgf d
-
--- | Same as @defaultMain@ but takes an online pgf diagram.
-onlineMain :: DataFloat n => OnlineTeX (Diagram PGF V2 n) -> IO ()
-onlineMain = mainWith
-
--- | Same as @mainWithSurf@ but takes an online pgf diagram.
-onlineMainWithSurf :: DataFloat n => Surface -> OnlineTeX (Diagram PGF V2 n) -> IO ()
-onlineMainWithSurf = curry mainWith
 
 -- | @multiMain@ is like 'defaultMain', except instead of a single
 --   diagram it takes a list of diagrams paired with names as input.
