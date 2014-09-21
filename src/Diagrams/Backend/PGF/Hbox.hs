@@ -39,8 +39,8 @@ import           Data.Monoid
 import           Data.Typeable
 import           System.IO.Unsafe
 import           System.TeXRunner.Online          hiding (hbox)
-import           System.TeXRunner.Parse
 import qualified System.TeXRunner.Online          as Online
+import           System.TeXRunner.Parse
 
 import           Diagrams.BoundingBox
 import           Diagrams.Core

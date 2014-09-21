@@ -19,33 +19,31 @@ module Diagrams.Backend.PGF.Render
   , escapeString
   ) where
 
-import Data.ByteString.Builder
-import Control.Lens             (Lens', lens, op, use, uses, (.=),
-                                 (<<<>=), (^.))
-import Control.Lens.Extras      (is)
-import Control.Monad            (when)
+import           Control.Lens                 (Lens', lens, op, use, uses, (.=), (<<<>=), (^.))
+import           Control.Lens.Extras          (is)
+import           Control.Monad                (when)
+import           Data.ByteString.Builder
 
-import Data.Default
-import Data.Foldable (foldMap)
-import Data.Functor
-import Data.Hashable (Hashable (..))
-import Data.Maybe    (fromMaybe)
-import Data.Tree     (Tree (Node))
+import           Data.Default
+import           Data.Foldable                (foldMap)
+import           Data.Functor
+import           Data.Hashable                (Hashable (..))
+import           Data.Maybe                   (fromMaybe)
+import           Data.Tree                    (Tree (Node))
 
-import Diagrams.Core.Types
-import Diagrams.Prelude
+import           Diagrams.Core.Types
+import           Diagrams.Prelude
 
-import Diagrams.Backend.PGF.Hbox    (Hbox (..))
-import Diagrams.Backend.PGF.Surface (Surface)
-import Diagrams.TwoD.Adjust         (adjustDia2D)
-import Diagrams.TwoD.Path
-import Diagrams.TwoD.Size           (sizePair)
-import Diagrams.TwoD.Text           (Text (..), TextAlignment (..),
-                                     getFontSize, getFontSizeIsLocal,
-                                     getFontSlant, getFontWeight)
+import           Diagrams.Backend.PGF.Hbox    (Hbox (..))
+import           Diagrams.Backend.PGF.Surface (Surface)
+import           Diagrams.TwoD.Adjust         (adjustDia2D)
+import           Diagrams.TwoD.Path
+import           Diagrams.TwoD.Size           (sizePair)
+import           Diagrams.TwoD.Text           (Text (..), TextAlignment (..), getFontSize,
+                                               getFontSizeIsLocal, getFontSlant, getFontWeight)
 
-import qualified Graphics.Rendering.PGF as P
-import Data.Data
+import           Data.Data
+import qualified Graphics.Rendering.PGF       as P
 
 -- | This data declaration is simply used as a token to distinguish
 --   this rendering engine.

@@ -87,30 +87,23 @@ module Graphics.Rendering.PGF
   , setFontSlant
   ) where
 
--- import           Blaze.ByteString.Builder           as Blaze (Builder, fromByteString)
--- import           Blaze.ByteString.Builder.Char.Utf8 as Blaze (fromChar, fromString)
-import           Data.ByteString.Builder
-import           Control.Lens                       (Lens, both, ifoldMap,
-                                                     makeLenses, over,
-                                                     use, view, ( #~ ),
-                                                     (+=), (+~), (-=),
-                                                     (.=), (^#), (^.))
+import           Control.Lens                 (Lens, both, ifoldMap, makeLenses, over, use, view,
+                                               ( #~ ), (+=), (+~), (-=), (.=), (^#), (^.))
 import           Control.Monad.RWS
-import           Data.ByteString.Char8              (ByteString)
-import qualified Data.ByteString.Char8              as B (replicate)
-import           Data.List                          (intersperse)
-import           Data.Maybe                         (catMaybes)
-import Data.Typeable
+import           Data.ByteString.Builder
+import           Data.ByteString.Char8        (ByteString)
+import qualified Data.ByteString.Char8        as B (replicate)
+import           Data.List                    (intersperse)
+import           Data.Maybe                   (catMaybes)
+import           Data.Typeable
 import           Numeric
 
-import Diagrams.Core.Transform (matrixHomRep)
-import Diagrams.TwoD.Types
-import Diagrams.Prelude        hiding (Render, image, moveTo, opacity,
-                                stroke, view, (<>))
-import Diagrams.TwoD.Text      (FontSlant (..), FontWeight (..),
-                                TextAlignment (..))
+import           Diagrams.Core.Transform      (matrixHomRep)
+import           Diagrams.Prelude             hiding (Render, image, moveTo, opacity, stroke, view,
+                                               (<>))
+import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..), TextAlignment (..))
 
-import Diagrams.Backend.PGF.Surface
+import           Diagrams.Backend.PGF.Surface
 
 
 -- * Types, lenses & runners
@@ -179,23 +172,29 @@ renderWith s readable standalone bounds r = builder
 -- builder functions
 raw :: Builder -> Render n
 raw = tell
+{-# INLINE raw #-}
 
 rawByteString :: ByteString -> Render n
 rawByteString = tell . byteString
+{-# INLINE rawByteString #-}
 
 rawString :: String -> Render n
 rawString = tell . string8
+{-# INLINE rawString #-}
 
 pgf :: Builder -> Render n
 pgf c = raw "\\pgf" >> raw c
+{-# INLINE pgf #-}
 
 rawChar :: Char -> Render n
 rawChar = tell . char8
+{-# INLINE rawChar #-}
 
 emit :: Render n
 emit = do
   tab <- use indent
   rawByteString $ B.replicate tab ' '
+{-# INLINE emit #-}
 
 ln :: Render n -> Render n
 ln r = do
@@ -203,6 +202,7 @@ ln r = do
   if pp
     then emit >> r >> rawChar '\n'
     else r >> rawChar '\n'
+{-# INLINE ln #-}
 
 -- | Wrap a `Render n` in { .. }.
 bracers :: Render n -> Render n
@@ -210,6 +210,7 @@ bracers r = do
   rawChar '{'
   r
   rawChar '}'
+{-# INLINE bracers #-}
 
 bracersBlock :: Render n -> Render n
 bracersBlock rs = do
@@ -226,12 +227,14 @@ brackets r = do
   rawChar '['
   r
   rawChar ']'
+{-# INLINE brackets #-}
 
 parens :: Render n -> Render n
 parens r = do
   rawChar '('
   r
   rawChar ')'
+{-# INLINE parens #-}
 
 -- | Intersperse list of Render ns with commas.
 commaIntersperce :: [Render n] -> Render n

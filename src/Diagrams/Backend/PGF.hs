@@ -52,22 +52,22 @@ module Diagrams.Backend.PGF
   , module Diagrams.Backend.PGF.Surface
   ) where
 
-import Control.Lens            (set, (^.))
-import Data.Default
-import Data.ByteString.Builder
-import System.Directory        hiding (readable)
-import System.FilePath
-import System.IO
-import System.TeXRunner
-import System.TeXRunner.Online hiding (hbox)
+import           Control.Lens                 (set, (^.))
+import           Data.ByteString.Builder
+import           Data.Default
+import           System.Directory             hiding (readable)
+import           System.FilePath
+import           System.IO
+import           System.TeXRunner
+import           System.TeXRunner.Online      hiding (hbox)
 
-import qualified Data.ByteString.Char8      as B
-import qualified Data.ByteString.Lazy.Char8 as LB
+import qualified Data.ByteString.Char8        as B
+import qualified Data.ByteString.Lazy.Char8   as LB
 
-import Diagrams.Backend.PGF.Hbox
-import Diagrams.Backend.PGF.Render
-import Diagrams.Backend.PGF.Surface
-import Diagrams.Prelude             hiding (r2, view)
+import           Diagrams.Backend.PGF.Hbox
+import           Diagrams.Backend.PGF.Render
+import           Diagrams.Backend.PGF.Surface
+import           Diagrams.Prelude             hiding (r2, view)
 
 
 type B = PGF
