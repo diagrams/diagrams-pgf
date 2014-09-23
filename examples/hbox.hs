@@ -8,7 +8,7 @@ import Data.Default
 
 -- The simplest way to construct a hbox with an envelope is to use
 --
--- envelopedText = surfHbox mysurf "text" :: Diagram PGF R2
+-- envelopedText = surfHbox mysurf "text" :: Diagram PGF V2 Double
 --
 -- which can be used just like any other diagram. However, each box like this
 -- makes a call to TeX, so for multiple boxes this can become slow.
@@ -33,11 +33,11 @@ main4 = renderOnlinePGF' "hbox.tex"
                          (def & sizeSpec .~ Width 300 & standalone .~ True)
                          example
 
-example :: OnlineTeX (Diagram PGF R2)
+example :: OnlineTeX (Diagram PGF V2 Double)
 example = frame 5 . scale 10 <$> hboxLines "\\TeX"
 
 -- Use the envelope from the hbox to label the width, height and depth.
-hboxLines :: String -> OnlineTeX (Diagram PGF R2)
+hboxLines :: String -> OnlineTeX (Diagram PGF V2 Double)
 hboxLines str = do
   txt <- onlineHbox str
 
@@ -55,18 +55,18 @@ hboxLines str = do
            === wArrow
 
 -- Draw an arrow with a horizontal label above or below.
-labeledArrow :: Bool -> String -> R2 -> OnlineTeX (Diagram PGF R2)
+labeledArrow :: Bool -> String -> V2 Double -> OnlineTeX (Diagram PGF V2 Double)
 labeledArrow above label r = diaArrow <$> onlineHbox label
   where
-    diaArrow txt = atAngle ((direction . rev . perp) r)
-                                 (arr # translate (negateV $ r^/2))
-                                 (txt # centerXY # scale 0.1 # frame 0.3)
-                             # translate (r^/2)
+    diaArrow txt = atDirection ((direction . rev . perp) r)
+                               (arr # translate (negated $ r^/2))
+                               (txt # centerXY # scale 0.1 # frame 0.3)
+                               # translate (r^/2)
       where
-        rev = if above then id else negateV
+        rev = if above then id else negated
         arr = arrowV' ops r
         ops = def & arrowHead .~ spike
                   & arrowTail .~ spike'
-                  & lengths   %~ (^/2)
+                  & lengths   .~ Normalized 0.015
 
 
