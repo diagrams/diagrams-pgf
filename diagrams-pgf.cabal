@@ -46,9 +46,8 @@ Library
                      , optparse-applicative >= 0.10  && < 1.0
                      , process              >= 1.0   && < 1.3
                      , split                >= 0.1.2 && < 0.3
-                     , texrunner
+                     , texrunner            <= 0.0.2
                      , time                 >= 1.2   && < 1.6
-                     , vector-space         >= 0.7.7 && < 0.9
                      , random
   if impl(ghc < 7.6)
     build-depends:     ghc-prim
