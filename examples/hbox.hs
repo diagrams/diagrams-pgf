@@ -1,10 +1,8 @@
-import Diagrams.Backend.PGF
 import Diagrams.Backend.PGF.CmdLine
 import Diagrams.Prelude
 import Diagrams.TwoD.Vector         (perp)
 
-import Data.Default
-
+type D2 = Diagram PGF V2 Double
 
 -- The simplest way to construct a hbox with an envelope is to use
 --
@@ -18,26 +16,26 @@ import Data.Default
 
 main = main1
 
--- | The simplest option. The command line gives the option to use the default
---   latex, context or plain tex surface (latex is the default).
+-- The simplest option. The command line gives the option to use the default
+-- latex, context or plain tex surface (latex is the default).
 main1 = onlineMain example
 
--- | Similar to 'onlineMain' but uses the specified surface.
-main2 = onlineMainWithSurf (def & command .~ "lualatex") example
+-- Similar to 'onlineMain' but uses the specified surface.
+main2 = onlineMainWithSurf (with & command .~ "lualatex") example
 
--- | Alternatively, 'renderOnlinePDF' can be used to directly generate a pdf.
+-- Alternatively, 'renderOnlinePDF' can be used to directly generate a pdf.
 main3 = renderOnlinePGF "hbox.pdf" Absolute latexSurface example
 
--- | "renderOnlinePDF'" allows choosing rendering options
+-- "renderOnlinePDF'" allows choosing rendering options
 main4 = renderOnlinePGF' "hbox.tex"
-                         (def & sizeSpec .~ Width 300 & standalone .~ True)
+                         (with & sizeSpec .~ Width 300 & standalone .~ True)
                          example
 
-example :: OnlineTeX (Diagram PGF V2 Double)
+example :: OnlineTeX D2
 example = frame 5 . scale 10 <$> hboxLines "\\TeX"
 
 -- Use the envelope from the hbox to label the width, height and depth.
-hboxLines :: String -> OnlineTeX (Diagram PGF V2 Double)
+hboxLines :: String -> OnlineTeX D2
 hboxLines str = do
   txt <- onlineHbox str
 
@@ -54,8 +52,10 @@ hboxLines str = do
            === strutY 1
            === wArrow
 
+--
+
 -- Draw an arrow with a horizontal label above or below.
-labeledArrow :: Bool -> String -> V2 Double -> OnlineTeX (Diagram PGF V2 Double)
+labeledArrow :: Bool -> String -> V2 Double -> OnlineTeX D2
 labeledArrow above label r = diaArrow <$> onlineHbox label
   where
     diaArrow txt = atDirection ((direction . rev . perp) r)
@@ -65,8 +65,8 @@ labeledArrow above label r = diaArrow <$> onlineHbox label
       where
         rev = if above then id else negated
         arr = arrowV' ops r
-        ops = def & arrowHead .~ spike
-                  & arrowTail .~ spike'
-                  & lengths   .~ Normalized 0.015
+        ops = with & arrowHead .~ spike
+                   & arrowTail .~ spike'
+                   & lengths   .~ Normalized 0.015
 
 

@@ -1,9 +1,7 @@
 import Control.Lens ((<&>))
 
 import Diagrams.Prelude
-import Diagrams.Backend.PGF
 import Diagrams.Backend.PGF.CmdLine
-import Diagrams.TwoD.Types
 
 type D2 = Diagram PGF V2 Float
 
