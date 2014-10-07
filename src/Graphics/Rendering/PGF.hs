@@ -631,7 +631,7 @@ linearGradient (LGradient stops g0 g1 gt sm) = do
   shadePath (direction d ^. _theta) $ raw "ft"
 
 radialGradient :: RealFloat n => RGradient n -> Render n
-radialGradient (RGradient stops c0 r0 c1 r1 gt sm) = do
+radialGradient (RGradient stops c0 _r0 c1 r1 gt sm) = do
   let d = transform gt (c0 .-. c1)
       stops' = adjustStops stops sm
   ln $ do
@@ -742,4 +742,3 @@ setFontSlant :: FontSlant -> Render n
 setFontSlant FontSlantNormal  = return ()
 setFontSlant FontSlantItalic  = raw "\\it "
 setFontSlant FontSlantOblique = raw "\\sl "
-
