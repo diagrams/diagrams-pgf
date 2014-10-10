@@ -17,8 +17,7 @@
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.PGF.CmdLine
-       (
-         -- * General form of @main@
+       ( -- * General form of @main@
          -- $mainwith
 
          mainWith
@@ -31,52 +30,45 @@ module Diagrams.Backend.PGF.CmdLine
        , onlineMainWithSurf
        , multiMain
 
-         -- * Backend tokens
-
-       , PGF
-       , B
+       , module Diagrams.Backend.PGF
        ) where
 
-import Diagrams.Prelude hiding (width, height, interval, (<>))
-import Diagrams.Backend.PGF
-import Diagrams.Backend.PGF.Hbox
-import Diagrams.Backend.CmdLine
+import           Diagrams.Backend.CmdLine
+import           Diagrams.Backend.PGF
+import           Diagrams.Backend.PGF.Hbox
+import           Diagrams.Prelude          hiding (height, interval, width, (<>))
 
-import Control.Lens
-import Control.Monad (mplus)
-import Data.Default
+import           Control.Lens
+import           Control.Monad             (mplus)
+import           Data.Default
 
-import Data.List.Split
-import Options.Applicative as OP hiding ((&))
-import qualified Data.ByteString as B
-import qualified Blaze.ByteString.Builder as Blaze
+import           Data.ByteString.Builder
+import           Options.Applicative       as OP
 
 #ifdef CMDLINELOOP
-import           Data.Maybe          (fromMaybe)
-import           Control.Monad       (when)
-import           System.Directory    (getModificationTime)
-import           System.Process      (runProcess, waitForProcess)
-import           System.IO           (openFile, hClose, IOMode(..),
-                                      hSetBuffering, BufferMode(..), stdout)
-import           System.Exit         (ExitCode(..))
-import                               Control.Concurrent  (threadDelay)
-import qualified Control.Exception as Exc  (catch,  bracket)
-import Control.Exception (SomeException(..))
+import           Control.Concurrent        (threadDelay)
+import           Control.Exception         (SomeException (..))
+import qualified Control.Exception         as Exc (bracket, catch)
+import           Control.Monad             (when)
+import           Data.Maybe                (fromMaybe)
+import           System.Directory          (getModificationTime)
+import           System.Exit               (ExitCode (..))
+import           System.IO                 (BufferMode (..), IOMode (..), hClose, hSetBuffering,
+                                            openFile, stdout)
+import           System.Process            (runProcess, waitForProcess)
 
-
-import System.Environment  (getProgName,getArgs)
-import System.Posix.Process (executeFile)
-
+import           System.Environment        (getArgs, getProgName)
+import           System.Posix.Process      (executeFile)
 
 # if MIN_VERSION_directory(1,2,0)
-import Data.Time.Clock (UTCTime,getCurrentTime)
+import           Data.Time.Clock           (UTCTime, getCurrentTime)
 type ModuleTime = UTCTime
 getModuleTime :: IO ModuleTime
 getModuleTime = getCurrentTime
 #else
-import System.Time         (ClockTime, getClockTime)
+import           System.Time               (ClockTime, getClockTime)
 type ModuleTime = ClockTime
-getModuleTime :: IO  ModuleTime
+getModuleTime :: IO ModuleTime
 getModuleTime = getClockTime
 #endif
 #endif
@@ -103,26 +95,12 @@ instance Parseable PGFCmdLineOpts where
            <> help "Indent lines"
             )
 
+-- not sure if this is of any use
 instance ToResult d => ToResult (OnlineTeX d) where
   type Args (OnlineTeX d) = (Surface, Args d)
   type ResultOf (OnlineTeX d) = IO (ResultOf d)
 
   toResult d (surf, args) = flip toResult args <$> surfOnlineTexIO surf d
-
--- instance Mainable d => Mainable (OnlineTeX d) where
---   type MainOpts (OnlineTeX d) = (TeXFormat, MainOpts d)
--- 
---   mainRender (format, opts) d = surfOnlineTexIO (formatToSurf format) d
---                             >>= mainRender opts
--- 
--- instance Mainable d => Mainable (Surface, OnlineTeX d) where
---   type MainOpts (Surface, OnlineTeX d) = MainOpts d
--- 
---   mainRender opts (surf,d) = surfOnlineTexIO surf d
---                          >>= mainRender opts
-
-
-
 
 -- $mainwith
 -- The 'mainWith' method unifies all of the other forms of @main@ and is
@@ -133,7 +111,7 @@ instance ToResult d => ToResult (OnlineTeX d) where
 -- will produce a program that looks for additional number and color arguments.
 --
 -- > ... definitions ...
--- > f :: Int -> Colour Double -> Diagram PGF R2
+-- > f :: Int -> Colour Double -> Diagram PGF V2 n
 -- > f i c = ...
 -- >
 -- > main = mainWith f
@@ -161,67 +139,99 @@ instance ToResult d => ToResult (OnlineTeX d) where
 --   options. Currently it looks something like
 --
 -- @
--- ./mydiagram
---
--- Usage: ./mydiagram [-w|--width WIDTH] [-h|--height HEIGHT] [-o|--output OUTPUT] [-f|--format FORMAT] [-l|--loop] [-s|--src ARG] [-i|--interval INTERVAL]
+-- mydiagram
+-- 
+-- Usage: mydiagram [-?|--help] [-w|--width WIDTH] [-h|--height HEIGHT]
+--                  [-o|--output OUTPUT] [-f|--format FORMAT] [-a|--standalone]
+--                  [-r|--readable] [-l|--loop] [-s|--src ARG]
+--                  [-i|--interval INTERVAL]
 --   Command-line diagram generation.
---
+-- 
 -- Available options:
 --   -?,--help                Show this help text
 --   -w,--width WIDTH         Desired WIDTH of the output image
 --   -h,--height HEIGHT       Desired HEIGHT of the output image
 --   -o,--output OUTPUT       OUTPUT file
---   -f,--format FORMAT       l for LaTeX, c for ConTeXt, p for plain TeX (default: LaTeX)
+--   -f,--format FORMAT       l for LaTeX, c for ConTeXt, p for plain
+--                            TeX (default: LaTeX)
+--   -a,--standalone          Produce standalone .tex output
+--   -r,--readable            Indent lines
 --   -l,--loop                Run in a self-recompiling loop
 --   -s,--src ARG             Source file to watch
---   -i,--interval INTERVAL   When running in a loop, check for changes every INTERVAL seconds.
+--   -i,--interval INTERVAL   When running in a loop, check for changes every
+--                            INTERVAL seconds.
 -- @
 --
 --   For example, a common scenario is
 --
 -- @
--- $ ghc --make MyDiagram
+-- $ ghc --make mydiagram
 --
---   # output image.tex with a width of 400pt (and auto-determined height)
+--   # output image.tex with a width of 400bp (and auto-determined height)
+--   # (bp = big point = 1px at 72dpi)
 -- $ ./mydiagram -o image.tex -w 400
 -- @
 
-defaultMain :: Diagram PGF R2 -> IO ()
+defaultMain :: DataFloat n => Diagram PGF V2 n -> IO ()
 defaultMain = mainWith
 
-instance Mainable (Diagram PGF R2) where
+-- | Allows you to pick a surface the diagram will be rendered with.
+mainWithSurf :: DataFloat n => Surface -> Diagram PGF V2 n -> IO ()
+mainWithSurf = curry mainWith
+
+-- For online diagrams.
+
+-- | Same as @defaultMain@ but takes an online pgf diagram.
+onlineMain :: DataFloat n => OnlineTeX (Diagram PGF V2 n) -> IO ()
+onlineMain = mainWith
+
+-- | Same as @mainWithSurf@ but takes an online pgf diagram.
+onlineMainWithSurf :: DataFloat n => Surface -> OnlineTeX (Diagram PGF V2 n) -> IO ()
+onlineMainWithSurf = curry mainWith
+
+-- Mainable instances
+
+instance DataFloat n => Mainable (Diagram PGF V2 n) where
 #ifdef CMDLINELOOP
-    type MainOpts (Diagram PGF R2)
-      = (DiagramOpts, (TeXFormat, (PGFCmdLineOpts, DiagramLoopOpts)))
+  type MainOpts (Diagram PGF V2 n)
+    = (DiagramOpts, (TeXFormat, (PGFCmdLineOpts, DiagramLoopOpts)))
 
-    mainRender (opts,(format,(pgf,loopOpts))) d = do
-        chooseRender opts (formatToSurf format) pgf d
-        when (loopOpts^.loop) (waitForChange Nothing loopOpts)
+  mainRender (diaOpts,(format,(pgfOpts,loopOpts))) d = do
+      let opts = cmdLineOpts diaOpts (formatToSurf format) pgfOpts
+      case diaOpts^.output of
+        ""  -> hPutBuilder stdout $ renderDia PGF opts d
+        out -> renderPGF' out opts d
+      when (loopOpts^.loop) (waitForChange Nothing loopOpts)
 #else
-    type MainOpts (Diagram PGF R2) = (DiagramOpts, (TeXFormat, PGFCmdLineOpts))
+  type MainOpts (Diagram PGF V2 n) = (DiagramOpts, (TeXFormat, PGFCmdLineOpts))
 
-    mainRender (dOps, (format, pgf)) = chooseRender dOps (formatToSurf format) pgf
+  mainRender (diaOpts, (format, pgfOpts))
+    = let opts = cmdLineOpts diaOpts (formatToSurf format) pgfOpts
+      in  case diaOpts^.output of
+            ""  -> hPutBuilder stdout $ renderDia PGF pgfOpts d
+            out -> renderPGF' out opts d
 #endif
 
-chooseRender :: DiagramOpts -> Surface -> PGFCmdLineOpts -> Diagram PGF R2 -> IO ()
-chooseRender opts surf pgf d = case splitOn "." (opts^.output) of
-    [""] -> Blaze.toByteStringIO B.putStr $
-              renderDia PGF pgfOpts d
-    ps | last ps `elem` ["tex", "pdf"]
-                   -> renderPGF' (opts^.output) pgfOpts d
-       | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
-                              ++ "\nSupported file types are .tex or .pdf"
-  where
-    pgfOpts = def & surface    .~ surf
-                  & sizeSpec   .~ size
-                  & readable   .~ (pgf^.cmdReadable)
-                  & standalone .~ (pgf^.cmdStandalone)
+instance DataFloat n => Mainable (Surface, Diagram PGF V2 n) where
+  type MainOpts (Surface, Diagram PGF V2 n) = (DiagramOpts, PGFCmdLineOpts)
 
-    size = case (opts^.width, opts^.height) of
-             (Nothing, Nothing) -> Absolute
-             (Just w, Nothing)  -> Width (fromIntegral w)
-             (Nothing, Just h)  -> Height (fromIntegral h)
-             (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
+  mainRender (opts,pgf) (surf,d) = chooseRender opts surf pgf d
+
+-- Online diagrams
+
+instance DataFloat n => Mainable (OnlineTeX (Diagram PGF V2 n)) where
+  type MainOpts (OnlineTeX (Diagram PGF V2 n))
+    = (DiagramOpts, (PGFCmdLineOpts, TeXFormat))
+
+  mainRender (diaOpts,(pgfOpts,format)) = chooseOnlineRender diaOpts (formatToSurf format) pgfOpts
+
+instance DataFloat n => Mainable (Surface, OnlineTeX (Diagram PGF V2 n)) where
+  type MainOpts (Surface, OnlineTeX (Diagram PGF V2 n))
+    = (DiagramOpts, PGFCmdLineOpts)
+
+  mainRender (diaOpts,pgfOpts) (surf,dOL) = chooseOnlineRender diaOpts surf pgfOpts dOL
+
+-- Internals
 
 formatToSurf :: TeXFormat -> Surface
 formatToSurf format = case format of
@@ -229,59 +239,34 @@ formatToSurf format = case format of
   ConTeXt  -> contextSurface
   PlainTeX -> plaintexSurface
 
--- | Allows you to pick a surface the diagram will be rendered with.
-mainWithSurf :: Surface -> Diagram PGF R2 -> IO ()
-mainWithSurf = curry mainWith
-
-
-instance Mainable (Surface, Diagram PGF R2) where
-  type MainOpts (Surface, Diagram PGF R2) = (DiagramOpts, PGFCmdLineOpts)
-
-  mainRender (opts,pgf) (surf,d) = chooseRender opts surf pgf d
-
--- online pgf diagrams
-
-onlineChooseRender :: DiagramOpts -> Surface -> PGFCmdLineOpts
-                   -> OnlineTeX (Diagram PGF R2) -> IO ()
-onlineChooseRender opts surf pgf dOL = case splitOn "." (opts^.output) of
-    [""] -> do
-      d <- surfOnlineTexIO surf dOL
-      Blaze.toByteStringIO B.putStr $ renderDia PGF pgfOpts d
-
-    _    -> renderOnlinePGF' (opts^.output) pgfOpts dOL
+cmdLineOpts :: DataFloat n
+   => DiagramOpts -> Surface -> PGFCmdLineOpts -> Options PGF V2 n
+cmdLineOpts opts surf pgf
+  = def & surface    .~ surf
+        & sizeSpec   .~ sz
+        & readable   .~ pgf^.cmdReadable
+        & standalone .~ pgf^.cmdStandalone
   where
-    pgfOpts = def & surface    .~ surf
-                  & sizeSpec   .~ size
-                  & readable   .~ (pgf^.cmdReadable)
-                  & standalone .~ (pgf^.cmdStandalone)
+    sz = mkSizeSpec (f $ opts^.width) (f $ opts^.height)
+    f  = fmap fromIntegral
 
-    size = case (opts^.width, opts^.height) of
-             (Nothing, Nothing) -> Absolute
-             (Just w, Nothing)  -> Width (fromIntegral w)
-             (Nothing, Just h)  -> Height (fromIntegral h)
-             (Just w, Just h)   -> Dims (fromIntegral w) (fromIntegral h)
+chooseRender :: DataFloat n
+  => DiagramOpts -> Surface -> PGFCmdLineOpts -> Diagram PGF V2 n -> IO ()
+chooseRender diaOpts surf pgfOpts d =
+  case diaOpts^.output of
+    ""  -> hPutBuilder stdout $ renderDia PGF opts d
+    out -> renderPGF' out opts d
+  where
+    opts = cmdLineOpts diaOpts surf pgfOpts
 
-instance Mainable (OnlineTeX (Diagram PGF R2)) where
-  type MainOpts (OnlineTeX (Diagram PGF R2))
-    = (DiagramOpts, (PGFCmdLineOpts, TeXFormat))
-
-  mainRender (opts,(pgf,format))
-    = onlineChooseRender opts (formatToSurf format) pgf
-
-instance Mainable (Surface, OnlineTeX (Diagram PGF R2)) where
-  type MainOpts (Surface, OnlineTeX (Diagram PGF R2))
-    = (DiagramOpts, PGFCmdLineOpts)
-
-  mainRender (opts,pgf) (surf,d) = onlineChooseRender opts surf pgf d
-
--- | Same as @defaultMain@ but takes an online pgf diagram.
-onlineMain :: OnlineTeX (Diagram PGF R2) -> IO ()
-onlineMain = mainWith
-
--- | Same as @mainWithSurf@ but takes an online pgf diagram.
-onlineMainWithSurf :: Surface -> OnlineTeX (Diagram PGF R2) -> IO ()
-onlineMainWithSurf = curry mainWith
-
+chooseOnlineRender :: DataFloat n
+  => DiagramOpts -> Surface -> PGFCmdLineOpts -> OnlineTeX (Diagram PGF V2 n) -> IO ()
+chooseOnlineRender diaOpts surf pgfOpts dOL =
+    case diaOpts^.output of
+      ""  -> surfOnlineTexIO surf dOL >>= hPutBuilder stdout . renderDia PGF opts
+      out -> renderOnlinePGF' out opts dOL
+  where
+    opts = cmdLineOpts diaOpts surf pgfOpts
 
 
 -- | @multiMain@ is like 'defaultMain', except instead of a single
@@ -303,23 +288,23 @@ onlineMainWithSurf = curry mainWith
 -- $ ./MultiTest --selection bar -o Bar.eps -w 200
 -- @
 
-multiMain :: [(String, Diagram PGF R2)] -> IO ()
+multiMain :: DataFloat n => [(String, Diagram PGF V2 n)] -> IO ()
 multiMain = mainWith
 
-instance Mainable [(String,Diagram PGF R2)] where
-    type MainOpts [(String,Diagram PGF R2)]
-        = (MainOpts (Diagram PGF R2), DiagramMultiOpts)
+instance DataFloat n => Mainable [(String,Diagram PGF V2 n)] where
+    type MainOpts [(String,Diagram PGF V2 n)]
+        = (MainOpts (Diagram PGF V2 n), DiagramMultiOpts)
 
     mainRender = defaultMultiMainRender
 
 instance Parseable TeXFormat where
-  parser = OP.nullOption $ OP.eitherReader parseFormat
-                     OP.<> OP.short   'f'
-                     OP.<> OP.long    "format"
-                     OP.<> OP.help    "l for LaTeX, c for ConTeXt, p for plain TeX"
-                     OP.<> OP.metavar "FORMAT"
-                     OP.<> OP.value LaTeX
-                     OP.<> OP.showDefault
+  parser = OP.option (eitherReader parseFormat)
+                      $ short   'f'
+                     <> long    "format"
+                     <> help    "l for LaTeX, c for ConTeXt, p for plain TeX"
+                     <> metavar "FORMAT"
+                     <> OP.value LaTeX
+                     <> showDefault
 
 parseFormat :: String -> Either String TeXFormat
 parseFormat ('l':_) = Right LaTeX
