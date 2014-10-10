@@ -35,7 +35,7 @@ module Diagrams.Backend.PGF
   , renderPGF'
     -- ** Options lenses
   , readable
-  , sizeSpec
+  , szSpec
   , surface
   , standalone
     -- * Online TeX
@@ -70,6 +70,7 @@ import qualified Data.ByteString.Lazy.Char8   as LB
 import           Diagrams.Backend.PGF.Hbox
 import           Diagrams.Backend.PGF.Render
 import           Diagrams.Backend.PGF.Surface
+import           Diagrams.Size
 import           Diagrams.Prelude             hiding (r2, view)
 
 
@@ -83,7 +84,7 @@ type instance N PGF = Double
 --   options from the given surface.
 renderPGF :: DataFloat n
           => FilePath         -- ^ path to output
-          -> SizeSpec2D n     -- ^ size of output
+          -> SizeSpec V2 n    -- ^ size of output
           -> Surface          -- ^ 'Surface' to use
           -> QDiagram PGF V2 n Any -- ^ 'Diagram' to render
           -> IO ()
@@ -91,12 +92,12 @@ renderPGF outFile sizeSp surf = renderPGF' outFile opts
   where
     opts = case takeExtension outFile of
              ".pdf" -> def & surface    .~ surf
-                           & sizeSpec   .~ sizeSp
+                           & szSpec     .~ sizeSp
                            & readable   .~ False
                            & standalone .~ True
 
              _      -> def & surface  .~ surf
-                           & sizeSpec .~ sizeSp
+                           & szSpec   .~ sizeSp
 
 -- | Same as 'renderPGF' but takes 'Options PGF R2'.
 renderPGF' :: DataFloat n => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n Any -> IO ()
@@ -125,14 +126,14 @@ renderPGF' outFile opts d = case takeExtension outFile of
 -- | Render online PDF by calling TeX in a temporary directory.
 renderOnlinePGF :: DataFloat n
                 => FilePath
-                -> SizeSpec2D n
+                -> SizeSpec V2 n
                 -> Surface
                 -> OnlineTeX (QDiagram PGF V2 n Any)
                 -> IO ()
 renderOnlinePGF outFile sizeSp surf = renderOnlinePGF' outFile opts
   where
-    opts = def & sizeSpec .~ sizeSp
-               & surface  .~ surf
+    opts = def & szSpec  .~ sizeSp
+               & surface .~ surf
 
 -- | Same as 'renderOnlinePDF' but takes 'Options PGF R2'.
 renderOnlinePGF' :: DataFloat n

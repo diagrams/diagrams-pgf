@@ -36,7 +36,8 @@ module Diagrams.Backend.PGF.CmdLine
 import           Diagrams.Backend.CmdLine
 import           Diagrams.Backend.PGF
 import           Diagrams.Backend.PGF.Hbox
-import           Diagrams.Prelude          hiding (height, interval, width, (<>))
+import           Diagrams.Size
+import           Diagrams.Prelude          hiding (height, interval, width, (<>), output)
 
 import           Control.Lens
 import           Control.Monad             (mplus)
@@ -243,11 +244,11 @@ cmdLineOpts :: DataFloat n
    => DiagramOpts -> Surface -> PGFCmdLineOpts -> Options PGF V2 n
 cmdLineOpts opts surf pgf
   = def & surface    .~ surf
-        & sizeSpec   .~ sz
+        & szSpec     .~ sz
         & readable   .~ pgf^.cmdReadable
         & standalone .~ pgf^.cmdStandalone
   where
-    sz = mkSizeSpec (f $ opts^.width) (f $ opts^.height)
+    sz = mkSpec $ V2 (f $ opts^.width) (f $ opts^.height)
     f  = fmap fromIntegral
 
 chooseRender :: DataFloat n

@@ -11,7 +11,7 @@ module Diagrams.Backend.PGF.Render
 
   -- * Lenses
   , surface
-  , sizeSpec
+  , szSpec
   , readable
   , standalone
 
@@ -28,7 +28,6 @@ import           Data.Default
 import           Data.Foldable                (foldMap)
 import           Data.Functor
 import           Data.Hashable                (Hashable (..))
-import           Data.Maybe                   (fromMaybe)
 import           Data.Tree                    (Tree (Node))
 
 import           Diagrams.Core.Types
@@ -36,11 +35,11 @@ import           Diagrams.Prelude
 
 import           Diagrams.Backend.PGF.Hbox    (Hbox (..))
 import           Diagrams.Backend.PGF.Surface (Surface)
-import           Diagrams.TwoD.Adjust         (adjustDia2D)
+import           Diagrams.TwoD.Adjust         (adjustDiaSize)
 import           Diagrams.TwoD.Path
-import           Diagrams.TwoD.Size           (sizePair)
+import           Diagrams.Size
 import           Diagrams.TwoD.Text           (Text (..), TextAlignment (..), getFontSize,
-                                               getFontSizeIsLocal, getFontSlant, getFontWeight)
+                                               getFontSlant, getFontWeight)
 
 import           Data.Data
 import qualified Graphics.Rendering.PGF       as P
@@ -54,21 +53,22 @@ instance DataFloat n => Backend PGF V2 n where
   data Render  PGF V2 n = R (P.Render n)
   type Result  PGF V2 n = Builder
   data Options PGF V2 n = PGFOptions
-    { _surface    :: Surface      -- ^ Surface you want to use.
-    , _sizeSpec   :: SizeSpec2D n -- ^ The requested size.
-    , _readable   :: Bool         -- ^ Indented lines for @.tex@ output.
-    , _standalone :: Bool         -- ^ Should @.tex@ output be standalone.
+    { _surface    :: Surface       -- ^ Surface you want to use.
+    , _szSpec     :: SizeSpec V2 n -- ^ The requested size.
+    , _readable   :: Bool          -- ^ Indented lines for @.tex@ output.
+    , _standalone :: Bool          -- ^ Should @.tex@ output be standalone.
     }
 
   renderRTree _ ops rt =
     P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
       where
         (R r)  = toRender rt
-        bounds = sizePair (ops^.sizeSpec)
+        bounds = specSize 100 (ops^.szSpec)
 
-  adjustDia = adjustDia2D sizeSpec
+  adjustDia = adjustDiaSize szSpec
 
-toRender :: (OrderedField n, RealFloat n, Typeable n) => RTree PGF V2 n a -> Render PGF V2 n
+toRender :: (OrderedField n, RealFloat n, Typeable n)
+  => RTree PGF V2 n Annotation -> Render PGF V2 n
 toRender (Node (RPrim p) _)     = render PGF p
 toRender (Node (RStyle sty) rs) = R . P.scope $ do
   oldSty <- P.style <<<>= sty
@@ -81,11 +81,6 @@ toRender (Node (RStyle sty) rs) = R . P.scope $ do
   P.style .= oldSty
 
   return pgf
--- toRender (Node (RAnnot (Href uri)) rs)
---   = R $ do
---       let R r = foldMap fromRTree rs
---       pgf <- r
---       return $ (S.a ! xlinkHref (S.toValue uri)) svg
 toRender (Node _ rs)            = foldMap toRender rs
 
 
@@ -95,7 +90,7 @@ renderP (render PGF -> R r) = r
 instance Fractional n => Default (Options PGF V2 n) where
   def = PGFOptions
           { _surface    = def
-          , _sizeSpec   = Absolute
+          , _szSpec     = absolute
           , _readable   = True
           , _standalone = False
           }
@@ -117,10 +112,10 @@ standalone = lens getter setter
         setter o s = o { _standalone = s }
 
 -- | Lens onto the 'SizeSpec2D'.
-sizeSpec :: Lens' (Options PGF V2 n) (SizeSpec2D n)
-sizeSpec = lens getSize setSize
-  where getSize (PGFOptions { _sizeSpec = s }) = s
-        setSize o s = o { _sizeSpec = s }
+szSpec :: Lens' (Options PGF V2 n) (SizeSpec V2 n)
+szSpec = lens getSize' setSize
+  where getSize' (PGFOptions { _szSpec = s }) = s
+        setSize o s = o { _szSpec = s }
 
 -- | Lens onto whether the lines of the TeX output are indented.
 readable :: Lens' (Options PGF V2 n) Bool
@@ -146,7 +141,7 @@ draw = do
   when doStroke $ do
     setLineTexture <~ getLineTexture -- stoke opacity needs to be set
     P.setLineJoin  <~ getLineJoin
-    P.setLineWidth <~ fromOutput . getLineWidth
+    P.setLineWidth <~ getLineWidth
     P.setLineCap   <~ getLineCap
     P.setDash      <~ getDashing
   --
@@ -188,15 +183,15 @@ applyOpacity c s = dissolve (maybe 1 getOpacity (getAttr s)) (toAlphaColour c)
 getNumAttr :: AttributeClass (a n) => (a n -> t) -> Style V2 n -> Maybe t
 getNumAttr f = (f <$>) . getAttr
 
-getMeasuredAttr :: (AttributeClass (a n), Num t) => (a n -> Measure t) -> Style V2 n -> Maybe t
-getMeasuredAttr f = (fromOutput . f <$>) . getAttr
+-- getMeasuredAttr :: (AttributeClass (a n), Num t) => (a n -> Measure t) -> Style V2 n -> Maybe t
+-- getMeasuredAttr f = (fromOutput . f <$>) . getAttr
 
 -- | Queries the current style and decides if the path should be stroked. Paths
 --   are stroked when lw > 0.0001
 shouldStroke :: (OrderedField n, Typeable n) => P.RenderM n Bool
 shouldStroke = do
   -- mLWidth <- (fromOutput . getLineWidth <$>) . getAttr <$> use P.style
-  mLWidth <- getMeasuredAttr getLineWidth <$> use P.style
+  mLWidth <- getNumAttr getLineWidth <$> use P.style
   --
   return $ maybe True (> P.epsilon) mLWidth
 
@@ -244,15 +239,15 @@ escapeString = concatMap escapeChar
 -- | Renders text. Colour is set by fill colour. Opacity is inheritied from
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
 renderText :: (RealFloat n, Typeable n) => Text n -> P.Render n
-renderText (Text tt tn txtAlign str) = do
+renderText (Text tt txtAlign str) = do
   -- isLocal <- (getFontSizeIsLocal <$>) . getAttr <$> use P.style
-  isLocal <- getNumAttr getFontSizeIsLocal <$> use P.style
+  -- isLocal <- getNumAttr getFontSizeIsLocal <$> use P.style
   setFillTexture <~ getFillTexture
   --
   -- doTxtTrans <- view P.txtTrans
-  P.applyTransform (if fromMaybe False isLocal then tt else tn)
+  P.applyTransform tt -- (if fromMaybe False isLocal then tt else tn)
   -- if doTxtTrans
-  (P.applyScale . (/8)) <~ fromOutput . getFontSize
+  (P.applyScale . (/8)) <~ getFontSize
       -- (/8) was obtained from trail and error
     -- else P.resetNonTranslations
   --
@@ -300,10 +295,10 @@ instance RealFloat n => Renderable (DImage n External) PGF where
 -- Hashable instances
 
 instance Hashable n => Hashable (Options PGF V2 n) where
-  hashWithSalt s (PGFOptions sf sz rd st)
+  hashWithSalt s (PGFOptions sf _sz rd st)
     = s  `hashWithSalt`
       sf `hashWithSalt`
-      sz `hashWithSalt`
+      -- sz `hashWithSalt`
       rd `hashWithSalt`
       st
 
