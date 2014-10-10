@@ -69,6 +69,7 @@ latexSurface = Surface
   , _pageSize  = Just $ \(w,h) ->
                  "\\pdfpagewidth=" ++ show w ++ "bp\n"
               ++ "\\pdfpageheight=" ++ show h ++ "bp\n"
+              ++ "\\textheight=" ++ show h ++ "bp\n"
               ++ "\\pdfhorigin=-76.6bp\n"
               ++ "\\pdfvorigin=-52.8bp"
   , _preamble  = "\\documentclass{article}\n"
