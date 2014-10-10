@@ -81,6 +81,10 @@ toRender (Node (RStyle sty) rs) = R . P.scope $ do
   P.style .= oldSty
 
   return pgf
+toRender (Node (RAnnot (OpacityGroup x)) rs)
+                                = R $ do
+  let R r = foldMap toRender rs
+  P.opacityGroup x r
 toRender (Node _ rs)            = foldMap toRender rs
 
 
