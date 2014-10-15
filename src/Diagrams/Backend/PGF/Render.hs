@@ -35,13 +35,12 @@ import           Diagrams.Prelude
 
 import           Diagrams.Backend.PGF.Hbox    (Hbox (..))
 import           Diagrams.Backend.PGF.Surface (Surface)
-import           Diagrams.TwoD.Adjust         (adjustDiaSize)
+import           Diagrams.TwoD.Adjust         (adjustDia2D)
 import           Diagrams.TwoD.Path
-import           Diagrams.Size
 import           Diagrams.TwoD.Text           (Text (..), TextAlignment (..), getFontSize,
                                                getFontSlant, getFontWeight)
 
-import           Data.Data
+import           Data.Typeable
 import qualified Graphics.Rendering.PGF       as P
 
 -- | This data declaration is simply used as a token to distinguish
@@ -49,7 +48,7 @@ import qualified Graphics.Rendering.PGF       as P
 data PGF = PGF
   deriving (Show, Typeable)
 
-instance DataFloat n => Backend PGF V2 n where
+instance TypeableFloat n => Backend PGF V2 n where
   data Render  PGF V2 n = R (P.Render n)
   type Result  PGF V2 n = Builder
   data Options PGF V2 n = PGFOptions
@@ -65,7 +64,7 @@ instance DataFloat n => Backend PGF V2 n where
         (R r)  = toRender rt
         bounds = specSize 100 (ops^.szSpec)
 
-  adjustDia = adjustDiaSize szSpec
+  adjustDia = adjustDia2D szSpec
 
 toRender :: (OrderedField n, RealFloat n, Typeable n)
   => RTree PGF V2 n Annotation -> Render PGF V2 n

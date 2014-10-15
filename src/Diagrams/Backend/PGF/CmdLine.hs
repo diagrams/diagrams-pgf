@@ -173,26 +173,26 @@ instance ToResult d => ToResult (OnlineTeX d) where
 -- $ ./mydiagram -o image.tex -w 400
 -- @
 
-defaultMain :: DataFloat n => QDiagram PGF V2 n Any -> IO ()
+defaultMain :: TypeableFloat n => QDiagram PGF V2 n Any -> IO ()
 defaultMain = mainWith
 
 -- | Allows you to pick a surface the diagram will be rendered with.
-mainWithSurf :: DataFloat n => Surface -> QDiagram PGF V2 n Any -> IO ()
+mainWithSurf :: TypeableFloat n => Surface -> QDiagram PGF V2 n Any -> IO ()
 mainWithSurf = curry mainWith
 
 -- For online diagrams.
 
 -- | Same as @defaultMain@ but takes an online pgf diagram.
-onlineMain :: DataFloat n => OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
+onlineMain :: TypeableFloat n => OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
 onlineMain = mainWith
 
 -- | Same as @mainWithSurf@ but takes an online pgf diagram.
-onlineMainWithSurf :: DataFloat n => Surface -> OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
+onlineMainWithSurf :: TypeableFloat n => Surface -> OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
 onlineMainWithSurf = curry mainWith
 
 -- Mainable instances
 
-instance DataFloat n => Mainable (QDiagram PGF V2 n Any) where
+instance TypeableFloat n => Mainable (QDiagram PGF V2 n Any) where
 #ifdef CMDLINELOOP
   type MainOpts (QDiagram PGF V2 n Any)
     = (DiagramOpts, (TeXFormat, (PGFCmdLineOpts, DiagramLoopOpts)))
@@ -213,20 +213,20 @@ instance DataFloat n => Mainable (QDiagram PGF V2 n Any) where
             out -> renderPGF' out opts d
 #endif
 
-instance DataFloat n => Mainable (Surface, QDiagram PGF V2 n Any) where
+instance TypeableFloat n => Mainable (Surface, QDiagram PGF V2 n Any) where
   type MainOpts (Surface, QDiagram PGF V2 n Any) = (DiagramOpts, PGFCmdLineOpts)
 
   mainRender (opts,pgf) (surf,d) = chooseRender opts surf pgf d
 
 -- Online diagrams
 
-instance DataFloat n => Mainable (OnlineTeX (QDiagram PGF V2 n Any)) where
+instance TypeableFloat n => Mainable (OnlineTeX (QDiagram PGF V2 n Any)) where
   type MainOpts (OnlineTeX (QDiagram PGF V2 n Any))
     = (DiagramOpts, (PGFCmdLineOpts, TeXFormat))
 
   mainRender (diaOpts,(pgfOpts,format)) = chooseOnlineRender diaOpts (formatToSurf format) pgfOpts
 
-instance DataFloat n => Mainable (Surface, OnlineTeX (QDiagram PGF V2 n Any)) where
+instance TypeableFloat n => Mainable (Surface, OnlineTeX (QDiagram PGF V2 n Any)) where
   type MainOpts (Surface, OnlineTeX (QDiagram PGF V2 n Any))
     = (DiagramOpts, PGFCmdLineOpts)
 
@@ -240,7 +240,7 @@ formatToSurf format = case format of
   ConTeXt  -> contextSurface
   PlainTeX -> plaintexSurface
 
-cmdLineOpts :: DataFloat n
+cmdLineOpts :: TypeableFloat n
    => DiagramOpts -> Surface -> PGFCmdLineOpts -> Options PGF V2 n
 cmdLineOpts opts surf pgf
   = def & surface    .~ surf
@@ -251,7 +251,7 @@ cmdLineOpts opts surf pgf
     sz = mkSpec $ V2 (f $ opts^.width) (f $ opts^.height)
     f  = fmap fromIntegral
 
-chooseRender :: DataFloat n
+chooseRender :: TypeableFloat n
   => DiagramOpts -> Surface -> PGFCmdLineOpts -> QDiagram PGF V2 n Any -> IO ()
 chooseRender diaOpts surf pgfOpts d =
   case diaOpts^.output of
@@ -260,7 +260,7 @@ chooseRender diaOpts surf pgfOpts d =
   where
     opts = cmdLineOpts diaOpts surf pgfOpts
 
-chooseOnlineRender :: DataFloat n
+chooseOnlineRender :: TypeableFloat n
   => DiagramOpts -> Surface -> PGFCmdLineOpts -> OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
 chooseOnlineRender diaOpts surf pgfOpts dOL =
     case diaOpts^.output of
@@ -289,10 +289,10 @@ chooseOnlineRender diaOpts surf pgfOpts dOL =
 -- $ ./MultiTest --selection bar -o Bar.eps -w 200
 -- @
 
-multiMain :: DataFloat n => [(String, QDiagram PGF V2 n Any)] -> IO ()
+multiMain :: TypeableFloat n => [(String, QDiagram PGF V2 n Any)] -> IO ()
 multiMain = mainWith
 
-instance DataFloat n => Mainable [(String,QDiagram PGF V2 n Any)] where
+instance TypeableFloat n => Mainable [(String,QDiagram PGF V2 n Any)] where
     type MainOpts [(String,QDiagram PGF V2 n Any)]
         = (MainOpts (QDiagram PGF V2 n Any), DiagramMultiOpts)
 
