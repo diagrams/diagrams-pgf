@@ -76,7 +76,7 @@ import           Diagrams.Prelude             hiding (r2, view)
 type B = PGF
 
 type instance V PGF = V2
-type instance N PGF = Double -- XXX what to do?, specialize to Double for now.
+type instance N PGF = Double
 
 -- | Render a pgf diagram and write it to the given filepath. If the file has
 --   the extension @.pdf@, a PDF is generated in a temporary directory using
