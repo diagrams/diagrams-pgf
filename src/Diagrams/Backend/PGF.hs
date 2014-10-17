@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF
@@ -73,6 +75,9 @@ import           Diagrams.Prelude             hiding (r2, view)
 
 type B = PGF
 
+type instance V PGF = V2
+type instance N PGF = Double
+
 -- | Render a pgf diagram and write it to the given filepath. If the file has
 --   the extension @.pdf@, a PDF is generated in a temporary directory using
 --   options from the given surface.
@@ -80,7 +85,7 @@ renderPGF :: DataFloat n
           => FilePath         -- ^ path to output
           -> SizeSpec2D n     -- ^ size of output
           -> Surface          -- ^ 'Surface' to use
-          -> Diagram PGF V2 n -- ^ 'Diagram' to render
+          -> QDiagram PGF V2 n Any -- ^ 'Diagram' to render
           -> IO ()
 renderPGF outFile sizeSp surf = renderPGF' outFile opts
   where
@@ -94,7 +99,7 @@ renderPGF outFile sizeSp surf = renderPGF' outFile opts
                            & sizeSpec .~ sizeSp
 
 -- | Same as 'renderPGF' but takes 'Options PGF R2'.
-renderPGF' :: DataFloat n => FilePath -> Options PGF V2 n -> Diagram PGF V2 n -> IO ()
+renderPGF' :: DataFloat n => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n Any -> IO ()
 renderPGF' outFile opts d = case takeExtension outFile of
   ".pdf" -> do
     let rendered = renderDia PGF (opts & standalone .~ True) d
@@ -122,7 +127,7 @@ renderOnlinePGF :: DataFloat n
                 => FilePath
                 -> SizeSpec2D n
                 -> Surface
-                -> OnlineTeX (Diagram PGF V2 n)
+                -> OnlineTeX (QDiagram PGF V2 n Any)
                 -> IO ()
 renderOnlinePGF outFile sizeSp surf = renderOnlinePGF' outFile opts
   where
@@ -133,7 +138,7 @@ renderOnlinePGF outFile sizeSp surf = renderOnlinePGF' outFile opts
 renderOnlinePGF' :: DataFloat n
                  => FilePath
                  -> Options PGF V2 n
-                 -> OnlineTeX (Diagram PGF V2 n)
+                 -> OnlineTeX (QDiagram PGF V2 n Any)
                  -> IO ()
 renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
   ".pdf" -> do
@@ -166,7 +171,7 @@ renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
     surf = opts ^. surface
 
 -- | Write the rendered diagram to a text file, ignoring the extension.
-writeTexFile :: DataFloat n => FilePath -> Options PGF V2 n -> Diagram PGF V2 n -> IO ()
+writeTexFile :: DataFloat n => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n Any -> IO ()
 writeTexFile outFile opts d = do
   h <- openFile outFile WriteMode
   hPutBuilder h $ renderDia PGF opts d
