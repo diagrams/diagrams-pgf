@@ -11,7 +11,7 @@ module Diagrams.Backend.PGF.Render
 
   -- * Lenses
   , surface
-  , szSpec
+  , sizeSpec
   , readable
   , standalone
 
@@ -53,7 +53,7 @@ instance TypeableFloat n => Backend PGF V2 n where
   type Result  PGF V2 n = Builder
   data Options PGF V2 n = PGFOptions
     { _surface    :: Surface       -- ^ Surface you want to use.
-    , _szSpec     :: SizeSpec V2 n -- ^ The requested size.
+    , _sizeSpec     :: SizeSpec V2 n -- ^ The requested size.
     , _readable   :: Bool          -- ^ Indented lines for @.tex@ output.
     , _standalone :: Bool          -- ^ Should @.tex@ output be standalone.
     }
@@ -62,9 +62,9 @@ instance TypeableFloat n => Backend PGF V2 n where
     P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
       where
         (R r)  = toRender rt
-        bounds = specSize 100 (ops^.szSpec)
+        bounds = specToSize 100 (ops^.sizeSpec)
 
-  adjustDia = adjustDia2D szSpec
+  adjustDia = adjustDia2D sizeSpec
 
 toRender :: (OrderedField n, RealFloat n, Typeable n)
   => RTree PGF V2 n Annotation -> Render PGF V2 n
@@ -93,7 +93,7 @@ renderP (render PGF -> R r) = r
 instance Fractional n => Default (Options PGF V2 n) where
   def = PGFOptions
           { _surface    = def
-          , _szSpec     = absolute
+          , _sizeSpec     = absolute
           , _readable   = True
           , _standalone = False
           }
@@ -115,10 +115,10 @@ standalone = lens getter setter
         setter o s = o { _standalone = s }
 
 -- | Lens onto the 'SizeSpec2D'.
-szSpec :: Lens' (Options PGF V2 n) (SizeSpec V2 n)
-szSpec = lens getSize' setSize
-  where getSize' (PGFOptions { _szSpec = s }) = s
-        setSize o s = o { _szSpec = s }
+sizeSpec :: Lens' (Options PGF V2 n) (SizeSpec V2 n)
+sizeSpec = lens getSize' setSize
+  where getSize' (PGFOptions { _sizeSpec = s }) = s
+        setSize o s = o { _sizeSpec = s }
 
 -- | Lens onto whether the lines of the TeX output are indented.
 readable :: Lens' (Options PGF V2 n) Bool

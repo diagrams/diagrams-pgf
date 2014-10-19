@@ -35,7 +35,7 @@ module Diagrams.Backend.PGF
   , renderPGF'
     -- ** Options lenses
   , readable
-  , szSpec
+  , sizeSpec
   , surface
   , standalone
     -- * Online TeX
@@ -92,12 +92,12 @@ renderPGF outFile sizeSp surf = renderPGF' outFile opts
   where
     opts = case takeExtension outFile of
              ".pdf" -> def & surface    .~ surf
-                           & szSpec     .~ sizeSp
+                           & sizeSpec     .~ sizeSp
                            & readable   .~ False
                            & standalone .~ True
 
              _      -> def & surface  .~ surf
-                           & szSpec   .~ sizeSp
+                           & sizeSpec   .~ sizeSp
 
 -- | Same as 'renderPGF' but takes 'Options PGF R2'.
 renderPGF' :: TypeableFloat n => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n Any -> IO ()
@@ -132,8 +132,8 @@ renderOnlinePGF :: TypeableFloat n
                 -> IO ()
 renderOnlinePGF outFile sizeSp surf = renderOnlinePGF' outFile opts
   where
-    opts = def & szSpec  .~ sizeSp
-               & surface .~ surf
+    opts = def & sizeSpec .~ sizeSp
+               & surface  .~ surf
 
 -- | Same as 'renderOnlinePDF' but takes 'Options PGF R2'.
 renderOnlinePGF' :: TypeableFloat n
