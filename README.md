@@ -1,6 +1,6 @@
 ## PGF diagrams backend
 
-_diagrams-pgf_ is a [PGF] backend for [diagrams]. Diagrams is a powerful, flexible, declarative domain-specific language for creating vector graphics, using the [Haskell programming language][haskell].
+`diagrams-pgf` is a [PGF] backend for [diagrams]. Diagrams is a powerful, flexible, declarative domain-specific language for creating vector graphics, using the [Haskell programming language][haskell].
 
 [PGF]: http://sourceforge.net/projects/pgf/
 [diagrams]: http://projects.haskell.org/diagrams/
@@ -8,10 +8,10 @@ _diagrams-pgf_ is a [PGF] backend for [diagrams]. Diagrams is a powerful, flexib
 
 PGF is a TeX macro package for generating graphics. It is platform- and format-independent and works together with the most important TeX backend drivers, including pdftex and dvips.
 
-_diagrams-pgf_ is a work in progress, it supports the basic features of diagrams with the following features:
+`diagrams-pgf` is a work in progress, it supports the basic features of diagrams with the following features:
 
 - LaTeX, ConTeXt and plain TeX support
-- direct PDF generation using a TeX distribution (e.g. [texlive](https://www.tug.org/texlive/)).
+- direct PDF generation using a TeX distribution (e.g. [texlive](https://www.tug.org/texlive/)) via [texrunner].
 
 ### Usage
 
@@ -89,16 +89,17 @@ $ cat ./square.tex
 
 ### Typesetting
 
-pgf-diagrams allows typesetting TeX commands and can calculate the corresponding envelope. See the [hbox example] to see how get envelopes of text:
+`pgf-diagrams` allows typesetting TeX commands and can calculate the corresponding envelope. See the [hbox example] to see how get envelopes of text:
 
 [hbox example]: examples/hbox.hs
 
-![hbox](https://rawgit.com/cchalmers/diagrams-pgf/master/diagrams/hbox.svg)
+![hbox](https://rawgit.com/cchalmers/texrunner/master/diagrams/hbox.svg)
+
 
 ### Missing features
 
 The following features are not currently supported:
 
 - selecting fonts (italic and bold work)
-- textures
+- gradients
 

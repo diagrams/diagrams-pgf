@@ -1,5 +1,3 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
 import Diagrams.Prelude
 import Diagrams.Backend.PGF.CmdLine
 import Diagrams.TwoD.Vector         (perp)

@@ -22,10 +22,12 @@ module Diagrams.Backend.PGF.Surface
     ( -- * Surface definition
       Surface(..)
     , TeXFormat(..)
+
       -- * Predefined surfaces
     , latexSurface
     , contextSurface
     , plaintexSurface
+
       -- * Lenses
     , texFormat
     , command
@@ -41,6 +43,7 @@ import Control.Lens        (makeLenses)
 import Data.Default        (Default (..))
 import Data.Hashable       (Hashable (..))
 import Data.Typeable       (Typeable)
+import Diagrams.TwoD       (V2 (..))
 
 -- | The 'TeXFormat' is used to choose the different PGF commands nessesary for
 --   that format.
@@ -51,7 +54,7 @@ data Surface = Surface
   { _texFormat :: TeXFormat -- ^ Format PGF commands use.
   , _command   :: String    -- ^ System command to be called.
   , _arguments :: [String]  -- ^ Auguments for command.
-  , _pageSize  :: Maybe ((Int,Int) -> String)
+  , _pageSize  :: Maybe (V2 Int -> String)
                             -- ^ Command to change page size from dimensions of image.
                             --   (in bp)
   , _preamble  :: String    -- ^ Preamble for document, should import pgfcore.
@@ -66,7 +69,7 @@ latexSurface = Surface
   { _texFormat = LaTeX
   , _command   = "pdflatex"
   , _arguments = []
-  , _pageSize  = Just $ \(w,h) ->
+  , _pageSize  = Just $ \(V2 w h) ->
                  "\\pdfpagewidth=" ++ show w ++ "bp\n"
               ++ "\\pdfpageheight=" ++ show h ++ "bp\n"
               ++ "\\textheight=" ++ show h ++ "bp\n"
@@ -84,7 +87,7 @@ contextSurface = Surface
   { _texFormat = ConTeXt
   , _command   = "context"
   , _arguments = ["--pipe", "--once"]
-  , _pageSize  = Just $ \(w,h) ->
+  , _pageSize  = Just $ \(V2 w h) ->
                  "\\definepapersize[diagram][width="++ show w ++"bp,height="++ show h ++"bp]\n"
               ++ "\\setuppapersize[diagram][diagram]\n"
               ++ "\\setuplayout\n"
@@ -106,7 +109,7 @@ plaintexSurface = Surface
   { _texFormat = PlainTeX
   , _command   = "pdftex"
   , _arguments = []
-  , _pageSize  = Just $ \(w,h) ->
+  , _pageSize  = Just $ \(V2 w h) ->
                  "\\pdfpagewidth=" ++ show w ++ "bp\n"
               ++ "\\pdfpageheight=" ++ show h ++ "bp\n"
               ++ "\\pdfhorigin=-20bp\n"
@@ -134,12 +137,12 @@ instance Hashable (TeXFormat) where
 
 instance Hashable (Surface) where
   hashWithSalt s (Surface tf cm ar ps pr bd ed)
-    = s                 `hashWithSalt`
-      tf                `hashWithSalt`
-      cm                `hashWithSalt`
-      ar                `hashWithSalt`
-      ps <*> Just (1,2) `hashWithSalt`
-      pr                `hashWithSalt`
-      bd                `hashWithSalt`
+    = s                    `hashWithSalt`
+      tf                   `hashWithSalt`
+      cm                   `hashWithSalt`
+      ar                   `hashWithSalt`
+      ps <*> Just (V2 1 2) `hashWithSalt`
+      pr                   `hashWithSalt`
+      bd                   `hashWithSalt`
       ed
 

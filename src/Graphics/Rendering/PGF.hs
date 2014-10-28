@@ -77,6 +77,7 @@ module Graphics.Rendering.PGF
   , radialGradient
   , colorSpec
   , shadePath
+  , opacityGroup
   -- * images
   , image
   -- * Text
@@ -87,7 +88,7 @@ module Graphics.Rendering.PGF
   , setFontSlant
   ) where
 
-import           Control.Lens                 (Lens, both, ifoldMap, makeLenses, over, use, view,
+import           Control.Lens                 (Lens, ifoldMap, makeLenses, use, view,
                                                ( #~ ), (+=), (+~), (-=), (.=), (^#), (^.))
 import           Control.Monad.RWS
 import           Data.ByteString.Builder
@@ -100,7 +101,7 @@ import           Numeric
 
 import           Diagrams.Core.Transform      (matrixHomRep)
 import           Diagrams.Prelude             hiding (Render, image, moveTo, opacity, stroke, view,
-                                               (<>))
+                                               (<>), opacityGroup)
 import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..), TextAlignment (..))
 
 import           Diagrams.Backend.PGF.Surface
@@ -151,7 +152,7 @@ initialState = RenderState
 --                        # fontSize (Output 1)
 
 renderWith :: (RealFloat n, Typeable n)
-  => Surface -> Bool -> Bool -> (n,n) -> Render n -> Builder
+  => Surface -> Bool -> Bool -> V2 n -> Render n -> Builder
 renderWith s readable standalone bounds r = builder
   where
     (_,builder) = evalRWS r'
@@ -161,7 +162,7 @@ renderWith s readable standalone bounds r = builder
       when standalone $ do
         ln . rawString $ s^.preamble
         maybe (return ())
-              (ln . rawString . ($ over both ceiling bounds))
+              (ln . rawString . ($ fmap ceiling bounds))
               (s^.pageSize)
         ln . rawString $ s^.beginDoc
       picture $ rectangleBoundingBox bounds >> r
@@ -320,12 +321,12 @@ endPicture = do
     ConTeXt  -> "\\stoppgfpicture"
     PlainTeX -> "\\endpgfpicture"
 
-rectangleBoundingBox :: RealFloat n => (n,n) -> Render n
+rectangleBoundingBox :: RealFloat n => V2 n -> Render n
 rectangleBoundingBox bounds = do
   ln $ do
     pgf "pathrectangle"
     bracers $ pgf "pointorigin"
-    bracers $ tuplePoint bounds
+    bracers $ tuplePoint (unr2 bounds)
   ln $ do
     pgf "usepath"
     bracers $ raw "use as bounding box"
@@ -355,6 +356,28 @@ scopeFooter = do
     LaTeX    -> "\\end{pgfscope}"
     ConTeXt  -> "\\stoppgfscope"
     PlainTeX -> "\\endpgfscope"
+
+transparencyGroup :: Render n -> Render n
+transparencyGroup r = do
+  f <- view format
+  ln . raw $ case f of
+    LaTeX    -> "\\begin{pgftransparencygroup}"
+    ConTeXt  -> "\\startpgftransparencygroup"
+    PlainTeX -> "\\pgftransparencygroup"
+    
+  inBlock r
+
+  ln . raw $ case f of
+    LaTeX    -> "\\end{pgftransparencygroup}"
+    ConTeXt  -> "\\stoppgftransparencygroup"
+    PlainTeX -> "\\endpgftransparencygroup"
+
+opacityGroup :: RealFloat a => a -> Render n -> Render n
+opacityGroup x r = do
+  setFillOpacity x
+  transparencyGroup r
+
+
 
 -- * Colours
 
@@ -502,7 +525,7 @@ setMiterLimit l = do
 
 -- | Sets the dash for the current scope. Must be done before stroking.
 setDash :: RealFloat n => Dashing n -> Render n
-setDash (Dashing ds offs) = setDash' (map fromOutput ds) (fromOutput offs)
+setDash (Dashing ds offs) = setDash' ds offs
 
 
 -- \pgfsetdash{{0.5cm}{0.5cm}{0.1cm}{0.2cm}}{0cm}
@@ -548,11 +571,11 @@ setFillColor (colorToSRGBA -> (r,g,b,a)) = do
   defineColour "fc" r g b
   ln $ pgf "setfillcolor{fc}"
   --
-  when (a /= 1) $ setFillOpacity (fromReal a)
+  when (a /= 1) $ setFillOpacity (fromReal a :: Double)
 
 -- | Sets the stroke opacity for the current scope. Should be a value between 0
 --   and 1. Must be done  before stroking.
-setFillOpacity :: RealFloat n => n -> Render n
+setFillOpacity :: RealFloat a => a -> Render n
 setFillOpacity a = ln $ do
   pgf "setfillopacity"
   bracers $ n a
@@ -667,11 +690,11 @@ colorSpec d = mapM_ ln
             . intersperse (rawChar ';')
             . map mkColor
   where
-    mkColor (GradientStop sc sf) = do
+    mkColor (GradientStop _sc sf) = do
       raw "rgb"
       parens $ bp (d*sf)
       raw "="
-      parensColor sc
+      parensColor _sc
 
 combinePairs :: Monad m => [m a] -> [m a]
 combinePairs []  = []

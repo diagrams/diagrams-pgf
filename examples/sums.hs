@@ -39,8 +39,8 @@ main = onlineMain onlineDiagram
 
 arrowOpts
   = with & shaftStyle %~ lw thin
-         & gaps       .~ Local 3
-         & headLength .~ Local 5
+         & gaps       .~ local 3
+         & headLength .~ local 5
 
 displayStyle tex = "$\\displaystyle " ++ tex ++ "$"
 

@@ -47,7 +47,7 @@ import           Diagrams.Core
 import           Diagrams.Core.Envelope           (pointEnvelope)
 import           Diagrams.Points
 import           Diagrams.TwoD
-import           Diagrams.TwoD.Transform.ScaleInv
+import           Diagrams.Transform.ScaleInv
 
 import           Diagrams.Backend.PGF.Surface
 
