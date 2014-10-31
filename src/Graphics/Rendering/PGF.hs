@@ -378,7 +378,6 @@ opacityGroup x r = do
   transparencyGroup r
 
 
-
 -- * Colours
 
 texColor :: RealFloat a => a -> a -> a -> Render n
@@ -454,7 +453,6 @@ curveTo v2 v3 v4 = ln $ do
 
 -- using paths
 
-
 -- | Stroke the defined path using parameters from current scope.
 stroke :: Render n
 stroke = ln $ pgf "usepathqstroke"
@@ -527,7 +525,6 @@ setMiterLimit l = do
 setDash :: RealFloat n => Dashing n -> Render n
 setDash (Dashing ds offs) = setDash' ds offs
 
-
 -- \pgfsetdash{{0.5cm}{0.5cm}{0.1cm}{0.2cm}}{0cm}
 -- | Takes the dash distances and offset, must be done before stroking.
 setDash' :: RealFloat n => [n] -> n -> Render n
@@ -583,14 +580,10 @@ setFillOpacity a = ln $ do
 
 -- transformations
 
-getMatrix :: Num n => Transformation V2 n
-          -> (n, n, n, n, n, n)
+getMatrix :: Num n => Transformation V2 n -> (n, n, n, n, n, n)
 getMatrix t = (a1,a2,b1,b2,c1,c2)
  where
-   [[a1, a2], [b1, b2], [c1, c2]] = matrixHomRep t
-  -- (V2 a1 a2) = apply t unitX
-  -- (V2 b1 b2) = apply t unitY
-  -- (V2 c1 c2) = transl t
+   [a1, a2, b1, b2, c1, c2] = concat $ matrixHomRep t
 
 -- \pgftransformcm{⟨a⟩}{⟨b⟩}{⟨c⟩}{⟨d⟩}{⟨pointa}
 
