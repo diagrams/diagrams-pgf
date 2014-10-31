@@ -53,7 +53,7 @@ instance TypeableFloat n => Backend PGF V2 n where
   type Result  PGF V2 n = Builder
   data Options PGF V2 n = PGFOptions
     { _surface    :: Surface       -- ^ Surface you want to use.
-    , _sizeSpec     :: SizeSpec V2 n -- ^ The requested size.
+    , _sizeSpec   :: SizeSpec V2 n -- ^ The requested size.
     , _readable   :: Bool          -- ^ Indented lines for @.tex@ output.
     , _standalone :: Bool          -- ^ Should @.tex@ output be standalone.
     }
@@ -186,9 +186,6 @@ applyOpacity c s = dissolve (maybe 1 getOpacity (getAttr s)) (toAlphaColour c)
 getNumAttr :: AttributeClass (a n) => (a n -> t) -> Style V2 n -> Maybe t
 getNumAttr f = (f <$>) . getAttr
 
--- getMeasuredAttr :: (AttributeClass (a n), Num t) => (a n -> Measure t) -> Style V2 n -> Maybe t
--- getMeasuredAttr f = (fromOutput . f <$>) . getAttr
-
 -- | Queries the current style and decides if the path should be stroked. Paths
 --   are stroked when lw > 0.0001
 shouldStroke :: (OrderedField n, Typeable n) => P.RenderM n Bool
@@ -243,8 +240,6 @@ escapeString = concatMap escapeChar
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
 renderText :: (RealFloat n, Typeable n) => Text n -> P.Render n
 renderText (Text tt txtAlign str) = do
-  -- isLocal <- (getFontSizeIsLocal <$>) . getAttr <$> use P.style
-  -- isLocal <- getNumAttr getFontSizeIsLocal <$> use P.style
   setFillTexture <~ getFillTexture
   --
   -- doTxtTrans <- view P.txtTrans
@@ -261,10 +256,7 @@ renderText (Text tt txtAlign str) = do
 
 renderHbox :: RealFloat n => Hbox n -> P.Render n
 renderHbox (Hbox tt str) = do
-  -- isLocal <- (getFontSizeIsLocal <$>) . getAttr <$> use P.style
-  P.applyTransform tt -- (if fromMaybe False isLocal then tn else tt)
-  -- P.applyScale 8
-  -- P.resetNonTranslations
+  P.applyTransform tt
   P.renderText (P.setTextAlign BaselineText) (P.rawString str)
 
 ------------------------------------------------------------------------
@@ -298,10 +290,10 @@ instance RealFloat n => Renderable (DImage n External) PGF where
 -- Hashable instances
 
 instance Hashable n => Hashable (Options PGF V2 n) where
-  hashWithSalt s (PGFOptions sf _sz rd st)
+  hashWithSalt s (PGFOptions sf sz rd st)
     = s  `hashWithSalt`
       sf `hashWithSalt`
-      -- sz `hashWithSalt`
+      sz `hashWithSalt`
       rd `hashWithSalt`
       st
 

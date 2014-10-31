@@ -15,6 +15,7 @@
 -----------------------------------------------------------------------------
 module Diagrams.Backend.PGF.Hbox
   ( Hbox (..)
+
     -- * Enveloped diagrams
     -- | The dimensions of a hbox can be recovered by calling TeX. The
     --   resulting envelope has its origin at the baseline of the text.
@@ -23,9 +24,11 @@ module Diagrams.Backend.PGF.Hbox
   , onlineHbox
   , surfOnlineTex
   , surfaceHbox
+
     -- * Point envelope diagrams
   , hbox
   , hboxInv
+
     -- * IO versions
     -- | If used properly, the non-IO versions should be \'safe\'. However we
     --   supply the IO versions anyway.
