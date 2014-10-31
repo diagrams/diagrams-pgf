@@ -47,7 +47,7 @@ import           Diagrams.Core
 import           Diagrams.Core.Envelope           (pointEnvelope)
 import           Diagrams.Points
 import           Diagrams.TwoD
-import           Diagrams.TwoD.Transform.ScaleInv
+import           Diagrams.Transform.ScaleInv
 
 import           Diagrams.Backend.PGF.Surface
 
@@ -67,7 +67,7 @@ instance Fractional n => Renderable (Hbox n) NullBackend where
 
 -- | Raw TeX commands with no envelope. Transformations are applied normally.
 hbox :: (Fractional n, Ord n, Typeable n, Renderable (Hbox n) b)
-     => String -> Diagram b V2 n
+     => String -> QDiagram b V2 n Any
 hbox raw = mkQD (Prim (Hbox mempty raw))
                 (pointEnvelope origin)
                 mempty
@@ -77,14 +77,14 @@ hbox raw = mkQD (Prim (Hbox mempty raw))
 -- | Raw TeX commands with no envelope. Only translational transformations are
 --   applied.
 hboxInv :: (RealFloat n, Typeable n, Renderable (Hbox n) b)
-        => String -> Diagram b V2 n
+        => String -> QDiagram b V2 n Any
 hboxInv txt = scaleInvPrim (Hbox mempty txt) (mkR2 0 0)
 
 -- | Hbox with bounding box envelope. Note that each box requires a call to
 --   TeX. For multiple boxes consider using 'onlineHbox' to get multiple boxes
 --   from a single call. (uses unsafePerformIO)
 surfaceHbox :: (RealFloat n, Typeable n, Renderable (Hbox n) b)
-            => Surface -> String -> Diagram b V2 n
+            => Surface -> String -> QDiagram b V2 n Any
 surfaceHbox surf txt = unsafePerformIO (hboxIO surf txt)
 {-# NOINLINE surfaceHbox #-}
 
@@ -92,7 +92,7 @@ surfaceHbox surf txt = unsafePerformIO (hboxIO surf txt)
 --   TeX. For multiple boxes consider using 'onlineHbox' to get multiple boxes
 --   from a single call.
 hboxIO :: (RealFloat n, Typeable n, Renderable (Hbox n) b)
-       => Surface -> String -> IO (Diagram b V2 n)
+       => Surface -> String -> IO (QDiagram b V2 n Any)
 hboxIO surf txt = surfOnlineTexIO surf (onlineHbox txt)
 
 -- | Get the result of an OnlineTeX using the given surface.
@@ -108,7 +108,7 @@ surfOnlineTexIO surf = runOnlineTex (surf^.command)
 
 -- | Hbox with bounding box envelope.
 onlineHbox :: (RealFloat n, Typeable n, Renderable (Hbox n) b)
-           => String -> OnlineTeX (Diagram b V2 n)
+           => String -> OnlineTeX (QDiagram b V2 n Any)
 onlineHbox txt = do
   (Box h d w) <- Online.hbox (pack txt)
 

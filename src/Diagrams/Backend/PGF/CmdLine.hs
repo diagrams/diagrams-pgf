@@ -36,7 +36,7 @@ module Diagrams.Backend.PGF.CmdLine
 import           Diagrams.Backend.CmdLine
 import           Diagrams.Backend.PGF
 import           Diagrams.Backend.PGF.Hbox
-import           Diagrams.Prelude          hiding (height, interval, width, (<>))
+import           Diagrams.Prelude          hiding (height, interval, width, (<>), output)
 
 import           Control.Lens
 import           Control.Monad             (mplus)
@@ -111,7 +111,7 @@ instance ToResult d => ToResult (OnlineTeX d) where
 -- will produce a program that looks for additional number and color arguments.
 --
 -- > ... definitions ...
--- > f :: Int -> Colour Double -> Diagram PGF V2 n
+-- > f :: Int -> Colour Double -> QDiagram PGF V2 n Any
 -- > f i c = ...
 -- >
 -- > main = mainWith f
@@ -172,28 +172,28 @@ instance ToResult d => ToResult (OnlineTeX d) where
 -- $ ./mydiagram -o image.tex -w 400
 -- @
 
-defaultMain :: DataFloat n => Diagram PGF V2 n -> IO ()
+defaultMain :: TypeableFloat n => QDiagram PGF V2 n Any -> IO ()
 defaultMain = mainWith
 
 -- | Allows you to pick a surface the diagram will be rendered with.
-mainWithSurf :: DataFloat n => Surface -> Diagram PGF V2 n -> IO ()
+mainWithSurf :: TypeableFloat n => Surface -> QDiagram PGF V2 n Any -> IO ()
 mainWithSurf = curry mainWith
 
 -- For online diagrams.
 
 -- | Same as @defaultMain@ but takes an online pgf diagram.
-onlineMain :: DataFloat n => OnlineTeX (Diagram PGF V2 n) -> IO ()
+onlineMain :: TypeableFloat n => OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
 onlineMain = mainWith
 
 -- | Same as @mainWithSurf@ but takes an online pgf diagram.
-onlineMainWithSurf :: DataFloat n => Surface -> OnlineTeX (Diagram PGF V2 n) -> IO ()
+onlineMainWithSurf :: TypeableFloat n => Surface -> OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
 onlineMainWithSurf = curry mainWith
 
 -- Mainable instances
 
-instance DataFloat n => Mainable (Diagram PGF V2 n) where
+instance TypeableFloat n => Mainable (QDiagram PGF V2 n Any) where
 #ifdef CMDLINELOOP
-  type MainOpts (Diagram PGF V2 n)
+  type MainOpts (QDiagram PGF V2 n Any)
     = (DiagramOpts, (TeXFormat, (PGFCmdLineOpts, DiagramLoopOpts)))
 
   mainRender (diaOpts,(format,(pgfOpts,loopOpts))) d = do
@@ -203,7 +203,7 @@ instance DataFloat n => Mainable (Diagram PGF V2 n) where
         out -> renderPGF' out opts d
       when (loopOpts^.loop) (waitForChange Nothing loopOpts)
 #else
-  type MainOpts (Diagram PGF V2 n) = (DiagramOpts, (TeXFormat, PGFCmdLineOpts))
+  type MainOpts (QDiagram PGF V2 n Any) = (DiagramOpts, (TeXFormat, PGFCmdLineOpts))
 
   mainRender (diaOpts, (format, pgfOpts))
     = let opts = cmdLineOpts diaOpts (formatToSurf format) pgfOpts
@@ -212,21 +212,21 @@ instance DataFloat n => Mainable (Diagram PGF V2 n) where
             out -> renderPGF' out opts d
 #endif
 
-instance DataFloat n => Mainable (Surface, Diagram PGF V2 n) where
-  type MainOpts (Surface, Diagram PGF V2 n) = (DiagramOpts, PGFCmdLineOpts)
+instance TypeableFloat n => Mainable (Surface, QDiagram PGF V2 n Any) where
+  type MainOpts (Surface, QDiagram PGF V2 n Any) = (DiagramOpts, PGFCmdLineOpts)
 
   mainRender (opts,pgf) (surf,d) = chooseRender opts surf pgf d
 
 -- Online diagrams
 
-instance DataFloat n => Mainable (OnlineTeX (Diagram PGF V2 n)) where
-  type MainOpts (OnlineTeX (Diagram PGF V2 n))
+instance TypeableFloat n => Mainable (OnlineTeX (QDiagram PGF V2 n Any)) where
+  type MainOpts (OnlineTeX (QDiagram PGF V2 n Any))
     = (DiagramOpts, (PGFCmdLineOpts, TeXFormat))
 
   mainRender (diaOpts,(pgfOpts,format)) = chooseOnlineRender diaOpts (formatToSurf format) pgfOpts
 
-instance DataFloat n => Mainable (Surface, OnlineTeX (Diagram PGF V2 n)) where
-  type MainOpts (Surface, OnlineTeX (Diagram PGF V2 n))
+instance TypeableFloat n => Mainable (Surface, OnlineTeX (QDiagram PGF V2 n Any)) where
+  type MainOpts (Surface, OnlineTeX (QDiagram PGF V2 n Any))
     = (DiagramOpts, PGFCmdLineOpts)
 
   mainRender (diaOpts,pgfOpts) (surf,dOL) = chooseOnlineRender diaOpts surf pgfOpts dOL
@@ -239,19 +239,18 @@ formatToSurf format = case format of
   ConTeXt  -> contextSurface
   PlainTeX -> plaintexSurface
 
-cmdLineOpts :: DataFloat n
+cmdLineOpts :: TypeableFloat n
    => DiagramOpts -> Surface -> PGFCmdLineOpts -> Options PGF V2 n
 cmdLineOpts opts surf pgf
   = def & surface    .~ surf
-        & sizeSpec   .~ sz
+        & sizeSpec     .~ sz
         & readable   .~ pgf^.cmdReadable
         & standalone .~ pgf^.cmdStandalone
   where
-    sz = mkSizeSpec (f $ opts^.width) (f $ opts^.height)
-    f  = fmap fromIntegral
+    sz = fromIntegral <$> mkSizeSpec2D (opts^.width) (opts^.height)
 
-chooseRender :: DataFloat n
-  => DiagramOpts -> Surface -> PGFCmdLineOpts -> Diagram PGF V2 n -> IO ()
+chooseRender :: TypeableFloat n
+  => DiagramOpts -> Surface -> PGFCmdLineOpts -> QDiagram PGF V2 n Any -> IO ()
 chooseRender diaOpts surf pgfOpts d =
   case diaOpts^.output of
     ""  -> hPutBuilder stdout $ renderDia PGF opts d
@@ -259,8 +258,8 @@ chooseRender diaOpts surf pgfOpts d =
   where
     opts = cmdLineOpts diaOpts surf pgfOpts
 
-chooseOnlineRender :: DataFloat n
-  => DiagramOpts -> Surface -> PGFCmdLineOpts -> OnlineTeX (Diagram PGF V2 n) -> IO ()
+chooseOnlineRender :: TypeableFloat n
+  => DiagramOpts -> Surface -> PGFCmdLineOpts -> OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
 chooseOnlineRender diaOpts surf pgfOpts dOL =
     case diaOpts^.output of
       ""  -> surfOnlineTexIO surf dOL >>= hPutBuilder stdout . renderDia PGF opts
@@ -288,12 +287,12 @@ chooseOnlineRender diaOpts surf pgfOpts dOL =
 -- $ ./MultiTest --selection bar -o Bar.eps -w 200
 -- @
 
-multiMain :: DataFloat n => [(String, Diagram PGF V2 n)] -> IO ()
+multiMain :: TypeableFloat n => [(String, QDiagram PGF V2 n Any)] -> IO ()
 multiMain = mainWith
 
-instance DataFloat n => Mainable [(String,Diagram PGF V2 n)] where
-    type MainOpts [(String,Diagram PGF V2 n)]
-        = (MainOpts (Diagram PGF V2 n), DiagramMultiOpts)
+instance TypeableFloat n => Mainable [(String,QDiagram PGF V2 n Any)] where
+    type MainOpts [(String,QDiagram PGF V2 n Any)]
+        = (MainOpts (QDiagram PGF V2 n Any), DiagramMultiOpts)
 
     mainRender = defaultMultiMainRender
 

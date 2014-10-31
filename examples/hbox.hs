@@ -2,6 +2,8 @@ import Diagrams.Backend.PGF.CmdLine
 import Diagrams.Prelude
 import Diagrams.TwoD.Vector         (perp)
 
+import Diagrams.Size
+
 type D2 = Diagram PGF V2 Double
 
 -- The simplest way to construct a hbox with an envelope is to use
@@ -24,11 +26,11 @@ main1 = onlineMain example
 main2 = onlineMainWithSurf (with & command .~ "lualatex") example
 
 -- Alternatively, 'renderOnlinePDF' can be used to directly generate a pdf.
-main3 = renderOnlinePGF "hbox.pdf" Absolute latexSurface example
+main3 = renderOnlinePGF "hbox.pdf" absolute latexSurface example
 
 -- "renderOnlinePDF'" allows choosing rendering options
 main4 = renderOnlinePGF' "hbox.tex"
-                         (with & sizeSpec .~ Width 300 & standalone .~ True)
+                         (with & szSpec .~ mkWidth 300 & standalone .~ True)
                          example
 
 example :: OnlineTeX D2
@@ -67,6 +69,6 @@ labeledArrow above label r = diaArrow <$> onlineHbox label
         arr = arrowV' ops r
         ops = with & arrowHead .~ spike
                    & arrowTail .~ spike'
-                   & lengths   .~ Normalized 0.015
+                   & lengths   .~ normalized 0.015
 
 
