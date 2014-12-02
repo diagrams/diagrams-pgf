@@ -87,13 +87,13 @@ toRender (Node (RAnnot (OpacityGroup x)) rs)
 toRender (Node _ rs)            = foldMap toRender rs
 
 
-renderP :: (Renderable a PGF, Vn a ~ V2 n) => a -> P.Render n
+renderP :: (Renderable a PGF, V a ~ V2, N a ~ n) => a -> P.Render n
 renderP (render PGF -> R r) = r
 
 instance Fractional n => Default (Options PGF V2 n) where
   def = PGFOptions
           { _surface    = def
-          , _sizeSpec     = absolute
+          , _sizeSpec   = absolute
           , _readable   = True
           , _standalone = False
           }
