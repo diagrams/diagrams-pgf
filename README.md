@@ -32,7 +32,7 @@ Save this to file named `square.hs` and compile this program:
 ghc --make square.hs
 ```
 
-This will generate an executable which, when run produces an SVG file. Run the
+This will generate an executable which, when run produces a TeX (or PDF) file. Run the
 executable with the `--help` option to find out more about how to call it.
 
 ```
