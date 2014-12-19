@@ -1,4 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -73,6 +76,8 @@ import           Diagrams.Backend.PGF.Surface
 import           Diagrams.Size
 import           Diagrams.Prelude             hiding (r2, view)
 
+import Diagrams.Backend.Build
+
 
 type B = PGF
 
@@ -92,12 +97,12 @@ renderPGF outFile sizeSp surf = renderPGF' outFile opts
   where
     opts = case takeExtension outFile of
              ".pdf" -> def & surface    .~ surf
-                           & sizeSpec     .~ sizeSp
+                           & sizeSpec   .~ sizeSp
                            & readable   .~ False
                            & standalone .~ True
 
              _      -> def & surface  .~ surf
-                           & sizeSpec   .~ sizeSp
+                           & sizeSpec .~ sizeSp
 
 -- | Same as 'renderPGF' but takes 'Options PGF R2'.
 renderPGF' :: (TypeableFloat n, Monoid' m) => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n m -> IO ()
@@ -178,3 +183,10 @@ writeTexFile outFile opts d = do
   hPutBuilder h $ renderDia PGF opts d
   hClose h
 
+------------------------------------------------------------------------
+-- Instances
+------------------------------------------------------------------------
+
+instance BackendBuild PGF V2 Double where
+  outputSize               = sizeSpec
+  saveDia outFile opts dia = renderPGF' outFile opts dia
