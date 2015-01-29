@@ -2,10 +2,10 @@ import Diagrams.Prelude
 import Diagrams.Backend.PGF.CmdLine
 import Diagrams.TwoD.Vector         (perp)
 
--- Example using TeX primatives to make a text box with given width. Also 
+-- Example using TeX primatives to make a text box with given width. Also
 -- includes roundedRect background and labeling.
 
-type D2 = Diagram PGF V2 Double
+type D2 = Diagram PGF
 
 main = onlineMain example
 
