@@ -4,7 +4,7 @@ import Diagrams.TwoD.Vector         (perp)
 
 import Diagrams.Size
 
-type D2 = Diagram PGF V2 Double
+type D2 = Diagram PGF
 
 -- The simplest way to construct a hbox with an envelope is to use
 --

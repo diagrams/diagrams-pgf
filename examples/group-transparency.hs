@@ -6,7 +6,7 @@ import Diagrams.Backend.PGF.CmdLine
 
 -- Example of group opacity.
 
-type D2 = Diagram PGF V2 Double
+type D2 = Diagram PGF
 
 main = defaultMain (frame 10 xs)
 

@@ -3,7 +3,7 @@ import Control.Lens ((<&>))
 import Diagrams.Prelude
 import Diagrams.Backend.PGF.CmdLine
 
-type D2 = Diagram PGF V2 Float
+type D2 = Diagram PGF
 
 maxSum = 6 :: Int
 
@@ -13,7 +13,7 @@ sumTo n = show $ (n * (n + 1)) `div` 2
 mkSum :: Int -> OnlineTeX D2
 mkSum n = onlineHbox (displayStyle tex)
            <&> centerXY
-           <&> named n 
+           <&> named n
  where
    tex | n == maxSum = sumTo maxSum
        | otherwise   = sumTo n ++ " + \\sum_{i=" ++ show (n+1) ++ "}^{" ++ show maxSum ++ "} i"
