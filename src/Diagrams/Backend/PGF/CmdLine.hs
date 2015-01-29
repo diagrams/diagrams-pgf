@@ -7,7 +7,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF.CmdLine
--- Copyright   :  (c) 2014 Diagrams team (see LICENSE)
+-- Copyright   :  (c) 2014-2015 Diagrams team (see LICENSE)
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
@@ -36,42 +36,15 @@ module Diagrams.Backend.PGF.CmdLine
 import           Diagrams.Backend.CmdLine
 import           Diagrams.Backend.PGF
 import           Diagrams.Backend.PGF.Hbox
-import           Diagrams.Prelude          hiding (height, interval, width, (<>), output)
+import           Diagrams.Prelude          hiding (height, interval, output,
+                                            width, (<>))
 
 import           Control.Lens
-import           Control.Monad             (mplus)
-import           Data.Default
-
 import           Data.ByteString.Builder
+import           Data.Default
 import           Options.Applicative       as OP
 
-#ifdef CMDLINELOOP
-import           Control.Concurrent        (threadDelay)
-import           Control.Exception         (SomeException (..))
-import qualified Control.Exception         as Exc (bracket, catch)
-import           Control.Monad             (when)
-import           Data.Maybe                (fromMaybe)
-import           System.Directory          (getModificationTime)
-import           System.Exit               (ExitCode (..))
-import           System.IO                 (BufferMode (..), IOMode (..), hClose, hSetBuffering,
-                                            openFile, stdout)
-import           System.Process            (runProcess, waitForProcess)
-
-import           System.Environment        (getArgs, getProgName)
-import           System.Posix.Process      (executeFile)
-
-# if MIN_VERSION_directory(1,2,0)
-import           Data.Time.Clock           (UTCTime, getCurrentTime)
-type ModuleTime = UTCTime
-getModuleTime :: IO ModuleTime
-getModuleTime = getCurrentTime
-#else
-import           System.Time               (ClockTime, getClockTime)
-type ModuleTime = ClockTime
-getModuleTime :: IO ModuleTime
-getModuleTime = getClockTime
-#endif
-#endif
+import           System.IO                 (stdout)
 
 -- pgf specific stuff
 
@@ -140,13 +113,13 @@ instance ToResult d => ToResult (OnlineTeX d) where
 --
 -- @
 -- mydiagram
--- 
+--
 -- Usage: mydiagram [-?|--help] [-w|--width WIDTH] [-h|--height HEIGHT]
 --                  [-o|--output OUTPUT] [-f|--format FORMAT] [-a|--standalone]
 --                  [-r|--readable] [-l|--loop] [-s|--src ARG]
 --                  [-i|--interval INTERVAL]
 --   Command-line diagram generation.
--- 
+--
 -- Available options:
 --   -?,--help                Show this help text
 --   -w,--width WIDTH         Desired WIDTH of the output image
@@ -192,46 +165,33 @@ onlineMainWithSurf = curry mainWith
 -- Mainable instances
 
 instance TypeableFloat n => Mainable (QDiagram PGF V2 n Any) where
-#ifdef CMDLINELOOP
-  type MainOpts (QDiagram PGF V2 n Any)
-    = (DiagramOpts, (TeXFormat, (PGFCmdLineOpts, DiagramLoopOpts)))
-
-  mainRender (diaOpts,(format,(pgfOpts,loopOpts))) d = do
-      let opts = cmdLineOpts diaOpts (formatToSurf format) pgfOpts
-      case diaOpts^.output of
-        ""  -> hPutBuilder stdout $ renderDia PGF opts d
-        out -> renderPGF' out opts d
-      when (loopOpts^.loop) (waitForChange Nothing loopOpts)
-#else
-  type MainOpts (QDiagram PGF V2 n Any) = (DiagramOpts, (TeXFormat, PGFCmdLineOpts))
-
-  mainRender (diaOpts, (format, pgfOpts))
-    = let opts = cmdLineOpts diaOpts (formatToSurf format) pgfOpts
-      in  case diaOpts^.output of
-            ""  -> hPutBuilder stdout $ renderDia PGF pgfOpts d
-            out -> renderPGF' out opts d
-#endif
+  type MainOpts (QDiagram PGF V2 n Any) =
+    (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TeXFormat)
+  mainRender (diaOpts, loopOpts, pgfOpts, format) d = do
+    chooseRender diaOpts pgfOpts (formatToSurf format) d
+    defaultLoopRender loopOpts
 
 instance TypeableFloat n => Mainable (Surface, QDiagram PGF V2 n Any) where
-  type MainOpts (Surface, QDiagram PGF V2 n Any) = (DiagramOpts, PGFCmdLineOpts)
-
-  mainRender (opts,pgf) (surf,d) = chooseRender opts surf pgf d
+  type MainOpts (Surface, QDiagram PGF V2 n Any) =
+    (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts)
+  mainRender (diaOpts, loopOpts, pgfOpts) (surf,d) = do
+    chooseRender diaOpts pgfOpts surf d
+    defaultLoopRender loopOpts
 
 -- Online diagrams
-
 instance TypeableFloat n => Mainable (OnlineTeX (QDiagram PGF V2 n Any)) where
   type MainOpts (OnlineTeX (QDiagram PGF V2 n Any))
-    = (DiagramOpts, (PGFCmdLineOpts, TeXFormat))
-
-  mainRender (diaOpts,(pgfOpts,format)) = chooseOnlineRender diaOpts (formatToSurf format) pgfOpts
+    = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TeXFormat)
+  mainRender (diaOpts, loopOpts, pgfOpts, format) d = do
+    chooseOnlineRender diaOpts pgfOpts (formatToSurf format) d
+    defaultLoopRender loopOpts
 
 instance TypeableFloat n => Mainable (Surface, OnlineTeX (QDiagram PGF V2 n Any)) where
   type MainOpts (Surface, OnlineTeX (QDiagram PGF V2 n Any))
-    = (DiagramOpts, PGFCmdLineOpts)
-
-  mainRender (diaOpts,pgfOpts) (surf,dOL) = chooseOnlineRender diaOpts surf pgfOpts dOL
-
--- Internals
+    = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts)
+  mainRender (diaOpts, loopOpts, pgfOpts) (surf, d) = do
+    chooseOnlineRender diaOpts pgfOpts surf d
+    defaultLoopRender loopOpts
 
 formatToSurf :: TeXFormat -> Surface
 formatToSurf format = case format of
@@ -243,15 +203,15 @@ cmdLineOpts :: TypeableFloat n
    => DiagramOpts -> Surface -> PGFCmdLineOpts -> Options PGF V2 n
 cmdLineOpts opts surf pgf
   = def & surface    .~ surf
-        & sizeSpec     .~ sz
+        & sizeSpec   .~ sz
         & readable   .~ pgf^.cmdReadable
         & standalone .~ pgf^.cmdStandalone
   where
     sz = fromIntegral <$> mkSizeSpec2D (opts^.width) (opts^.height)
 
 chooseRender :: TypeableFloat n
-  => DiagramOpts -> Surface -> PGFCmdLineOpts -> QDiagram PGF V2 n Any -> IO ()
-chooseRender diaOpts surf pgfOpts d =
+  => DiagramOpts -> PGFCmdLineOpts -> Surface -> QDiagram PGF V2 n Any -> IO ()
+chooseRender diaOpts pgfOpts surf d =
   case diaOpts^.output of
     ""  -> hPutBuilder stdout $ renderDia PGF opts d
     out -> renderPGF' out opts d
@@ -259,11 +219,11 @@ chooseRender diaOpts surf pgfOpts d =
     opts = cmdLineOpts diaOpts surf pgfOpts
 
 chooseOnlineRender :: TypeableFloat n
-  => DiagramOpts -> Surface -> PGFCmdLineOpts -> OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
-chooseOnlineRender diaOpts surf pgfOpts dOL =
+  => DiagramOpts -> PGFCmdLineOpts -> Surface -> OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
+chooseOnlineRender diaOpts pgfOpts surf d =
     case diaOpts^.output of
-      ""  -> surfOnlineTexIO surf dOL >>= hPutBuilder stdout . renderDia PGF opts
-      out -> renderOnlinePGF' out opts dOL
+      ""  -> surfOnlineTexIO surf d >>= hPutBuilder stdout . renderDia PGF opts
+      out -> renderOnlinePGF' out opts d
   where
     opts = cmdLineOpts diaOpts surf pgfOpts
 
@@ -311,54 +271,4 @@ parseFormat ('c':_) = Right ConTeXt
 parseFormat ('p':_) = Right PlainTeX
 parseFormat ('t':_) = Right PlainTeX
 parseFormat x       = Left $ "Unknown format" ++ x
-
-
-#ifdef CMDLINELOOP
-waitForChange :: Maybe ModuleTime -> DiagramLoopOpts -> IO ()
-waitForChange lastAttempt opts = do
-    prog <- getProgName
-    args <- getArgs
-    hSetBuffering stdout NoBuffering
-    go prog args lastAttempt
-  where go prog args lastAtt = do
-          threadDelay (1000000 * opts^.interval)
-          -- putStrLn $ "Checking... (last attempt = " ++ show lastAttempt ++ ")"
-          (newBin, newAttempt) <- recompile lastAtt prog (opts^.src)
-          if newBin
-            then executeFile prog False args Nothing
-            else go prog args $ newAttempt `mplus` lastAttempt
-
--- | @recompile t prog@ attempts to recompile @prog@, assuming the
---   last attempt was made at time @t@.  If @t@ is @Nothing@ assume
---   the last attempt time is the same as the modification time of the
---   binary.  If the source file modification time is later than the
---   last attempt time, then attempt to recompile, and return the time
---   of this attempt.  Otherwise (if nothing has changed since the
---   last attempt), return @Nothing@.  Also return a Bool saying
---   whether a successful recompilation happened.
-recompile :: Maybe ModuleTime -> String -> Maybe String -> IO (Bool, Maybe ModuleTime)
-recompile lastAttempt prog mSrc = do
-  let errFile = prog ++ ".errors"
-      srcFile = fromMaybe (prog ++ ".hs") mSrc
-  binT <- maybe (getModTime prog) (return . Just) lastAttempt
-  srcT <- getModTime srcFile
-  if (srcT > binT)
-    then do
-      putStr "Recompiling..."
-      status <- Exc.bracket (openFile errFile WriteMode) hClose $ \h ->
-        waitForProcess =<< runProcess "ghc" ["--make", srcFile]
-                           Nothing Nothing Nothing Nothing (Just h)
-
-      if (status /= ExitSuccess)
-        then putStrLn "" >> putStrLn (replicate 75 '-') >> readFile errFile >>= putStr
-        else putStrLn "done."
-
-      curTime <- getModuleTime
-      return (status == ExitSuccess, Just curTime)
-
-    else return (False, Nothing)
-
- where getModTime f = Exc.catch (Just <$> getModificationTime f)
-                            (\(SomeException _) -> return Nothing)
-#endif
 
