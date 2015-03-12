@@ -36,20 +36,16 @@ module Diagrams.Backend.PGF.Hbox
   , surfOnlineTexIO
   ) where
 
-import           Control.Lens                     ((^.))
-import           Data.ByteString.Char8            (pack)
+import           Data.ByteString.Char8        (pack)
 import           Data.Monoid
 import           Data.Typeable
 import           System.IO.Unsafe
-import           System.TeXRunner.Online          hiding (hbox)
-import qualified System.TeXRunner.Online          as Online
+import           System.TeXRunner.Online      hiding (hbox)
+import qualified System.TeXRunner.Online      as Online
 import           System.TeXRunner.Parse
 
-import           Diagrams.BoundingBox
-import           Diagrams.Core
-import           Diagrams.Core.Envelope           (pointEnvelope)
-import           Diagrams.Points
-import           Diagrams.TwoD
+import           Diagrams.Core.Envelope       (pointEnvelope)
+import           Diagrams.Prelude             hiding (Box, (<>))
 import           Diagrams.Transform.ScaleInv
 
 import           Diagrams.Backend.PGF.Surface

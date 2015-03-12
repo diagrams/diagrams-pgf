@@ -54,9 +54,7 @@ module Diagrams.Backend.PGF
   , module Diagrams.Backend.PGF.Surface
   ) where
 
-import           Control.Lens                 (set, (^.))
 import           Data.ByteString.Builder
-import           Data.Default
 import           System.Directory             hiding (readable)
 import           System.FilePath
 import           System.IO

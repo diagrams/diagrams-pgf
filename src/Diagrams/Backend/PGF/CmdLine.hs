@@ -17,30 +17,28 @@
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.PGF.CmdLine
-       ( -- * General form of @main@
-         -- $mainwith
+  ( -- * General form of @main@
+    -- $mainwith
 
-         mainWith
+    mainWith
 
-         -- * Supported forms of @main@
+    -- * Supported forms of @main@
 
-       , defaultMain
-       , mainWithSurf
-       , onlineMain
-       , onlineMainWithSurf
-       , multiMain
+  , defaultMain
+  , mainWithSurf
+  , onlineMain
+  , onlineMainWithSurf
+  , multiMain
 
-       , module Diagrams.Backend.PGF
-       ) where
+  , module Diagrams.Backend.PGF
+  ) where
 
 import           Diagrams.Backend.CmdLine
 import           Diagrams.Backend.PGF
 import           Diagrams.Backend.PGF.Hbox
 import           Diagrams.Prelude          hiding (height, interval, width, (<>), output)
 
-import           Control.Lens
 import           Control.Monad             (mplus)
-import           Data.Default
 
 import           Data.ByteString.Builder
 import           Options.Applicative       as OP
@@ -140,13 +138,13 @@ instance ToResult d => ToResult (OnlineTeX d) where
 --
 -- @
 -- mydiagram
--- 
+--
 -- Usage: mydiagram [-?|--help] [-w|--width WIDTH] [-h|--height HEIGHT]
 --                  [-o|--output OUTPUT] [-f|--format FORMAT] [-a|--standalone]
 --                  [-r|--readable] [-l|--loop] [-s|--src ARG]
 --                  [-i|--interval INTERVAL]
 --   Command-line diagram generation.
--- 
+--
 -- Available options:
 --   -?,--help                Show this help text
 --   -w,--width WIDTH         Desired WIDTH of the output image

@@ -19,19 +19,16 @@ module Diagrams.Backend.PGF.Render
   , escapeString
   ) where
 
-import           Control.Lens                 (Lens', lens, op, use, uses, (.=), (<<<>=), (^.))
-import           Control.Lens.Extras          (is)
 import           Control.Monad                (when)
 import           Data.ByteString.Builder
 
-import           Data.Default
 import           Data.Foldable                (foldMap)
 import           Data.Functor
 import           Data.Hashable                (Hashable (..))
 import           Data.Tree                    (Tree (Node))
 
 import           Diagrams.Core.Types
-import           Diagrams.Prelude
+import           Diagrams.Prelude hiding ((<~))
 
 import           Diagrams.Backend.PGF.Hbox    (Hbox (..))
 import           Diagrams.Backend.PGF.Surface (Surface)
@@ -39,7 +36,6 @@ import           Diagrams.TwoD.Adjust         (adjustDia2D)
 import           Diagrams.TwoD.Path
 import           Diagrams.TwoD.Text           (Text (..), TextAlignment (..), getFontSize,
                                                getFontSlant, getFontWeight)
-
 import           Data.Typeable
 import qualified Graphics.Rendering.PGF       as P
 
@@ -130,13 +126,13 @@ readable = lens getR setR
 --   linewidth > 0.0001 and if filled if a colour is defined.
 --
 --   All stroke and fill properties from the current @style@ are also output here.
-draw :: (TypeableFloat n) => P.Render n
+draw :: TypeableFloat n => P.Render n
 draw = do
   mFillTexture <- (getFillTexture <$>) . getAttr <$> use P.style
   canFill      <- uses P.ignoreFill not
   doFill       <- case mFillTexture of
     Nothing -> return False
-    Just t  -> setFillTexture t >> return (is _SC t && canFill)
+    Just t  -> setFillTexture t >> return (not (isn't _SC t) && canFill)
   when doFill $
     P.setFillRule <~ getFillRule
   --

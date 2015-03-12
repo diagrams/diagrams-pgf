@@ -88,8 +88,6 @@ module Graphics.Rendering.PGF
   , setFontSlant
   ) where
 
-import           Control.Lens                 (Lens, ifoldMap, makeLenses, use, view,
-                                               ( #~ ), (+=), (+~), (-=), (.=), (^#), (^.))
 import           Control.Monad.RWS
 import           Data.ByteString.Builder
 import           Data.ByteString.Char8        (ByteString)
@@ -100,7 +98,7 @@ import           Data.Typeable
 import           Numeric
 
 import           Diagrams.Core.Transform      (matrixHomRep)
-import           Diagrams.Prelude             hiding (Render, image, moveTo, opacity, stroke, view,
+import           Diagrams.Prelude             hiding (Render, image, moveTo, opacity, stroke,
                                                (<>), opacityGroup)
 import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..), TextAlignment (..))
 
@@ -364,7 +362,7 @@ transparencyGroup r = do
     LaTeX    -> "\\begin{pgftransparencygroup}"
     ConTeXt  -> "\\startpgftransparencygroup"
     PlainTeX -> "\\pgftransparencygroup"
-    
+
   inBlock r
 
   ln . raw $ case f of
