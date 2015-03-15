@@ -45,9 +45,9 @@ data PGF = PGF
   deriving (Show, Typeable)
 
 instance TypeableFloat n => Backend PGF V2 n where
-  data Render  PGF V2 n = R (P.Render n)
-  type Result  PGF V2 n = Builder
-  data Options PGF V2 n = PGFOptions
+  newtype Render  PGF V2 n = R (P.Render n)
+  type    Result  PGF V2 n = Builder
+  data    Options PGF V2 n = PGFOptions
     { _surface    :: Surface       -- ^ Surface you want to use.
     , _sizeSpec   :: SizeSpec V2 n -- ^ The requested size.
     , _readable   :: Bool          -- ^ Indented lines for @.tex@ output.
@@ -82,7 +82,6 @@ toRender (Node (RAnnot (OpacityGroup x)) rs)
   P.opacityGroup x r
 toRender (Node _ rs)            = foldMap toRender rs
 
-
 renderP :: (Renderable a PGF, V a ~ V2, N a ~ n) => a -> P.Render n
 renderP (render PGF -> R r) = r
 
@@ -95,32 +94,24 @@ instance Fractional n => Default (Options PGF V2 n) where
           }
 
 instance Monoid (Render PGF V2 n) where
-  mempty                  = R $ return ()
-  (R ra) `mappend` (R rb) = R (ra >> rb)
+  mempty              = R $ return ()
+  R ra `mappend` R rb = R $ ra >> rb
 
 -- | Lens onto the surface used to render.
 surface :: Lens' (Options PGF V2 n) Surface
-surface = lens getter setter
-  where getter (PGFOptions { _surface = s }) = s
-        setter o s = o { _surface = s }
+surface = lens _surface (\o s -> o {_surface = s})
 
 -- | Lens onto whether a standalone TeX document should be produced.
 standalone :: Lens' (Options PGF V2 n) Bool
-standalone = lens getter setter
-  where getter (PGFOptions { _standalone = s }) = s
-        setter o s = o { _standalone = s }
+standalone = lens _standalone (\o s -> o {_standalone = s})
 
 -- | Lens onto the 'SizeSpec2D'.
 sizeSpec :: Lens' (Options PGF V2 n) (SizeSpec V2 n)
-sizeSpec = lens getSize' setSize
-  where getSize' (PGFOptions { _sizeSpec = s }) = s
-        setSize o s = o { _sizeSpec = s }
+sizeSpec = lens _sizeSpec (\o s -> o {_sizeSpec = s})
 
 -- | Lens onto whether the lines of the TeX output are indented.
 readable :: Lens' (Options PGF V2 n) Bool
-readable = lens getR setR
-  where getR (PGFOptions { _readable = r }) = r
-        setR o r = o { _readable = r }
+readable = lens _readable (\o b -> o {_readable = b})
 
 -- | Use the path that has already been drawn in scope. The path is stroked if
 --   linewidth > 0.0001 and if filled if a colour is defined.
@@ -157,9 +148,9 @@ infixr 2 <~
 
 setFillTexture :: RealFloat n => Texture n -> P.Render n
 setFillTexture t = case t of
-  (SC (SomeColor c)) -> setFillColor' c
-  (LG g)             -> P.linearGradient g
-  (RG g)             -> P.radialGradient g
+  SC (SomeColor c) -> setFillColor' c
+  LG g             -> P.linearGradient g
+  RG g             -> P.radialGradient g
 
 setFillColor' :: (RealFloat n, Color c) => c -> P.Render n
 setFillColor' c = do
@@ -186,7 +177,6 @@ getNumAttr f = (f <$>) . getAttr
 --   are stroked when lw > 0.0001
 shouldStroke :: (OrderedField n, Typeable n) => P.RenderM n Bool
 shouldStroke = do
-  -- mLWidth <- (fromOutput . getLineWidth <$>) . getAttr <$> use P.style
   mLWidth <- getNumAttr getLineWidth <$> use P.style
   --
   return $ maybe True (> P.epsilon) mLWidth

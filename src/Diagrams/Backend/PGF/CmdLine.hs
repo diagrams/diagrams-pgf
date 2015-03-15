@@ -40,7 +40,6 @@ import           Diagrams.Prelude          hiding (height, interval, output,
                                             width, (<>))
 
 import           Data.ByteString.Builder
-import           Data.Default
 import           Options.Applicative       as OP
 
 import           System.IO                 (stdout)

@@ -58,8 +58,7 @@ type instance V (Hbox n) = V2
 type instance N (Hbox n) = n
 
 instance Fractional n => Transformable (Hbox n) where
-  transform t (Hbox tt str)
-    = Hbox (t <> tt) str
+  transform t (Hbox tt str) = Hbox (t <> tt) str
 
 instance Fractional n => Renderable (Hbox n) NullBackend where
   render _ _ = mempty
@@ -109,7 +108,7 @@ surfOnlineTexIO surf = runOnlineTex (surf^.command)
 onlineHbox :: (RealFloat n, Typeable n, Renderable (Hbox n) b)
            => String -> OnlineTeX (QDiagram b V2 n Any)
 onlineHbox txt = do
-  (Box h d w) <- Online.hbox (pack txt)
+  Box h d w <- Online.hbox (pack txt)
 
   let bb = fromCorners (P $ V2 0 (-d))
                        (P $ V2 w h)

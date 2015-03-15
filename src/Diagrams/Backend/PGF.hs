@@ -90,7 +90,7 @@ renderPGF outFile sizeSp surf = renderPGF' outFile opts
   where
     opts = case takeExtension outFile of
              ".pdf" -> def & surface    .~ surf
-                           & sizeSpec     .~ sizeSp
+                           & sizeSpec   .~ sizeSp
                            & readable   .~ False
                            & standalone .~ True
 
@@ -98,7 +98,8 @@ renderPGF outFile sizeSp surf = renderPGF' outFile opts
                            & sizeSpec   .~ sizeSp
 
 -- | Same as 'renderPGF' but takes 'Options PGF R2'.
-renderPGF' :: (TypeableFloat n, Monoid' m) => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n m -> IO ()
+renderPGF' :: (TypeableFloat n, Monoid' m)
+           => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n m -> IO ()
 renderPGF' outFile opts d = case takeExtension outFile of
   ".pdf" -> do
     let rendered = renderDia PGF (opts & standalone .~ True) d
@@ -170,7 +171,8 @@ renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
     surf = opts ^. surface
 
 -- | Write the rendered diagram to a text file, ignoring the extension.
-writeTexFile :: (TypeableFloat n, Monoid' m) => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n m -> IO ()
+writeTexFile :: (TypeableFloat n, Monoid' m)
+             => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n m -> IO ()
 writeTexFile outFile opts d = do
   h <- openFile outFile WriteMode
   hPutBuilder h $ renderDia PGF opts d

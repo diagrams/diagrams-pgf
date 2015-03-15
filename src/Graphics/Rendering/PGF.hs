@@ -8,7 +8,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.PGF
--- Copyright   :  (c) 2014 Christopher Chalmers
+-- Copyright   :  (c) 2014-2015 Christopher Chalmers
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
@@ -166,7 +166,7 @@ renderWith s readable standalone bounds r = builder
       picture $ rectangleBoundingBox bounds >> r
       when standalone $ rawString $ s^.endDoc
 
-----------------------------------------------------------------------
+-- low level utilities -------------------------------------------------
 
 -- builder functions
 raw :: Builder -> Render n
@@ -189,18 +189,20 @@ rawChar :: Char -> Render n
 rawChar = tell . char8
 {-# INLINE rawChar #-}
 
+-- | Emit the indentation when 'pprint' is True.
 emit :: Render n
 emit = do
-  tab <- use indent
-  rawByteString $ B.replicate tab ' '
+  pp <- view pprint
+  when pp $ do
+    tab <- use indent
+    rawByteString $ B.replicate tab ' '
 {-# INLINE emit #-}
 
 ln :: Render n -> Render n
 ln r = do
-  pp <- view pprint
-  if pp
-    then emit >> r >> rawChar '\n'
-    else r >> rawChar '\n'
+  emit
+  r
+  rawChar '\n'
 {-# INLINE ln #-}
 
 -- | Wrap a `Render n` in { .. }.
@@ -215,10 +217,8 @@ bracersBlock :: Render n -> Render n
 bracersBlock rs = do
   raw "{\n"
   inBlock rs
-  pp <- view pprint
-  if pp
-    then rawChar '}'
-    else emit >> rawChar '}'
+  emit
+  rawChar '}'
 
 -- | Wrap a `Render n` in [ .. ].
 brackets :: Render n -> Render n
@@ -239,8 +239,6 @@ parens r = do
 commaIntersperce :: [Render n] -> Render n
 commaIntersperce = sequence_ . intersperse (rawChar ',')
 
--- state stuff
-
 -- | Place a Render n in an indented block
 inBlock :: Render n -> Render n
 inBlock r = do
@@ -248,7 +246,7 @@ inBlock r = do
   r
   indent -= 2
 
--- * number and points
+-- numbers and points --------------------------------------------------
 
 -- | Render a point.
 point :: RealFloat n => P2 n -> Render a
@@ -286,34 +284,20 @@ mm = (>> raw "mm") . n -- . (*0.35278)
 pt :: RealFloat a => a -> Render n
 pt = (>> raw "pt") . n -- . (*1.00375)
 
-fromReal :: (Real a, Fractional n) => a -> n
-fromReal = fromRational . toRational
-
-
 -- | ε = 0.0001 is the limit at which lines are no longer stroked.
 epsilon :: Fractional n => n
 epsilon = 0.0001
 
-
--- * PGF environments
+-- environments --------------------------------------------------------
 
 picture :: Render n -> Render n
 picture r = do
-  beginPicture
-  inBlock r
-  endPicture
-
-beginPicture :: Render n
-beginPicture = do
   f <- view format
   ln . raw $ case f of
     LaTeX    -> "\\begin{pgfpicture}"
     ConTeXt  -> "\\startpgfpicture"
     PlainTeX -> "\\pgfpicture"
-
-endPicture :: Render n
-endPicture = do
-  f <- view format
+  inBlock r
   ln . raw $ case f of
     LaTeX    -> "\\end{pgfpicture}"
     ConTeXt  -> "\\stoppgfpicture"
@@ -332,28 +316,18 @@ rectangleBoundingBox bounds = do
 -- | Wrap the rendering in a scope.
 scope :: Render n -> Render n
 scope r = do
-  scopeHeader
-  -- resetState
-  inBlock r
-  scopeFooter
-
--- | Header for starting a scope.
-scopeHeader :: Render n
-scopeHeader = do
   f <- view format
   ln . raw $ case f of
     LaTeX    -> "\\begin{pgfscope}"
     ConTeXt  -> "\\startpgfscope"
     PlainTeX -> "\\pgfscope"
-
--- | Footer for ending a scope.
-scopeFooter :: Render n
-scopeFooter = do
-  f <- view format
+  inBlock r
   ln . raw $ case f of
     LaTeX    -> "\\end{pgfscope}"
     ConTeXt  -> "\\stoppgfscope"
     PlainTeX -> "\\endpgfscope"
+
+-- opacity groups ------------------------------------------------------
 
 transparencyGroup :: Render n -> Render n
 transparencyGroup r = do
@@ -362,9 +336,7 @@ transparencyGroup r = do
     LaTeX    -> "\\begin{pgftransparencygroup}"
     ConTeXt  -> "\\startpgftransparencygroup"
     PlainTeX -> "\\pgftransparencygroup"
-
   inBlock r
-
   ln . raw $ case f of
     LaTeX    -> "\\end{pgftransparencygroup}"
     ConTeXt  -> "\\stoppgftransparencygroup"
@@ -375,8 +347,7 @@ opacityGroup x r = do
   setFillOpacity x
   transparencyGroup r
 
-
--- * Colours
+-- colours -------------------------------------------------------------
 
 texColor :: RealFloat a => a -> a -> a -> Render n
 texColor r g b = do
@@ -417,8 +388,7 @@ parensColor c = parens $ texColor r g b
 applyOpacity :: Color c => c -> Style V2 n -> AlphaColour Double
 applyOpacity c s = dissolve (maybe 1 getOpacity (getAttr s)) (toAlphaColour c)
 
-
--- Path commands
+-- paths ---------------------------------------------------------------
 
 -- | Close the current path.
 closePath :: Render n
@@ -448,8 +418,6 @@ curveTo v2 v3 v4 = ln $ do
   pos .= v4'
   pgf "pathqcurveto"
   mapM_ bracerPoint [v2', v3', v4']
-
--- using paths
 
 -- | Stroke the defined path using parameters from current scope.
 stroke :: Render n
@@ -488,8 +456,7 @@ asBoundingBox = ln $ do
 --     bracers $ tuplePoint xy
 --   asBoundingBox
 
-
--- Line properties
+-- stroke properties
 
 -- | Sets the line width in current scope. Must be done before stroking.
 setLineWidth :: RealFloat n => n -> Render n
@@ -517,7 +484,7 @@ setMiterLimit l = do
   pgf "setmiterlimit"
   bracers $ bp l
 
--- stroke parameters
+-- stroke parameters ---------------------------------------------------
 
 -- | Sets the dash for the current scope. Must be done before stroking.
 setDash :: RealFloat n => Dashing n -> Render n
@@ -538,7 +505,7 @@ setLineColor c = do
   defineColour "sc" r g b
   ln $ pgf "setstrokecolor{sc}"
   --
-  when (a /= 1) $ setLineOpacity (fromReal a)
+  when (a /= 1) $ setLineOpacity (realToFrac a)
   where
     (r,g,b,a) = colorToSRGBA c
 
@@ -549,8 +516,7 @@ setLineOpacity a = ln $ do
   pgf "setstrokeopacity"
   bracers $ n a
 
-
--- filling
+-- filling -------------------------------------------------------------
 
 -- | Set the fill rule to winding or even-odd for current scope. Must be done
 --   before filling.
@@ -566,7 +532,7 @@ setFillColor (colorToSRGBA -> (r,g,b,a)) = do
   defineColour "fc" r g b
   ln $ pgf "setfillcolor{fc}"
   --
-  when (a /= 1) $ setFillOpacity (fromReal a :: Double)
+  when (a /= 1) $ setFillOpacity (realToFrac a :: Double)
 
 -- | Sets the stroke opacity for the current scope. Should be a value between 0
 --   and 1. Must be done  before stroking.
@@ -575,8 +541,7 @@ setFillOpacity a = ln $ do
   pgf "setfillopacity"
   bracers $ n a
 
-
--- transformations
+-- transformations -----------------------------------------------------
 
 getMatrix :: Num n => Transformation V2 n -> (n, n, n, n, n, n)
 getMatrix t = (a1,a2,b1,b2,c1,c2)
@@ -631,7 +596,7 @@ baseTransform t = do
 --   pgf "setadditionalshadetransform"
 --   bracersBlock $ applyTransform t
 
--- shading
+-- shading -------------------------------------------------------------
 
 linearGradient :: RealFloat n => LGradient n -> Render n
 linearGradient (LGradient stops g0 g1 gt sm) = do
@@ -674,7 +639,6 @@ adjustStops stops method =
 (.§) l a b = b & l #~ (a ^# l)
 {-# INLINE (.§) #-}
 
-
 colorSpec :: RealFloat n => n -> [GradientStop n] -> Render n
 colorSpec d = mapM_ ln
             . combinePairs
@@ -698,8 +662,7 @@ shadePath (view deg -> θ) name = ln $ do
   bracers name
   bracers $ n θ
 
-
--- images
+-- images --------------------------------------------------------------
 
 -- \pgfimage[⟨options ⟩]{⟨filename ⟩}
 
@@ -717,8 +680,7 @@ image (DImage (ImageRef path) w h t2) = do
         raw "height=" >> bp (fromIntegral h :: Double)
       bracers $ rawString path
 
-
--- text
+-- text ----------------------------------------------------------------
 
 renderText :: [Render n] -> Render n -> Render n
 renderText ops txt = ln $ do
