@@ -272,6 +272,9 @@ instance TypeableFloat n => Renderable (Hbox n) PGF where
 instance RealFloat n => Renderable (DImage n External) PGF where
   render _  = R . P.image
 
+instance RealFloat n => Renderable (DImage n Embedded) PGF where
+  render _  = R . P.embeddedImage
+
 ------------------------------------------------------------------------
 -- Hashable instances
 

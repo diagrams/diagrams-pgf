@@ -46,6 +46,9 @@ Library
                      , split                >= 0.1.2 && < 0.3
                      , texrunner            <= 0.0.2
                      , time                 >= 1.2   && < 1.6
+                     , JuicyPixels
+                     , vector
+                     , zlib
   if impl(ghc < 7.6)
     build-depends:     ghc-prim
   if !os(windows)

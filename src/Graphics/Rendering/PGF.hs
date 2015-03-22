@@ -80,6 +80,8 @@ module Graphics.Rendering.PGF
   , opacityGroup
   -- * images
   , image
+  , embeddedImage
+  , embeddedImage'
   -- * Text
   , renderText
   , setTextAlign
@@ -88,19 +90,26 @@ module Graphics.Rendering.PGF
   , setFontSlant
   ) where
 
+import           Codec.Compression.Zlib
+import           Codec.Picture
 import           Control.Monad.RWS
 import           Data.ByteString.Builder
 import           Data.ByteString.Char8        (ByteString)
 import qualified Data.ByteString.Char8        as B (replicate)
+import           Data.ByteString.Internal     (fromForeignPtr)
+import qualified Data.ByteString.Lazy         as LB
 import           Data.List                    (intersperse)
 import           Data.Maybe                   (catMaybes)
 import           Data.Typeable
+import qualified Data.Vector.Storable         as S
 import           Numeric
 
 import           Diagrams.Core.Transform      (matrixHomRep)
-import           Diagrams.Prelude             hiding (Render, image, moveTo, opacity, stroke,
-                                               (<>), opacityGroup)
-import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..), TextAlignment (..))
+import           Diagrams.Prelude             hiding (Render, image, moveTo,
+                                               opacity, opacityGroup, stroke,
+                                               (<>))
+import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..),
+                                               TextAlignment (..))
 
 import           Diagrams.Backend.PGF.Surface
 
@@ -587,7 +596,7 @@ resetNonTranslations = ln $ pgf "transformresetnontranslations"
 
 -- | Base transforms are applied by the document reader.
 baseTransform :: RealFloat n => Transformation V2 n -> Render n
-baseTransform t = do
+baseTransform t = ln $ do
   pgf "lowlevel"
   bracers $ setTransform t
 
@@ -662,7 +671,7 @@ shadePath (view deg -> θ) name = ln $ do
   bracers name
   bracers $ n θ
 
--- images --------------------------------------------------------------
+-- external images -----------------------------------------------------
 
 -- \pgfimage[⟨options ⟩]{⟨filename ⟩}
 
@@ -679,6 +688,71 @@ image (DImage (ImageRef path) w h t2) = do
         rawChar ','
         raw "height=" >> bp (fromIntegral h :: Double)
       bracers $ rawString path
+
+-- embedded images -----------------------------------------------------
+
+embeddedImage :: RealFloat n => DImage n Embedded -> Render n
+embeddedImage (DImage (ImageRaster (ImageRGB8 img)) w h t) =
+  embeddedImage' (hexImage img) w h t
+  -- TODO: Support more formats (like grey scale and alpha channels)
+embeddedImage _ = error "Unsupported embedded image. Only ImageRGB8 is currently supported."
+
+-- | Convert an 'Image' to a zlib compressed lazy 'ByteString' of the
+--   raw image data. This is a suitable format for an embedded PDF image
+--   stream.
+hexImage :: Image PixelRGB8 -> LB.ByteString
+hexImage (imageData -> v) = compress . LB.fromStrict $ bs
+  where
+    bs         = fromForeignPtr p i nn
+    (p, i, nn) = S.unsafeToForeignPtr v
+
+embeddedImage' :: RealFloat n => LB.ByteString -> Int -> Int -> T2 n -> Render n
+embeddedImage' img w h t = scope $ do
+  baseTransform t
+  ln $ raw "\\immediate\\pdfliteral{"
+  rawLn "q" -- save state
+
+  -- Scale the image to it's actual size and translate so the origin is
+  -- at the centre.
+  rawLn $ s w <> " 0 0 " <> s h <> " -" <> half w <> " -" <> half h <> " cm"
+  rawLn "BI"           -- begin image
+  rawLn $ "/W " <> s w -- width in pixels
+  rawLn $ "/H " <> s h -- height in pixels
+
+  rawLn "/CS /RGB" -- RGB colour space
+  rawLn "/BPC 8"   -- 8 bits per component
+
+  -- Filters for the encoded image:
+  --   ASCIIHexDecode -- decode from hexadecimal to binary
+  --   FlateDecode    -- decompress using zlib deflate compression
+  rawLn "/F [/AHx /Fl]"
+
+  -- We use hex format for the image data so tex can output it without
+  -- any problems. Base85 might be possible and would be 2-3x smaller
+  -- but there's some problem chars tex complains about. Base64 would
+  -- be ideal but the pdf spec doesn't seem to support it.
+  --
+  -- This is an inline image which is only really suitable for small
+  -- images. An XObject might be more appropriate. See
+  -- http://partners.adobe.com/public/developer/en/pdf/PDFReference.pdf
+  -- for more information.
+  rawLn "ID" -- image data
+  rawLn $ (hexChunk img) <> char8 '>'
+  rawLn "EI" -- end image
+  rawLn "Q"  -- restore state
+  rawLn "}"
+    where
+      rawLn r = raw r >> rawChar '\n'
+      s       = intDec
+      half x  = s (x `div` 2) <> if odd x then ".5" else mempty
+
+-- | Insert hex encode and add a newline every 80 chars. This is useful for
+--   readable output and stopping tex from choking when streaming. Note
+--   that new-lines and spaces are ignored with the hex decode filter.
+hexChunk :: LB.ByteString -> Builder
+hexChunk (LB.splitAt 40 -> (a,b))
+  | LB.null b = lazyByteStringHex a
+  | otherwise = lazyByteStringHex a <> char8 '\n' <> hexChunk b
 
 -- text ----------------------------------------------------------------
 
