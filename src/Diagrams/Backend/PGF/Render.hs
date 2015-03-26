@@ -54,33 +54,25 @@ instance TypeableFloat n => Backend PGF V2 n where
     , _standalone :: Bool          -- ^ Should @.tex@ output be standalone.
     }
 
-  renderRTree _ ops rt =
+  renderRTree _ ops (toRender -> R r) =
     P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
       where
-        (R r)  = toRender rt
         bounds = specToSize 100 (ops^.sizeSpec)
 
   adjustDia = adjustDia2D sizeSpec
 
-toRender :: (OrderedField n, RealFloat n, Typeable n)
-  => RTree PGF V2 n Annotation -> Render PGF V2 n
-toRender (Node (RPrim p) _)     = render PGF p
-toRender (Node (RStyle sty) rs) = R . P.scope $ do
-  oldSty <- P.style <<<>= sty
-  P.ignoreFill .= False
-
-  setClipPaths <~ op Clip
-  let R r = foldMap toRender rs
-  pgf <- r
-
-  P.style .= oldSty
-
-  return pgf
-toRender (Node (RAnnot (OpacityGroup x)) rs)
-                                = R $ do
-  let R r = foldMap toRender rs
-  P.opacityGroup x r
-toRender (Node _ rs)            = foldMap toRender rs
+toRender :: TypeableFloat n => RTree PGF V2 n Annotation -> Render PGF V2 n
+toRender (Node n rs) = case n of
+  RPrim p                 -> render PGF p
+  RStyle sty'             -> R $ do
+    sty <- P.style <<<>= sty' -- mappend old style
+    P.ignoreFill .= False
+    setClipPaths <~ op Clip   -- could this be moved somewhere else?
+    r <* (P.style .= sty)     -- render then revert to old style
+  RAnnot (OpacityGroup x) -> R $ P.opacityGroup x r
+  _                       -> R r
+  where
+    R r = foldMap toRender rs
 
 renderP :: (Renderable a PGF, V a ~ V2, N a ~ n) => a -> P.Render n
 renderP (render PGF -> R r) = r
