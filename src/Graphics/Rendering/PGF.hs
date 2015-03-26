@@ -155,14 +155,6 @@ initialState = RenderState
                                   -- (square 1 # opacity 0.5) doesn't work otherwise
   }
 
--- | Resets the parts of the state responsible for the drawing stuff
--- eg indentation and position is not reset
--- resetState :: Render
--- resetState = - do
---   ignoreFill .= False
---   style      .= mempty # lc black
---                        # fontSize (Output 1)
-
 renderWith :: (RealFloat n, Typeable n)
   => Surface -> Bool -> Bool -> V2 n -> Render n -> Builder
 renderWith s readable standalone bounds r = builder
@@ -633,15 +625,12 @@ baseTransform t = ln $ do
 linearGradient :: RealFloat n => Path V2 n -> LGradient n -> Render n
 linearGradient p lg = scope $ do
   path p
-  -- let d      = transform gt (g0 .-. g1)
-  --     stops' = adjustStops stops sm
   let (stops', t) = calcLinearStops p lg
   ln $ do
     pgf "declarehorizontalshading"
-    bracers $ raw "ft" -- fill texture
+    bracers $ raw "ft"    -- fill texture
     bracers $ raw "100bp" -- gradient is always 100 x 100 square
     bracersBlock $ colorSpec 1 stops'
-  -- shadePath (d ^. _theta) $ raw "ft"
   clip
   baseTransform t
   useShading $ raw "ft"
