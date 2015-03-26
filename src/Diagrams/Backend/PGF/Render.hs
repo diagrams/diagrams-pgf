@@ -211,12 +211,9 @@ renderText :: (RealFloat n, Typeable n) => Text n -> P.Render n
 renderText (Text tt txtAlign str) = do
   setFillTexture mempty <~ getFillTexture
   --
-  -- doTxtTrans <- view P.txtTrans
-  P.applyTransform tt -- (if fromMaybe False isLocal then tt else tn)
-  -- if doTxtTrans
+  P.applyTransform tt
   (P.applyScale . (/8)) <~ getFontSize
       -- (/8) was obtained from trail and error
-    -- else P.resetNonTranslations
   --
   P.renderText (P.setTextAlign txtAlign) $ do
     P.setFontWeight <~ getFontWeight
