@@ -43,6 +43,9 @@ module Graphics.Rendering.PGF
   , bracers
   , brackets
   -- * Paths
+  , path
+  , trail
+  , segment
   , usePath
   , lineTo
   , curveTo
@@ -98,18 +101,20 @@ import           Data.ByteString.Char8        (ByteString)
 import qualified Data.ByteString.Char8        as B (replicate)
 import           Data.ByteString.Internal     (fromForeignPtr)
 import qualified Data.ByteString.Lazy         as LB
+import           Data.Foldable                (foldMap)
 import           Data.List                    (intersperse)
 import           Data.Maybe                   (catMaybes)
 import           Data.Typeable
 import qualified Data.Vector.Storable         as S
 import           Numeric
 
-import           Diagrams.Core.Transform      (matrixHomRep)
+import           Diagrams.Core.Transform
 import           Diagrams.Prelude             hiding (Render, image, moveTo,
                                                opacity, opacityGroup, stroke,
                                                (<>))
 import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..),
                                                TextAlignment (..))
+import           Diagrams.TwoD.Transform      (rotationTo)
 
 import           Diagrams.Backend.PGF.Surface
 
@@ -441,15 +446,33 @@ fill = ln $ pgf "usepathqfill"
 clip :: Render n
 clip = ln $ pgf "usepathqclip"
 
+path :: RealFloat n => Path V2 n -> Render n
+path (Path trs) = do
+  when (any (isLine . unLoc) trs) $ ignoreFill .= True
+  mapM_ renderTrail trs
+  where
+    renderTrail (viewLoc -> (p, tr)) = do
+      moveTo p
+      trail tr
+
+trail :: RealFloat n => Trail V2 n -> Render n
+trail t = withLine (render' . lineSegments) t
+  where
+    render' segs = do
+      mapM_ segment segs
+      when (isLoop t) closePath
+
+segment ::  RealFloat n => Segment Closed V2 n -> Render n
+segment (Linear (OffsetClosed v))       = lineTo v
+segment (Cubic v1 v2 (OffsetClosed v3)) = curveTo v1 v2 v3
+
 -- | @usePath fill stroke clip@ combined in one function.
 usePath :: Bool -> Bool -> Render n
 usePath False False     = return ()
 usePath doFill doStroke = ln $ do
   pgf "usepathq"
-  mapM_ snd $ filter fst
-    [ (doFill,   raw "fill")
-    , (doStroke, raw "stroke")
-    ]
+  when doFill $ raw "fill"
+  when doStroke $ raw "stroke"
 
 -- | Uses the current path as the bounding box for whole picture.
 asBoundingBox :: Render n
@@ -607,19 +630,104 @@ baseTransform t = ln $ do
 
 -- shading -------------------------------------------------------------
 
-linearGradient :: RealFloat n => LGradient n -> Render n
-linearGradient (LGradient stops g0 g1 gt sm) = do
-  let d      = transform gt (g0 .-. g1)
-      stops' = adjustStops stops sm
+linearGradient :: RealFloat n => Path V2 n -> LGradient n -> Render n
+linearGradient p lg = scope $ do
+  path p
+  -- let d      = transform gt (g0 .-. g1)
+  --     stops' = adjustStops stops sm
+  let (stops', t) = calcLinearStops p lg
   ln $ do
     pgf "declarehorizontalshading"
-    bracers $ raw "ft"
-    bracers $ raw "100cm" -- must be a better way?
-    bracersBlock $ colorSpec (norm d) stops'
-  shadePath (direction d ^. _theta) $ raw "ft"
+    bracers $ raw "ft" -- fill texture
+    bracers $ raw "100bp" -- gradient is always 100 x 100 square
+    bracersBlock $ colorSpec 1 stops'
+  -- shadePath (d ^. _theta) $ raw "ft"
+  -- clip
+  baseTransform t
+  useShading $ raw "ft"
 
-radialGradient :: RealFloat n => RGradient n -> Render n
-radialGradient (RGradient stops c0 _r0 c1 r1 gt sm) = do
+-- | Calculate the correct linear stops such that the path is completely
+--   filled. PGF doesn't have spread methods so this has to be done
+--   manually.
+calcLinearStops :: RealFloat n
+                => Path V2 n -> LGradient n -> ([GradientStop n], T2 n)
+calcLinearStops (Path []) _ = ([], mempty)
+calcLinearStops pth (LGradient stops p0 p1 gt sm)
+  = (linearStops' x0 x1 stops sm, t <> ft)
+  where
+    -- Transform such that the transform t origin is start of the
+    -- gradient, transform t unitX is the end.
+    t = gt
+        -- encorperate the start and end points
+     <> translation (p0 ^. _Point)
+     <> scaling (norm (p1 .-. p0))
+     <> rotationTo (dirBetween p1 p0)
+
+    -- Use the inverse transformed path and make the pre-transformed
+    -- gradient fit to it. Then when we transform the gradient we know
+    -- it'll fit the path.
+    p' = transform (inv t) pth
+    Just (x0,x1) = extentX p'
+    Just (y0,y1) = extentY p'
+
+    -- Final transform to fit the gradient to the path. The origin on
+    -- the gradient is its centre so we translate by - V2 50 50 to get
+    -- to the lower corner (because of this we set the size of the
+    -- gradient to always be 100 x 100 for simplicity). Then scales up
+    -- the gradient to cover the path and moves it into position.
+    ft = translation (V2 x0 y0) <> scalingV ((*0.01) . abs <$> V2 (x0 - x1) (y0 - y1)) <> translation 50
+
+scalingV :: (Additive v, Fractional n) => v n -> Transformation v n
+scalingV v = fromSymmetric $ liftU2 (*) v <-> liftU2 (flip (/)) v
+
+useShading :: Render n -> Render n
+useShading nm = ln $ do
+  pgf "useshading"
+  bracers nm
+
+
+_translation :: Lens' (Transformation v n) (v n)
+_translation f (Transformation a b v) = f v <&> \v' -> Transformation a b v'
+
+linearStops' :: RealFloat n
+             => n -> n -> [GradientStop n] -> SpreadMethod -> [GradientStop n]
+linearStops' x0 x1 stops sm =
+  GradientStop c1' 0 : filter (inRange . view stopFraction) stops' ++ [GradientStop c2' 100]
+  where
+    stops' = case sm of
+      GradPad     -> over (each . stopFraction) normalise stops
+      GradRepeat  -> flip foldMap [i0 .. i1] $ \i ->
+                       increaseFirst $ over (each . stopFraction) (normalise . (+ fromIntegral i)) stops
+      GradReflect -> flip foldMap [i0 .. i1] $ \i ->
+                       over (each . stopFraction) (normalise . (+ fromIntegral i)) $ reverseOdd i stops
+
+    -- for repeat it sometimes complains if two are exactly the same so
+    -- increase the first by a little
+    increaseFirst = over (_head . stopFraction) (+0.001)
+    reverseOdd i
+      | odd i     = reverse . over (each . stopFraction) (1 -)
+      | otherwise = id
+    i0 = floor x0 :: Int
+    i1 = ceiling x1
+    c1' = SomeColor $ colourInterp stops' 0
+    c2' = SomeColor $ colourInterp stops' 100
+    inRange x   = x > 0 && x < 100
+    normalise x = 100 * (x - x0) / (x1 - x0)
+
+colourInterp :: RealFloat n => [GradientStop n] -> n -> AlphaColour Double
+colourInterp cs0 x = go cs0
+  where
+    go (GradientStop c1 a : c@(GradientStop c2 b) : cs)
+      | x <= a         = toAlphaColour c1
+      | x > a && x < b = blend y (toAlphaColour c2) (toAlphaColour c1)
+      | otherwise      = go (c : cs)
+      where
+        y = realToFrac $ (x - a) / (b - a)
+    go [GradientStop c2 _] = toAlphaColour c2
+    go _ = transparent
+
+radialGradient :: RealFloat n => Path V2 n -> RGradient n -> Render n
+radialGradient _ (RGradient stops c0 _r0 c1 r1 gt sm) = do
   let d = transform gt (c0 .-. c1)
       stops' = adjustStops stops sm
   ln $ do
@@ -633,8 +741,7 @@ radialGradient (RGradient stops c0 _r0 c1 r1 gt sm) = do
 adjustStops :: RealFloat n => [GradientStop n] -> SpreadMethod -> [GradientStop n]
 adjustStops stops method =
   case method of
-    GradPad     -> (stopFraction .~ 0) (head stops)
-                 : map (stopFraction +~ 1) stops
+    GradPad     -> (stopFraction .~ 0) (head stops) : map (stopFraction +~ 1) stops
                 ++ [(stopFraction +~ 2) (last stops)]
     GradReflect -> correct . concat . replicate 10
                  $ [stops, zipWith (\a b -> a & (stopColor .§ b)) stops (reverse stops)]
@@ -661,9 +768,8 @@ colorSpec d = mapM_ ln
       parensColor _sc
 
 combinePairs :: Monad m => [m a] -> [m a]
-combinePairs []  = []
-combinePairs [x] = [x]
 combinePairs (x1:x2:xs) = (x1 >> x2) : combinePairs xs
+combinePairs xs         = xs
 
 shadePath :: RealFloat n => Angle n -> Render n -> Render n
 shadePath (view deg -> θ) name = ln $ do
@@ -677,7 +783,7 @@ shadePath (view deg -> θ) name = ln $ do
 
 -- | Images are wraped in a \pgftext.
 image :: RealFloat n => DImage n External -> Render n
-image (DImage (ImageRef path) w h t2) = do
+image (DImage (ImageRef ref) w h t2) = do
   applyTransform t2
   ln $ do
     pgf "text"
@@ -687,7 +793,7 @@ image (DImage (ImageRef path) w h t2) = do
         raw "width=" >> bp (fromIntegral w :: Double)
         rawChar ','
         raw "height=" >> bp (fromIntegral h :: Double)
-      bracers $ rawString path
+      bracers $ rawString ref
 
 -- embedded images -----------------------------------------------------
 
@@ -701,7 +807,7 @@ embeddedImage _ = error "Unsupported embedded image. Only ImageRGB8 is currently
 --   raw image data. This is a suitable format for an embedded PDF image
 --   stream.
 hexImage :: Image PixelRGB8 -> LB.ByteString
-hexImage (imageData -> v) = compress . LB.fromStrict $ bs
+hexImage (imageData -> v) = compress $ LB.fromStrict bs
   where
     bs         = fromForeignPtr p i nn
     (p, i, nn) = S.unsafeToForeignPtr v
@@ -718,9 +824,8 @@ embeddedImage' img w h t = scope $ do
   rawLn "BI"           -- begin image
   rawLn $ "/W " <> s w -- width in pixels
   rawLn $ "/H " <> s h -- height in pixels
-
-  rawLn "/CS /RGB" -- RGB colour space
-  rawLn "/BPC 8"   -- 8 bits per component
+  rawLn "/CS /RGB"     -- RGB colour space
+  rawLn "/BPC 8"       -- 8 bits per component
 
   -- Filters for the encoded image:
   --   ASCIIHexDecode -- decode from hexadecimal to binary

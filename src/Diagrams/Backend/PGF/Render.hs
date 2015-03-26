@@ -117,13 +117,13 @@ readable = lens _readable (\o b -> o {_readable = b})
 --   linewidth > 0.0001 and if filled if a colour is defined.
 --
 --   All stroke and fill properties from the current @style@ are also output here.
-draw :: TypeableFloat n => P.Render n
-draw = do
+draw :: TypeableFloat n => Path V2 n -> P.Render n
+draw path = do
   mFillTexture <- (getFillTexture <$>) . getAttr <$> use P.style
   canFill      <- uses P.ignoreFill not
   doFill       <- case mFillTexture of
     Nothing -> return False
-    Just t  -> setFillTexture t >> return (not (isn't _SC t) && canFill)
+    Just t  -> setFillTexture path t >> return (has _SC t && canFill)
   when doFill $
     P.setFillRule <~ getFillRule
   --
@@ -135,22 +135,23 @@ draw = do
     P.setLineCap   <~ getLineCap
     P.setDash      <~ getDashing
   --
+  P.path path
   P.usePath doFill doStroke
 
 -- helper function to easily get options and set them
-(<~) :: (AttributeClass a) => (b -> P.Render n) -> (a -> b) -> P.Render n
+(<~) :: AttributeClass a => (b -> P.Render n) -> (a -> b) -> P.Render n
 renderF <~ getF = do
-  s <- use P.style
-  let mAttr = (getF <$>) . getAttr $ s
-  maybe (return ()) renderF mAttr
+  s <- uses P.style (fmap getF . getAttr)
+  maybe (return ()) renderF s
 
 infixr 2 <~
 
-setFillTexture :: RealFloat n => Texture n -> P.Render n
-setFillTexture t = case t of
+-- The Path is necessary so we can clip/workout gradients.
+setFillTexture :: RealFloat n => Path V2 n -> Texture n -> P.Render n
+setFillTexture p t = case t of
   SC (SomeColor c) -> setFillColor' c
-  LG g             -> P.linearGradient g
-  RG g             -> P.radialGradient g
+  LG g             -> P.linearGradient p g
+  RG g             -> P.radialGradient p g
 
 setFillColor' :: (RealFloat n, Color c) => c -> P.Render n
 setFillColor' c = do
@@ -193,15 +194,8 @@ setClipPath (Path trs) = do
       P.moveTo p
       renderP tr
 
-renderPath :: (OrderedField n, Typeable n, RealFloat n) => Path V2 n -> P.Render n
-renderPath (Path trs) = do
-  when (any (isLine . unLoc) trs) $ P.ignoreFill .= True
-  mapM_ renderTrail trs
-  draw
-  where
-    renderTrail (viewLoc -> (p, tr)) = do
-      P.moveTo p
-      renderP tr
+renderPath :: TypeableFloat n => Path V2 n -> P.Render n
+renderPath = draw
 
 -- | Escapes some common characters in a string.
 escapeString :: String -> String
@@ -226,7 +220,7 @@ escapeString = concatMap escapeChar
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
 renderText :: (RealFloat n, Typeable n) => Text n -> P.Render n
 renderText (Text tt txtAlign str) = do
-  setFillTexture <~ getFillTexture
+  setFillTexture mempty <~ getFillTexture
   --
   -- doTxtTrans <- view P.txtTrans
   P.applyTransform tt -- (if fromMaybe False isLocal then tt else tn)
