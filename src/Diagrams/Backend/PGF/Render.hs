@@ -74,9 +74,6 @@ toRender (Node n rs) = case n of
   where
     R r = foldMap toRender rs
 
-renderP :: (Renderable a PGF, V a ~ V2, N a ~ n) => a -> P.Render n
-renderP (render PGF -> R r) = r
-
 instance Fractional n => Default (Options PGF V2 n) where
   def = PGFOptions
           { _surface    = def
@@ -184,7 +181,7 @@ setClipPath (Path trs) = do
   where
     renderTrail (viewLoc -> (p, tr)) = do
       P.moveTo p
-      renderP tr
+      P.trail tr
 
 renderPath :: TypeableFloat n => Path V2 n -> P.Render n
 renderPath = draw
@@ -208,7 +205,7 @@ escapeString = concatMap escapeChar
       ']' -> "{]}"
       x   -> [x]
 
--- | Renders text. Colour is set by fill colour. Opacity is inheritied from
+-- | Renders text. Colour is set by fill colour. Opacity is inherited from
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
 renderText :: (RealFloat n, Typeable n) => Text n -> P.Render n
 renderText (Text tt txtAlign str) = do
@@ -233,17 +230,6 @@ renderHbox (Hbox tt str) = do
 
 ------------------------------------------------------------------------
 -- Renderable instances
-
-instance TypeableFloat n => Renderable (Segment Closed V2 n) PGF where
-  render _ (Linear (OffsetClosed v))       = R $ P.lineTo v
-  render _ (Cubic v1 v2 (OffsetClosed v3)) = R $ P.curveTo v1 v2 v3
-
-instance TypeableFloat n => Renderable (Trail V2 n) PGF where
-  render _ t = withLine (render' . lineSegments) t
-    where
-      render' segs = R $ do
-        mapM_ renderP segs
-        when (isLoop t) P.closePath
 
 instance TypeableFloat n => Renderable (Path V2 n) PGF where
   render _ = R . renderPath
