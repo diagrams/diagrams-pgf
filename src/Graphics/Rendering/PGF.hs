@@ -196,7 +196,7 @@ rawString = tell . string8
 {-# INLINE rawString #-}
 
 pgf :: Builder -> Render n
-pgf c = raw "\\pgf" >> raw c
+pgf c = raw $ "\\pgf" <> c
 {-# INLINE pgf #-}
 
 rawChar :: Char -> Render n
@@ -642,7 +642,7 @@ linearGradient p lg = scope $ do
     bracers $ raw "100bp" -- gradient is always 100 x 100 square
     bracersBlock $ colorSpec 1 stops'
   -- shadePath (d ^. _theta) $ raw "ft"
-  -- clip
+  clip
   baseTransform t
   useShading $ raw "ft"
 
