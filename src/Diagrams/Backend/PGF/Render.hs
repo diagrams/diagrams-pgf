@@ -67,8 +67,10 @@ toRender (Node n rs) = case n of
   RStyle sty'             -> R $ do
     sty <- P.style <<<>= sty' -- mappend old style
     P.ignoreFill .= False
-    setClipPaths <~ op Clip   -- could this be moved somewhere else?
-    r <* (P.style .= sty)     -- render then revert to old style
+    doClip <- uses (P.style . _clip) null
+    -- setClipPaths <~ op Clip   -- could this be moved somewhere else?
+    let scopeClip = if doClip then \cr -> P.scope $ (setClipPaths <~ op Clip) >> cr else id
+    scopeClip r <* (P.style .= sty)     -- render then revert to old style
   RAnnot (OpacityGroup x) -> R $ P.opacityGroup x r
   _                       -> R r
   where
@@ -107,7 +109,7 @@ readable = lens _readable (\o b -> o {_readable = b})
 --
 --   All stroke and fill properties from the current @style@ are also output here.
 draw :: TypeableFloat n => Path V2 n -> P.Render n
-draw path = do
+draw path = P.scope $ do
   mFillTexture <- (getFillTexture <$>) . getAttr <$> use P.style
   canFill      <- uses P.ignoreFill not
   doFill       <- case mFillTexture of
@@ -208,7 +210,7 @@ escapeString = concatMap escapeChar
 -- | Renders text. Colour is set by fill colour. Opacity is inherited from
 --   scope fill opacity. Does not support full alignment. Text is not escaped.
 renderText :: (RealFloat n, Typeable n) => Text n -> P.Render n
-renderText (Text tt txtAlign str) = do
+renderText (Text tt txtAlign str) = P.scope $ do
   setFillTexture mempty <~ getFillTexture
   --
   P.applyTransform tt
@@ -221,7 +223,7 @@ renderText (Text tt txtAlign str) = do
     P.rawString str
 
 renderHbox :: RealFloat n => Hbox n -> P.Render n
-renderHbox (Hbox tt str) = do
+renderHbox (Hbox tt str) = P.scope $ do
   P.applyTransform tt
   P.renderText (P.setTextAlign BaselineText) (P.rawString str)
 

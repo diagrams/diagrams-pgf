@@ -349,7 +349,7 @@ transparencyGroup r = do
     PlainTeX -> "\\endpgftransparencygroup"
 
 opacityGroup :: RealFloat a => a -> Render n -> Render n
-opacityGroup x r = do
+opacityGroup x r = scope $ do
   setFillOpacity x
   transparencyGroup r
 
@@ -739,7 +739,7 @@ radialGradient p rg = scope $ do
 calcRadialStops :: RealFloat n
                 => Path V2 n -> RGradient n -> ([GradientStop n], T2 n, P2 n)
 calcRadialStops (Path []) _ = ([], mempty, origin)
-calcRadialStops pth (RGradient stops p0 r0 p1 r1 gt sm)
+calcRadialStops pth (RGradient stops p0 r0 p1 r1 gt _sm)
   = (stops', t <> ft, P cv)
   where
     cv = tp0 .-. tp1
@@ -819,7 +819,7 @@ shadePath (view deg -> θ) name = ln $ do
 
 -- | Images are wraped in a \pgftext.
 image :: RealFloat n => DImage n External -> Render n
-image (DImage (ImageRef ref) w h t2) = do
+image (DImage (ImageRef ref) w h t2) = scope $ do
   applyTransform t2
   ln $ do
     pgf "text"
