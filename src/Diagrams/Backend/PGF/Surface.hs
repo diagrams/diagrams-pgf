@@ -43,6 +43,7 @@ import Data.Hashable       (Hashable (..))
 import Data.Typeable       (Typeable)
 import Diagrams.TwoD       (V2 (..))
 import Diagrams.Prelude    (makeLenses, Default (..))
+import Prelude
 
 -- | The 'TeXFormat' is used to choose the different PGF commands nessesary for
 --   that format.

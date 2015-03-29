@@ -101,7 +101,7 @@ import           Data.ByteString.Char8        (ByteString)
 import qualified Data.ByteString.Char8        as B (replicate)
 import           Data.ByteString.Internal     (fromForeignPtr)
 import qualified Data.ByteString.Lazy         as LB
-import           Data.Foldable                (foldMap)
+import qualified Data.Foldable                as F (foldMap)
 import           Data.List                    (intersperse)
 import           Data.Maybe                   (catMaybes)
 import           Data.Typeable
@@ -685,12 +685,12 @@ linearStops' x0 x1 stops sm =
   where
     stops' = case sm of
       GradPad     -> over (each . stopFraction) normalise stops
-      GradRepeat  -> flip foldMap [i0 .. i1] $ \i ->
+      GradRepeat  -> flip F.foldMap [i0 .. i1] $ \i ->
                        increaseFirst $
                          over (each . stopFraction)
                               (normalise . (+ fromIntegral i))
                               stops
-      GradReflect -> flip foldMap [i0 .. i1] $ \i ->
+      GradReflect -> flip F.foldMap [i0 .. i1] $ \i ->
                        over (each . stopFraction)
                             (normalise . (+ fromIntegral i))
                             (reverseOdd i stops)

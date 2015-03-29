@@ -39,6 +39,8 @@ import           Diagrams.TwoD.Text           (Text (..), TextAlignment (..), ge
 import           Data.Typeable
 import qualified Graphics.Rendering.PGF       as P
 
+import Prelude
+
 -- | This data declaration is simply used as a token to distinguish
 --   this rendering engine.
 data PGF = PGF
@@ -68,7 +70,6 @@ toRender (Node n rs) = case n of
     sty <- P.style <<<>= sty' -- mappend old style
     P.ignoreFill .= False
     doClip <- uses (P.style . _clip) null
-    -- setClipPaths <~ op Clip   -- could this be moved somewhere else?
     let scopeClip = if doClip then \cr -> P.scope $ (setClipPaths <~ op Clip) >> cr else id
     scopeClip r <* (P.style .= sty)     -- render then revert to old style
   RAnnot (OpacityGroup x) -> R $ P.opacityGroup x r

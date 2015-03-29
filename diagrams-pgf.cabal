@@ -31,14 +31,14 @@ Library
                        Diagrams.Backend.PGF.Hbox
                        Graphics.Rendering.PGF
   Hs-source-dirs:      src
-  Build-depends:       base                 >= 4.4   && < 4.8
+  Build-depends:       base                 >= 4.4   && < 4.9
                      , bytestring           >= 0.9   && < 1.1
                      , containers           >= 0.3   && < 0.6
                      , colour
                      , diagrams-core        >= 1.2   && < 1.3
                      , diagrams-lib         >= 1.2   && < 1.3
                      , directory            >= 1.0   && < 1.4
-                     , filepath             >= 1.2   && < 1.4
+                     , filepath             >= 1.2   && < 1.5
                      , hashable             >= 1.1   && < 1.3
                      , mtl                  >= 2.1   && < 3.0
                      , optparse-applicative >= 0.11  && < 0.12

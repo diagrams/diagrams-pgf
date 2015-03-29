@@ -71,7 +71,6 @@ import           Diagrams.Backend.PGF.Surface
 import           Diagrams.Size
 import           Diagrams.Prelude             hiding (r2, view)
 
-
 type B = PGF
 
 type instance V PGF = V2
