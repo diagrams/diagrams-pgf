@@ -686,9 +686,14 @@ linearStops' x0 x1 stops sm =
     stops' = case sm of
       GradPad     -> over (each . stopFraction) normalise stops
       GradRepeat  -> flip foldMap [i0 .. i1] $ \i ->
-                       increaseFirst $ over (each . stopFraction) (normalise . (+ fromIntegral i)) stops
+                       increaseFirst $
+                         over (each . stopFraction)
+                              (normalise . (+ fromIntegral i))
+                              stops
       GradReflect -> flip foldMap [i0 .. i1] $ \i ->
-                       over (each . stopFraction) (normalise . (+ fromIntegral i)) $ reverseOdd i stops
+                       over (each . stopFraction)
+                            (normalise . (+ fromIntegral i))
+                            (reverseOdd i stops)
 
     -- for repeat it sometimes complains if two are exactly the same so
     -- increase the first by a little
@@ -716,33 +721,75 @@ colourInterp cs0 x = go cs0
     go _ = transparent
 
 radialGradient :: RealFloat n => Path V2 n -> RGradient n -> Render n
-radialGradient _ (RGradient stops c0 _r0 c1 r1 gt sm) = do
-  let d = transform gt (c0 .-. c1)
-      stops' = adjustStops stops sm
+radialGradient p rg = scope $ do
+  path p
+  let (stops', t, p0) = calcRadialStops p rg
   ln $ do
     pgf "declareradialshading"
     bracers $ raw "ft"
-    bracers $ point c0
-    bracersBlock $ colorSpec r1 stops'
-  shadePath (direction d ^. _theta) $ raw "ft"
+    bracers $ point p0
+    bracersBlock $ colorSpec 1 stops'
+  clip
+  baseTransform t
+  useShading $ raw "ft"
+
+-- | Calculate the correct linear stops such that the path is completely
+--   filled. PGF doesn't have spread methods so this has to be done
+--   manually.
+calcRadialStops :: RealFloat n
+                => Path V2 n -> RGradient n -> ([GradientStop n], T2 n, P2 n)
+calcRadialStops (Path []) _ = ([], mempty, origin)
+calcRadialStops pth (RGradient stops p0 r0 p1 r1 gt sm)
+  = (stops', t <> ft, P cv)
+  where
+    cv = tp0 .-. tp1
+    tp0 = papply gt p0
+    tp1 = papply gt p1
+    -- Transform such that the transform t origin is start of the
+    -- gradient, transform t unitX is the end.
+    t = gt
+     <> translation (p1 ^. _Point)
+     <> scaling r1
+
+    -- Similar to linear gradients but not so precise, d is a (bad and
+    -- probably incorrect) lower bound for the required radius of the
+    -- circle to cover the path.
+    p' = transform (inv t) pth
+    Just (x0,x1) = extentX p'
+    Just (y0,y1) = extentY p'
+    d = 2 * max (max (abs $ x0 - x1) (abs $ y0 - y1)) (lstop ^. stopFraction)
+
+    -- Adjust for gradient size having radius 100
+    ft = scaling 0.01
+
+    -- Stops are scaled to start at r0 and end at r1. The gradient is
+    -- extended to d to try to cover the path.
+    --
+    -- The problem is extending the size of the gradient in this way
+    -- affects how the gradient scales if it is off-centre. This needs
+    -- to be fixed.
+    --
+    -- Only the GradPad spread method is supported for now.
+    stops' = head stops : over (each . stopFraction) refrac stops ++ [lstop & stopFraction .~ 100*d]
+    refrac x = 100 * ((r0 + x * (r1 - r0)) / r1) -- start at r0, end at r1
+    lstop = last stops
 
 -- Dirty adjustments for spread methods (PGF doesn't seem to have them).
-adjustStops :: RealFloat n => [GradientStop n] -> SpreadMethod -> [GradientStop n]
-adjustStops stops method =
-  case method of
-    GradPad     -> (stopFraction .~ 0) (head stops) : map (stopFraction +~ 1) stops
-                ++ [(stopFraction +~ 2) (last stops)]
-    GradReflect -> correct . concat . replicate 10
-                 $ [stops, zipWith (\a b -> a & (stopColor .§ b)) stops (reverse stops)]
-    GradRepeat  -> correct . replicate 10 $ stops
+-- adjustStops :: RealFloat n => [GradientStop n] -> SpreadMethod -> [GradientStop n]
+-- adjustStops stops method =
+--   case method of
+--     GradPad     -> (stopFraction .~ 0) (head stops) : map (stopFraction +~ 1) stops
+--                 ++ [(stopFraction +~ 2) (last stops)]
+--     GradReflect -> correct . concat . replicate 10
+--                  $ [stops, zipWith (\a b -> a & (stopColor .§ b)) stops (reverse stops)]
+--     GradRepeat  -> correct . replicate 10 $ stops
+  -- where
+  --   correct  = ifoldMap (\i -> map (stopFraction +~ (lastStop * fromIntegral i)) )
+  --   lastStop = last stops ^. stopFraction
 
-  where
-    correct  = ifoldMap (\i -> map (stopFraction +~ (lastStop * fromIntegral i)) )
-    lastStop = last stops ^. stopFraction
-
-(.§) :: Lens s t b b -> s -> s -> t
-(.§) l a b = b & l #~ (a ^# l)
-{-# INLINE (.§) #-}
+-- (.§) :: Lens s t b b -> s -> s -> t
+-- (.§) l a b = b & l #~ (a ^# l)
+-- {-# INLINE (.§) #-}
 
 colorSpec :: RealFloat n => n -> [GradientStop n] -> Render n
 colorSpec d = mapM_ ln
@@ -750,11 +797,11 @@ colorSpec d = mapM_ ln
             . intersperse (rawChar ';')
             . map mkColor
   where
-    mkColor (GradientStop _sc sf) = do
+    mkColor (GradientStop c sf) = do
       raw "rgb"
       parens $ bp (d*sf)
       raw "="
-      parensColor _sc
+      parensColor c
 
 combinePairs :: Monad m => [m a] -> [m a]
 combinePairs (x1:x2:xs) = (x1 >> x2) : combinePairs xs
@@ -831,7 +878,7 @@ embeddedImage' img w h t = scope $ do
   -- http://partners.adobe.com/public/developer/en/pdf/PDFReference.pdf
   -- for more information.
   rawLn "ID" -- image data
-  rawLn $ (hexChunk img) <> char8 '>'
+  rawLn $ hexChunk img <> char8 '>'
   rawLn "EI" -- end image
   rawLn "Q"  -- restore state
   rawLn "}"
