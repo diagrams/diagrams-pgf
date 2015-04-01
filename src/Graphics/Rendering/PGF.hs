@@ -28,7 +28,6 @@ module Graphics.Rendering.PGF
   , epsilon
   -- * Lenses
   -- , fillRule
-  , ignoreFill
   , style
   -- * units
   , bp
@@ -114,7 +113,6 @@ import           Diagrams.Prelude             hiding (Render, image, moveTo,
                                                (<>))
 import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..),
                                                TextAlignment (..))
-import           Diagrams.TwoD.Transform      (rotationTo)
 
 import           Diagrams.Backend.PGF.Surface
 
@@ -126,7 +124,6 @@ import           Diagrams.Backend.PGF.Surface
 data RenderState n = RenderState
   { _pos        :: P2 n -- ^ Current position
   , _indent     :: Int  -- ^ Current indentation
-  , _ignoreFill :: Bool
   , _style      :: Style V2 n
   }
 
@@ -150,7 +147,6 @@ initialState :: (Typeable n, Floating n) => RenderState n
 initialState = RenderState
   { _pos        = origin
   , _indent     = 0
-  , _ignoreFill = False
   , _style      = lc black mempty -- Until I think of something better:
                                   -- (square 1 # opacity 0.5) doesn't work otherwise
   }
@@ -440,7 +436,6 @@ clip = ln $ pgf "usepathqclip"
 
 path :: RealFloat n => Path V2 n -> Render n
 path (Path trs) = do
-  when (any (isLine . unLoc) trs) $ ignoreFill .= True
   mapM_ renderTrail trs
   where
     renderTrail (viewLoc -> (p, tr)) = do

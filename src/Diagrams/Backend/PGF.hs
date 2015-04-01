@@ -60,7 +60,6 @@ import           System.FilePath
 import           System.IO
 import           System.TeXRunner
 import           System.TeXRunner.Online      hiding (hbox)
-import           System.TeXRunner.Parse       (prettyPrintLog)
 
 import qualified Data.ByteString.Char8        as B
 import qualified Data.ByteString.Lazy.Char8   as LB

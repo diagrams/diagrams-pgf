@@ -68,7 +68,6 @@ toRender (Node n rs) = case n of
   RPrim p                 -> render PGF p
   RStyle sty'             -> R $ do
     sty <- P.style <<<>= sty' -- mappend old style
-    P.ignoreFill .= False
     doClip <- uses (P.style . _clip) null
     let scopeClip = if doClip then \cr -> P.scope $ (setClipPaths <~ op Clip) >> cr else id
     scopeClip r <* (P.style .= sty)     -- render then revert to old style
@@ -111,13 +110,20 @@ readable = lens _readable (\o b -> o {_readable = b})
 --   All stroke and fill properties from the current @style@ are also output here.
 draw :: TypeableFloat n => Path V2 n -> P.Render n
 draw path = P.scope $ do
-  mFillTexture <- (getFillTexture <$>) . getAttr <$> use P.style
-  canFill      <- uses P.ignoreFill not
-  doFill       <- case mFillTexture of
-    Nothing -> return False
-    Just t  -> setFillTexture path t >> return (has _SC t && canFill)
-  when doFill $
-    P.setFillRule <~ getFillRule
+  -- lines and loops are separated when stroking so we only need to
+  -- check the first one
+  let canFill = noneOf (_Wrapped' . _head . located) isLine path
+  -- solid colours need to be filled at the end with usePath
+  doFill <- if canFill
+    then do
+      mFillTexture <- preuse (P.style . _fillTexture)
+      case mFillTexture of
+        Nothing -> return False
+        Just t  -> do
+          setFillTexture path t
+          P.setFillRule <~ getFillRule
+          return (has _SC t)
+    else return False
   --
   doStroke <- shouldStroke
   when doStroke $ do
