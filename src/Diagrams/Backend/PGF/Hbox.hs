@@ -28,7 +28,6 @@ module Diagrams.Backend.PGF.Hbox
 
     -- * Point envelope diagrams
   , hbox
-  , hboxInv
 
     -- * IO versions
     -- | If used properly, the non-IO versions should be \'safe\'. However we
@@ -74,12 +73,6 @@ hbox raw = mkQD (Prim (Hbox mempty raw))
                 mempty
                 mempty
 
--- | Raw TeX commands with no envelope. Only translational transformations are
---   applied.
-hboxInv :: (RealFloat n, Typeable n, Renderable (Hbox n) b)
-        => String -> QDiagram b V2 n Any
-hboxInv txt = scaleInvPrim (Hbox mempty txt) (mkR2 0 0)
-
 -- | Hbox with bounding box envelope. Note that each box requires a call to
 --   TeX. For multiple boxes consider using 'onlineHbox' to get multiple boxes
 --   from a single call. (uses unsafePerformIO)
@@ -94,17 +87,6 @@ surfaceHbox surf txt = unsafePerformIO (hboxIO surf txt)
 hboxIO :: (RealFloat n, Typeable n, Renderable (Hbox n) b)
        => Surface -> String -> IO (QDiagram b V2 n Any)
 hboxIO surf txt = surfOnlineTexIO surf (onlineHbox txt)
-
--- | Get the result of an OnlineTeX using the given surface.
-surfOnlineTex :: Surface -> OnlineTeX a -> a
-surfOnlineTex surf a = unsafePerformIO (surfOnlineTexIO surf a)
-{-# NOINLINE surfOnlineTex #-}
-
--- | Get the result of an OnlineTeX using the given surface.
-surfOnlineTexIO :: Surface -> OnlineTeX a -> IO a
-surfOnlineTexIO surf = runOnlineTex (surf^.command)
-                                    (surf^.arguments)
-                                    (pack $ surf^.preamble ++ surf^.beginDoc)
 
 -- | Hbox with bounding box envelope.
 onlineHbox :: (RealFloat n, Typeable n, Renderable (Hbox n) b)

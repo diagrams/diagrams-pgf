@@ -11,7 +11,7 @@
 -- are used for rendering a @.tex@ or @.pdf@ using functions from
 -- 'Diagrams.Backend.PGF'.
 --
--- Surfaces are also used in 'Diagrams.Backend.PGF.Hbox' for quereying
+-- Surfaces are also used in 'Diagrams.Backend.PGF.Hbox' for querying
 -- envelopes of text.
 --
 -- Surfaces for LaTeX, ConTeXt and plain TeX are provided and reexported by
@@ -19,29 +19,38 @@
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.PGF.Surface
-    ( -- * Surface definition
-      Surface(..)
-    , TeXFormat(..)
+  ( -- * Surface definition
+    Surface(..)
+  , TeXFormat(..)
 
-      -- * Predefined surfaces
-    , latexSurface
-    , contextSurface
-    , plaintexSurface
+    -- * Online rendering with surfaces
+  , surfOnlineTex
+  , surfOnlineTexIO
 
-      -- * Lenses
-    , texFormat
-    , command
-    , arguments
-    , pageSize
-    , preamble
-    , beginDoc
-    , endDoc
-    ) where
+    -- * Predefined surfaces
+  , latexSurface
+  , contextSurface
+  , plaintexSurface
 
-import Data.Hashable       (Hashable (..))
-import Data.Typeable       (Typeable)
-import Diagrams.Prelude
-import Prelude
+    -- * Lenses
+  , texFormat
+  , command
+  , arguments
+  , pageSize
+  , preamble
+  , beginDoc
+  , endDoc
+  ) where
+
+import           Data.ByteString.Builder
+import           Data.Hashable           (Hashable (..))
+import           Data.Typeable           (Typeable)
+import           System.IO.Unsafe
+import           System.TeXRunner.Online
+
+
+import           Diagrams.Prelude
+import           Prelude
 
 -- | The 'TeXFormat' is used to choose the different PGF commands nessesary for
 --   that format.
@@ -86,15 +95,23 @@ beginDoc :: Lens' Surface String
 --   change)
 endDoc :: Lens' Surface String
 
+-- Predefined surfaces -------------------------------------------------
+
 -- | Default surface for latex files by calling @pdflatex@.
 --
--- === Sample document
+-- ==== __Sample__
+--
 -- @
 -- \documentclass{article}
 -- \usepackage{pgfcore}
 -- \pagenumbering{gobble}
 -- \begin{document}
+-- \begin{pgfpicture}
+-- <diagram>
+-- \end{pgfpicture}
+-- \end{document}
 -- @
+--
 latexSurface :: Surface
 latexSurface = Surface
   { _texFormat = LaTeX
@@ -161,22 +178,35 @@ instance Default Surface where
 sampleSurfaceOutput :: Surface -> String
 sampleSurfaceOutput = undefined
 
-------------------------------------------------------------------------
--- Hashable instances
+-- OnlineTeX functions -------------------------------------------------
 
-instance Hashable (TeXFormat) where
+-- | Get the result of an OnlineTeX using the given surface.
+surfOnlineTex :: Surface -> OnlineTeX a -> a
+surfOnlineTex surf a = unsafePerformIO (surfOnlineTexIO surf a)
+{-# NOINLINE surfOnlineTex #-}
+
+-- | Get the result of an OnlineTeX using the given surface.
+surfOnlineTexIO :: Surface -> OnlineTeX a -> IO a
+surfOnlineTexIO surf = runOnlineTex (surf^.command) (surf^.arguments) begin
+  where
+    begin = view strict . toLazyByteString . stringUtf8
+          $ surf ^. (preamble <> beginDoc)
+
+-- Hashable instances --------------------------------------------------
+
+instance Hashable TeXFormat where
   hashWithSalt s LaTeX    = s `hashWithSalt` (1::Int)
   hashWithSalt s ConTeXt  = s `hashWithSalt` (2::Int)
   hashWithSalt s PlainTeX = s `hashWithSalt` (3::Int)
 
-instance Hashable (Surface) where
-  hashWithSalt s (Surface tf cm ar ps pr bd ed)
+instance Hashable Surface where
+  hashWithSalt s (Surface tf cm ar ps p bd ed)
     = s                    `hashWithSalt`
       tf                   `hashWithSalt`
       cm                   `hashWithSalt`
       ar                   `hashWithSalt`
       ps <*> Just (V2 1 2) `hashWithSalt`
-      pr                   `hashWithSalt`
+      p                    `hashWithSalt`
       bd                   `hashWithSalt`
       ed
 

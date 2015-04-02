@@ -31,7 +31,7 @@ module Diagrams.Backend.PGF
   ( -- * Rendering token & options
     PGF (..)
   , B
-  -- , Options (..)
+
     -- * Rendering functions
   , renderPGF
   , renderPGF'
@@ -56,6 +56,22 @@ module Diagrams.Backend.PGF
   , surface
   , standalone
 
+    -- * Surfaces
+    -- | These surfaces should be suitable for basic diagrams. For more
+    --   complicated options see 'Diagrams.Backend.PGF.Surface'.
+  , Surface
+  , surfOnlineTex
+
+    -- ** Predefined surfaces
+  , latexSurface
+  , contextSurface
+  , plaintexSurface
+
+    -- ** Lenses
+  , command
+  , arguments
+  , preamble
+
     -- * Online TeX
     -- | By using 'OnlineTex', diagrams is able to query tex for sizes
     --   of hboxs and give them the corresponding envelopes. These can
@@ -77,15 +93,6 @@ module Diagrams.Backend.PGF
   , hbox
   , onlineHbox
   , surfOnlineTex
-
-    -- * Surfaces
-    -- | These surfaces should be suitable for basic diagrams. For more
-    --   complicated output options see 'Diagrams.Backend.PGF.Surface'.
-  , Surface
-  , latexSurface
-  , contextSurface
-  , plaintexSurface
-  , TeXFormat (..)
   ) where
 
 import           Data.ByteString.Builder

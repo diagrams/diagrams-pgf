@@ -7,7 +7,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF.CmdLine
--- Copyright   :  (c) 2014-2015 Diagrams team (see LICENSE)
+-- Copyright   :  (c) 2015 Diagrams team (see LICENSE)
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
@@ -33,16 +33,17 @@ module Diagrams.Backend.PGF.CmdLine
   , module Diagrams.Backend.PGF
   ) where
 
-import           Diagrams.Backend.CmdLine
-import           Diagrams.Backend.PGF
-import           Diagrams.Backend.PGF.Hbox
-import           Diagrams.Prelude          hiding (height, interval, output,
-                                            width, (<>))
-
 import           Data.ByteString.Builder
-import           Options.Applicative       as OP
+import           Options.Applicative          as OP
 
-import           System.IO                 (stdout)
+import           System.IO                    (stdout)
+
+import           Diagrams.Backend.CmdLine
+import           Diagrams.Prelude             hiding (height, interval, output,
+                                               width, (<>))
+
+import           Diagrams.Backend.PGF
+import           Diagrams.Backend.PGF.Surface
 
 -- pgf specific stuff
 
