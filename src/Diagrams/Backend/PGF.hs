@@ -40,12 +40,12 @@ module Diagrams.Backend.PGF
     -- | Options for changing how the diagram is rendered. 'Options'
     --   'PGF' is an instance of 'Default':
     --
-    -- @@
+    -- @
     -- def = PGFOptions {
-    --   _surface    = latexSurface
-    --   _sizeSpec   = absolute
-    --   _readable   = True
-    --   _standalone = False
+    --   _surface    = 'latexSurface'
+    --   _sizeSpec   = 'absolute'
+    --   _readable   = 'True'
+    --   _standalone = 'False'
     --   }
     -- @
     --
