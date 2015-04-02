@@ -88,10 +88,11 @@ module Diagrams.Backend.PGF
   , renderOnlinePGF
   , renderOnlinePGF'
 
-    -- ** TeX specific
-  , hbox
-  , onlineHbox
-  , surfOnlineTex
+    -- ** Hbox
+  , Hbox
+  , hboxOnline
+  , hboxPoint
+  , hboxSurf
   ) where
 
 import           Data.ByteString.Builder
@@ -161,7 +162,7 @@ renderOnlinePGF :: (TypeableFloat n, Monoid' m)
                 -> IO ()
 renderOnlinePGF outFile sizeSp = renderOnlinePGF' outFile  (def & sizeSpec .~ sizeSp)
 
--- | Same as 'renderOnlinePDF' but takes 'Options PGF R2'.
+-- | Same as 'renderOnlinePDF' but takes 'Options' 'PGF'.
 renderOnlinePGF' :: (TypeableFloat n, Monoid' m)
                  => FilePath
                  -> Options PGF V2 n
@@ -174,7 +175,7 @@ renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
       runOnlineTex'
         (surf^.command)
         (surf^.arguments)
-        (B.pack $ surf^.preamble ++ surf^.beginDoc) $ do
+        (toByteString . stringUtf8 $ surf ^. (preamble <> beginDoc)) $ do
 
           d <- dOL
 
@@ -185,7 +186,7 @@ renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
 
               rendered = renderDia PGF opts' d
 
-          texPutStrLn $ (LB.toStrict . toLazyByteString) rendered
+          texPutStrLn $ toByteString rendered
 
     case mPDF of
       Nothing  -> putStrLn "Error, no PDF found:"
@@ -196,6 +197,7 @@ renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
   _      ->  surfOnlineTexIO surf dOL >>= writeTexFile outFile opts
   where
     surf = opts ^. surface
+    toByteString = LB.toStrict . toLazyByteString
 
 -- | Write the rendered diagram to a text file, ignoring the extension.
 writeTexFile :: (TypeableFloat n, Monoid' m)

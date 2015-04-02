@@ -22,18 +22,19 @@ module Diagrams.Backend.PGF.Hbox
     --   resulting envelope has its origin at the baseline of the text.
     --
     --   <<diagrams/hbox.svg#width=200 hbox>>
-  , onlineHbox
-  , surfOnlineTex
-  , surfaceHbox
+  , hboxOnline
+
+   -- ** Non-Online version
+   -- | These versions bypass 'OnlineTex' by just running a whole tex
+   --   program just to get the size of a single hbox. This is not
+   --   recommended but because it is slow, but can be convientient if
+   --   you only need one or two hbox sizes.
+  , hboxSurf
+  , hboxSurfIO
 
     -- * Point envelope diagrams
-  , hbox
+  , hboxPoint
 
-    -- * IO versions
-    -- | If used properly, the non-IO versions should be \'safe\'. However we
-    --   supply the IO versions anyway.
-  , hboxIO
-  , surfOnlineTexIO
   ) where
 
 import           Data.ByteString.Char8        (pack)
@@ -46,7 +47,6 @@ import           System.TeXRunner.Parse
 
 import           Diagrams.Core.Envelope       (pointEnvelope)
 import           Diagrams.Prelude             hiding (Box, (<>))
-import           Diagrams.Transform.ScaleInv
 
 import           Diagrams.Backend.PGF.Surface
 
@@ -63,11 +63,12 @@ instance Fractional n => Transformable (Hbox n) where
 instance Fractional n => Renderable (Hbox n) NullBackend where
   render _ _ = mempty
 
--- | Raw TeX commands with no envelope. Transformations are applied
---   normally. This primitive ignores 'Diagrams.TwoD.Text.FontSize'.
-hbox :: (Fractional n, Ord n, Typeable n, Renderable (Hbox n) b)
+-- | Raw TeX commands in a hbox with no envelope. Transformations are
+-- applied normally. This primitive ignores
+-- 'Diagrams.TwoD.Text.FontSize'.
+hboxPoint :: (OrderedField n, Typeable n, Renderable (Hbox n) b)
      => String -> QDiagram b V2 n Any
-hbox raw = mkQD (Prim (Hbox mempty raw))
+hboxPoint raw = mkQD (Prim (Hbox mempty raw))
                 (pointEnvelope origin)
                 mempty
                 mempty
@@ -76,22 +77,22 @@ hbox raw = mkQD (Prim (Hbox mempty raw))
 -- | Hbox with bounding box envelope. Note that each box requires a call to
 --   TeX. For multiple boxes consider using 'onlineHbox' to get multiple boxes
 --   from a single call. (uses unsafePerformIO)
-surfaceHbox :: (RealFloat n, Typeable n, Renderable (Hbox n) b)
+hboxSurf :: (TypeableFloat n, Renderable (Hbox n) b)
             => Surface -> String -> QDiagram b V2 n Any
-surfaceHbox surf txt = unsafePerformIO (hboxIO surf txt)
-{-# NOINLINE surfaceHbox #-}
+hboxSurf surf txt = unsafePerformIO (hboxSurfIO surf txt)
+{-# NOINLINE hboxSurf #-}
 
 -- | Hbox with bounding box envelope. Note that each box requires a call to
 --   TeX. For multiple boxes consider using 'onlineHbox' to get multiple boxes
 --   from a single call.
-hboxIO :: (RealFloat n, Typeable n, Renderable (Hbox n) b)
+hboxSurfIO :: (TypeableFloat n, Renderable (Hbox n) b)
        => Surface -> String -> IO (QDiagram b V2 n Any)
-hboxIO surf txt = surfOnlineTexIO surf (onlineHbox txt)
+hboxSurfIO surf txt = surfOnlineTexIO surf (hboxOnline txt)
 
 -- | Hbox with bounding box envelope.
-onlineHbox :: (RealFloat n, Typeable n, Renderable (Hbox n) b)
+hboxOnline :: (TypeableFloat n, Renderable (Hbox n) b)
            => String -> OnlineTeX (QDiagram b V2 n Any)
-onlineHbox txt = do
+hboxOnline txt = do
   Box h d w <- Online.hbox (pack txt)
 
   let bb = fromCorners (P $ V2 0 (-d))
