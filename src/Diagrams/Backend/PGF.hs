@@ -50,7 +50,6 @@ module Diagrams.Backend.PGF
     -- @
     --
     --   You can edit the default options using lenses.
-  , Options (..)
   , readable
   , sizeSpec
   , surface
