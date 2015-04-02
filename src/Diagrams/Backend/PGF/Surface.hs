@@ -3,7 +3,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF.Surface
--- Copyright   :  (c) 2014 Christopher Chalmers
+-- Copyright   :  (c) 2015 Christopher Chalmers
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
@@ -38,11 +38,9 @@ module Diagrams.Backend.PGF.Surface
     , endDoc
     ) where
 
-import Control.Applicative
 import Data.Hashable       (Hashable (..))
 import Data.Typeable       (Typeable)
-import Diagrams.TwoD       (V2 (..))
-import Diagrams.Prelude    (makeLenses, Default (..))
+import Diagrams.Prelude
 import Prelude
 
 -- | The 'TeXFormat' is used to choose the different PGF commands nessesary for
@@ -51,7 +49,7 @@ data TeXFormat = LaTeX | ConTeXt | PlainTeX
   deriving (Show, Read, Eq, Typeable)
 
 data Surface = Surface
-  { _texFormat :: TeXFormat -- ^ Format PGF commands use.
+  { _texFormat :: TeXFormat -- ^
   , _command   :: String    -- ^ System command to be called.
   , _arguments :: [String]  -- ^ Auguments for command.
   , _pageSize  :: Maybe (V2 Int -> String)
@@ -62,8 +60,41 @@ data Surface = Surface
   , _endDoc    :: String    -- ^ End document.
   }
 
-makeLenses ''Surface
+makeLensesWith (lensRules & generateSignatures .~ False) ''Surface
 
+-- | Format for the PGF commands.
+texFormat :: Lens' Surface TeXFormat
+
+-- | System command to call for rendering PDFs for 'OnlineTeX'.
+command :: Lens' Surface String
+
+-- | List of arguments for the 'command'.
+arguments :: Lens' Surface [String]
+
+-- | Preamble for the tex document. This should at least import
+--   @pgfcore@.
+preamble :: Lens' Surface String
+
+-- | Specify the page size for the tex file.
+pageSize :: Lens' Surface (Maybe (V2 Int -> String))
+
+-- | Command to begin the document. (This normally doesn't need to
+--   change)
+beginDoc :: Lens' Surface String
+
+-- | Command to end the document. (This normally doesn't need to
+--   change)
+endDoc :: Lens' Surface String
+
+-- | Default surface for latex files by calling @pdflatex@.
+--
+-- === Sample document
+-- @
+-- \documentclass{article}
+-- \usepackage{pgfcore}
+-- \pagenumbering{gobble}
+-- \begin{document}
+-- @
 latexSurface :: Surface
 latexSurface = Surface
   { _texFormat = LaTeX
@@ -126,6 +157,9 @@ plaintexSurface = Surface
 -- | LaTeX is the default surface.
 instance Default Surface where
   def = latexSurface
+
+sampleSurfaceOutput :: Surface -> String
+sampleSurfaceOutput = undefined
 
 ------------------------------------------------------------------------
 -- Hashable instances

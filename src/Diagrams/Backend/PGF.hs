@@ -3,7 +3,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF
--- Copyright   :  (c) 2014 Christopher Chalmers
+-- Copyright   :  (c) 2015 Christopher Chalmers
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
@@ -12,17 +12,19 @@
 --
 -- To invoke the PGF backend, you have a number of options.
 --
--- * You can use 'renderPGF' function to render a 'Diagram' to a ".tex" or
---   ".pdf" file;
+-- * You can use 'renderPGF' or 'renderPGF'' to render a 'Diagram' to a
+--   ".tex" or ".pdf" file;
 --
 -- * You can use the most flexible 'renderDia' function to access the
---   resulting PGF code directly in memory. For this particular backend
---   the 'renderDia' function has the following type:
+--   resulting PGF code directly in memory as a bytestring 'Builder'.
 --
--- > renderDia :: PGF -> Options PGF R2 -> Diagram PGF R2 -> Blaze.Builder
+-- * Use 'Diagrams.Backend.PGF.CmdLine.mainWith' or
+--   'Diagrams.Backend.PGF.CmdLine.defaultMain' to make a command line
+--   application. See 'Diagrams.Backend.PGF.CmdLine' for more info.
 --
 -- The 'Surface' provides the necessary information for rendering PGF code and
--- building a PDF using "texrunner".
+-- building a PDF using "texrunner". See 'Diagrams.Backend.PGF.Surface'
+-- for more info.
 --
 
 module Diagrams.Backend.PGF
@@ -33,25 +35,57 @@ module Diagrams.Backend.PGF
     -- * Rendering functions
   , renderPGF
   , renderPGF'
-    -- ** Options lenses
+
+    -- * Options
+    -- | Options for changing how the diagram is rendered. 'Options'
+    --   'PGF' is an instance of 'Default':
+    --
+    -- @@
+    -- def = PGFOptions {
+    --   _surface    = latexSurface
+    --   _sizeSpec   = absolute
+    --   _readable   = True
+    --   _standalone = False
+    --   }
+    -- @
+    --
+    --   You can edit the default options using lenses.
+  , Options (..)
   , readable
   , sizeSpec
   , surface
   , standalone
+
     -- * Online TeX
+    -- | By using 'OnlineTex', diagrams is able to query tex for sizes
+    --   of hboxs and give them the corresponding envelopes. These can
+    --   then be used as any other diagram with the correct size.
+    --
+    --   Online diagrams use the 'Surface' to run tex in online mode and
+    --   get feedback for hbox sizes. To run it you can use
+    --   'renderOnlinePGF', 'renderOnlinePGF'' or 'onlineMain' from
+    --   'Diagrams.Backend.PGF.CmdLine'.
+    --
+    --   See
+    --   <https://github.com/diagrams/diagrams-pgf/tree/master/examples>
+    --   for examples.
   , OnlineTeX
   , renderOnlinePGF
   , renderOnlinePGF'
-    -- * TeX specific
+
+    -- ** TeX specific
   , hbox
   , onlineHbox
   , surfOnlineTex
+
     -- * Surfaces
     -- | These surfaces should be suitable for basic diagrams. For more
     --   complicated output options see 'Diagrams.Backend.PGF.Surface'.
-  , Surface (..)
+  , Surface
+  , latexSurface
+  , contextSurface
+  , plaintexSurface
   , TeXFormat (..)
-  , module Diagrams.Backend.PGF.Surface
   ) where
 
 import           Data.ByteString.Builder
@@ -68,39 +102,31 @@ import           Diagrams.Backend.PGF.Hbox
 import           Diagrams.Backend.PGF.Render
 import           Diagrams.Backend.PGF.Surface
 import           Diagrams.Size
-import           Diagrams.Prelude             hiding (r2, view)
+import           Diagrams.Prelude             hiding (r2)
 
 type B = PGF
 
 type instance V PGF = V2
 type instance N PGF = Double
 
--- | Render a pgf diagram and write it to the given filepath. If the file has
---   the extension @.pdf@, a PDF is generated in a temporary directory using
---   options from the given surface.
+-- | Render a pgf diagram and write it to the given filepath. Same as
+--   'renderPGF'' but uses the default options.
 renderPGF :: (TypeableFloat n, Monoid' m)
           => FilePath         -- ^ path to output
           -> SizeSpec V2 n    -- ^ size of output
-          -> Surface          -- ^ 'Surface' to use
           -> QDiagram PGF V2 n m -- ^ 'Diagram' to render
           -> IO ()
-renderPGF outFile sizeSp surf = renderPGF' outFile opts
-  where
-    opts = case takeExtension outFile of
-             ".pdf" -> def & surface    .~ surf
-                           & sizeSpec   .~ sizeSp
-                           & readable   .~ False
-                           & standalone .~ True
+renderPGF outFile sizeSp = renderPGF' outFile (def & sizeSpec .~ sizeSp)
 
-             _      -> def & surface  .~ surf
-                           & sizeSpec   .~ sizeSp
-
--- | Same as 'renderPGF' but takes 'Options PGF R2'.
+-- | Render a pgf diagram and write it to the given filepath. If the file has
+--   the extension @.pdf@, a PDF is generated in a temporary directory using
+--   options from the given surface, otherwise, the tex output is saved
+--   using the surface's 'TeXFormat'.
 renderPGF' :: (TypeableFloat n, Monoid' m)
            => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n m -> IO ()
 renderPGF' outFile opts d = case takeExtension outFile of
   ".pdf" -> do
-    let rendered = renderDia PGF (opts & standalone .~ True) d
+    let rendered = renderDia PGF (opts & standalone .~ True & readable .~ False) d
 
     currentDir <- getCurrentDirectory
     targetDir  <- canonicalizePath (takeDirectory outFile)
@@ -120,17 +146,14 @@ renderPGF' outFile opts d = case takeExtension outFile of
   -- tex output
   _      -> writeTexFile outFile opts d
 
--- | Render online PDF by calling TeX in a temporary directory.
+-- | Render an online 'PGF' diagram and save it. Same as
+--   'renderOnlinePGF'' using default options.
 renderOnlinePGF :: (TypeableFloat n, Monoid' m)
                 => FilePath
                 -> SizeSpec V2 n
-                -> Surface
                 -> OnlineTeX (QDiagram PGF V2 n m)
                 -> IO ()
-renderOnlinePGF outFile sizeSp surf = renderOnlinePGF' outFile opts
-  where
-    opts = def & sizeSpec .~ sizeSp
-               & surface  .~ surf
+renderOnlinePGF outFile sizeSp = renderOnlinePGF' outFile  (def & sizeSpec .~ sizeSp)
 
 -- | Same as 'renderOnlinePDF' but takes 'Options PGF R2'.
 renderOnlinePGF' :: (TypeableFloat n, Monoid' m)

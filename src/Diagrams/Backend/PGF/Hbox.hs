@@ -9,9 +9,10 @@
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  c.chalmers@me.com
 --
--- A hbox a primitive TeX box, typically used for holding text. This module
--- provides functions for retrieving the dimensions of these boxes so they may be
--- used as envelopes for diagrams.
+-- A hbox a primitive TeX box, typically used for holding text and
+-- formulas but can hold anything. This module provides functions for
+-- retrieving the dimensions of these boxes to give diagrams the correct
+-- envelopes.
 -----------------------------------------------------------------------------
 module Diagrams.Backend.PGF.Hbox
   ( Hbox (..)
@@ -63,7 +64,8 @@ instance Fractional n => Transformable (Hbox n) where
 instance Fractional n => Renderable (Hbox n) NullBackend where
   render _ _ = mempty
 
--- | Raw TeX commands with no envelope. Transformations are applied normally.
+-- | Raw TeX commands with no envelope. Transformations are applied
+--   normally. This primitive ignores 'Diagrams.TwoD.Text.FontSize'.
 hbox :: (Fractional n, Ord n, Typeable n, Renderable (Hbox n) b)
      => String -> QDiagram b V2 n Any
 hbox raw = mkQD (Prim (Hbox mempty raw))

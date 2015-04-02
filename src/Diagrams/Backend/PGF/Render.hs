@@ -5,9 +5,21 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE ViewPatterns          #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Diagrams.Backend.PGF.Render
+-- Copyright   :  (c) 2015 Christopher Chalmers
+-- License     :  BSD-style (see LICENSE)
+-- Maintainer  :  c.chalmers@me.com
+--
+-- This is an internal module exposeing internals for rendering a
+-- diagram. This is for advanced use only. 'Diagrams.Backend.PGF'
+-- has enought for general use.
+--
 module Diagrams.Backend.PGF.Render
   ( PGF (..)
   , Options (..)
+  , Render (..)
 
   -- * Lenses
   , surface
@@ -22,7 +34,7 @@ module Diagrams.Backend.PGF.Render
 import           Control.Monad                (when)
 import           Data.ByteString.Builder
 
-import           Data.Foldable                (foldMap)
+import qualified Data.Foldable                as F (foldMap)
 import           Data.Functor
 import           Data.Hashable                (Hashable (..))
 import           Data.Tree                    (Tree (Node))
@@ -74,7 +86,7 @@ toRender (Node n rs) = case n of
   RAnnot (OpacityGroup x) -> R $ P.opacityGroup x r
   _                       -> R r
   where
-    R r = foldMap toRender rs
+    R r = F.foldMap toRender rs
 
 instance Fractional n => Default (Options PGF V2 n) where
   def = PGFOptions
@@ -195,7 +207,9 @@ setClipPath (Path trs) = do
 renderPath :: TypeableFloat n => Path V2 n -> P.Render n
 renderPath = draw
 
--- | Escapes some common characters in a string.
+-- | Escapes some common characters in a string. Note that this does not
+--   mean the string can't create an error, it mearly escapes common
+--   characters.
 escapeString :: String -> String
 escapeString = concatMap escapeChar
   where
@@ -250,6 +264,8 @@ instance TypeableFloat n => Renderable (Hbox n) PGF where
 instance RealFloat n => Renderable (DImage n External) PGF where
   render _  = R . P.image
 
+-- | Supported: 'ImageRGB8'. (Other types from 'DynamicImage' will
+--   error)
 instance RealFloat n => Renderable (DImage n Embedded) PGF where
   render _  = R . P.embeddedImage
 
