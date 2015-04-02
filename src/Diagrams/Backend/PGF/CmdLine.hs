@@ -144,7 +144,7 @@ instance ToResult d => ToResult (OnlineTeX d) where
 -- $ ./mydiagram -o image.tex -w 400
 -- @
 
-defaultMain :: TypeableFloat n => QDiagram PGF V2 n Any -> IO ()
+defaultMain :: Diagram PGF -> IO ()
 defaultMain = mainWith
 
 -- | Allows you to pick a surface the diagram will be rendered with.
