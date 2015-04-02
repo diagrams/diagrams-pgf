@@ -8,9 +8,9 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.PGF
--- Copyright   :  (c) 2014-2015 Christopher Chalmers
+-- Copyright   :  (c) 2015 Christopher Chalmers
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  c.chalmers@me.com
+-- Maintainer  :  diagrams-discuss@googlegroups.com
 --
 -- Interface to PGF. See the manual http://www.ctan.org/pkg/pgf for details.
 --

@@ -10,7 +10,7 @@
 -- Module      :  Diagrams.Backend.PGF.Render
 -- Copyright   :  (c) 2015 Christopher Chalmers
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  c.chalmers@me.com
+-- Maintainer  :  diagrams-discuss@googlegroups.com
 --
 -- This is an internal module exposeing internals for rendering a
 -- diagram. This is for advanced use only. 'Diagrams.Backend.PGF'

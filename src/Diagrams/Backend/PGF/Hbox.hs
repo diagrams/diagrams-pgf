@@ -7,7 +7,7 @@
 -- Module      :  Diagrams.Backend.PGF
 -- Copyright   :  (c) 2014 Christopher Chalmers
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  c.chalmers@me.com
+-- Maintainer  :  diagrams-discuss@googlegroups.com
 --
 -- A hbox a primitive TeX box, typically used for holding text and
 -- formulas but can hold anything. This module provides functions for

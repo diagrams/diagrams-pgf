@@ -5,7 +5,7 @@
 -- Module      :  Diagrams.Backend.PGF.Surface
 -- Copyright   :  (c) 2015 Christopher Chalmers
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  c.chalmers@me.com
+-- Maintainer  :  diagrams-discuss@googlegroups.com
 --
 -- A 'Surface' defines how a pgfpicture should be placed and compiled. Surfaces
 -- are used for rendering a @.tex@ or @.pdf@ using functions from

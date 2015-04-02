@@ -9,7 +9,7 @@
 -- Module      :  Diagrams.Backend.PGF.CmdLine
 -- Copyright   :  (c) 2015 Diagrams team (see LICENSE)
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  c.chalmers@me.com
+-- Maintainer  :  diagrams-discuss@googlegroups.com
 --
 -- Convenient creation of command-line-driven executables for
 -- rendering diagrams using the PGF backend.

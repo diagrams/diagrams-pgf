@@ -5,7 +5,7 @@
 -- Module      :  Diagrams.Backend.PGF
 -- Copyright   :  (c) 2015 Christopher Chalmers
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  c.chalmers@me.com
+-- Maintainer  :  diagrams-discuss@googlegroups.com
 --
 -- A full-featured PGF backend for diagrams producing PGF code
 -- suitable for LaTeX, ConTeXt or plain TeX consumption.
