@@ -31,6 +31,7 @@ module Diagrams.Backend.PGF.Surface
   , latexSurface
   , contextSurface
   , plaintexSurface
+  , sampleSurfaceOutput
 
     -- * Lenses
   , texFormat
@@ -58,7 +59,7 @@ data TeXFormat = LaTeX | ConTeXt | PlainTeX
   deriving (Show, Read, Eq, Typeable)
 
 data Surface = Surface
-  { _texFormat :: TeXFormat -- ^
+  { _texFormat :: TeXFormat -- ^ Format for the PGF commands
   , _command   :: String    -- ^ System command to be called.
   , _arguments :: [String]  -- ^ Auguments for command.
   , _pageSize  :: Maybe (V2 Int -> String)
@@ -99,16 +100,29 @@ endDoc :: Lens' Surface String
 
 -- | Default surface for latex files by calling @pdflatex@.
 --
--- ==== __Sample__
+-- ==== __Sample output__
 --
 -- @
+-- 'command': pdflatex
+--
+-- % 'preamble'
 -- \documentclass{article}
 -- \usepackage{pgfcore}
 -- \pagenumbering{gobble}
+--
+-- % 'pageSize'
+-- \pdfpagewidth=100bp
+-- \pdfpageheight=80bp
+-- \textheight=80bp
+-- \pdfhorigin=-76.6bp
+-- \pdfvorigin=-52.8bp
+--
+-- % 'beginDoc'
 -- \begin{document}
--- \begin{pgfpicture}
--- <diagram>
--- \end{pgfpicture}
+--
+-- \<LaTeX pgf code\>
+--
+-- % 'endDoc'
 -- \end{document}
 -- @
 --
@@ -125,11 +139,43 @@ latexSurface = Surface
               ++ "\\pdfvorigin=-52.8bp"
   , _preamble  = "\\documentclass{article}\n"
               ++ "\\usepackage{pgfcore}\n"
-              ++ "\\pagenumbering{gobble}\n"
+              ++ "\\pagenumbering{gobble}"
   , _beginDoc  = "\\begin{document}"
   , _endDoc    = "\\end{document}"
   }
 
+-- | Default surface for latex files by calling @pdflatex@.
+--
+-- ==== __Sample output__
+--
+-- @
+-- 'command': context --pipe --once
+
+-- % 'preamble'
+-- \usemodule[pgf]
+-- \setuppagenumbering[location=]
+--
+-- % 'pageSize'
+-- \definepapersize[diagram][width=100bp,height=80bp]
+-- \setuppapersize[diagram][diagram]
+-- \setuplayout
+--   [ topspace=0bp
+--   , backspace=0bp
+--   , header=0bp
+--   , footer=0bp
+--   , width=100bp
+--   , height=80bp
+--   ]
+--
+-- % 'beginDoc'
+-- \starttext
+--
+-- \<ConTeXt pgf code\>
+--
+-- % 'endDoc'
+-- \stoptext
+-- @
+--
 contextSurface :: Surface
 contextSurface = Surface
   { _texFormat = ConTeXt
@@ -152,6 +198,36 @@ contextSurface = Surface
   , _endDoc    = "\\stoptext"
   }
 
+-- | Default surface for latex files by calling @pdflatex@.
+--
+-- ==== __Sample output__
+--
+-- @
+-- 'command': pdftex
+--
+-- % 'preamble'
+-- \input eplain
+-- \beginpackages
+-- \usepackage{color}
+-- \endpackages
+-- \input pgfcore
+-- \def\frac#1#2{{\begingroup #1\endgroup\over #2}}\nopagenumbers
+--
+-- % 'pageSize'
+-- \pdfpagewidth=100bp
+-- \pdfpageheight=80bp
+-- \pdfhorigin=-20bp
+-- \pdfvorigin=0bp
+--
+-- % 'beginDoc'
+--
+--
+-- <PlainTeX pgf code>
+--
+-- % 'endDoc'
+-- \bye
+-- @
+--
 plaintexSurface :: Surface
 plaintexSurface = Surface
   { _texFormat = PlainTeX
@@ -176,7 +252,18 @@ instance Default Surface where
   def = latexSurface
 
 sampleSurfaceOutput :: Surface -> String
-sampleSurfaceOutput = undefined
+sampleSurfaceOutput surf = unlines
+  [ "command: " ++ surf ^. command ++ " " ++ unwords (surf ^. arguments)
+  , "\n% preamble"
+  , surf ^. preamble
+  , "\n% pageSize"
+  , view _Just $ surf ^. pageSize <*> Just (V2 100 80)
+  , "\n% beginDoc"
+  , surf ^. beginDoc
+  , "\n<" ++ show (surf ^. texFormat) ++ " pgf code>"
+  , "\n% endDoc"
+  , surf ^. endDoc
+  ]
 
 -- OnlineTeX functions -------------------------------------------------
 
