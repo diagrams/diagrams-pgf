@@ -114,38 +114,6 @@ sizeSpec = lens _sizeSpec (\o s -> o {_sizeSpec = s})
 readable :: Lens' (Options PGF V2 n) Bool
 readable = lens _readable (\o b -> o {_readable = b})
 
--- | Use the path that has already been drawn in scope. The path is stroked if
---   linewidth > 0.0001 and if filled if a colour is defined.
---
---   All stroke and fill properties from the current @style@ are also output here.
-draw :: TypeableFloat n => Path V2 n -> P.Render n
-draw path = P.scope $ do
-  -- lines and loops are separated when stroking so we only need to
-  -- check the first one
-  let canFill = noneOf (_Wrapped' . _head . located) isLine path
-  -- solid colours need to be filled at the end with usePath
-  doFill <- if canFill
-    then do
-      mFillTexture <- preuse (P.style . _fillTexture)
-      case mFillTexture of
-        Nothing -> return False
-        Just t  -> do
-          setFillTexture path t
-          P.setFillRule <~ getFillRule
-          return (has _SC t)
-    else return False
-  --
-  doStroke <- shouldStroke
-  when doStroke $ do
-    setLineTexture <~ getLineTexture -- stoke opacity needs to be set
-    P.setLineJoin  <~ getLineJoin
-    P.setLineWidth <~ getLineWidth
-    P.setLineCap   <~ getLineCap
-    P.setDash      <~ getDashing
-  --
-  P.path path
-  P.usePath doFill doStroke
-
 -- helper function to easily get options and set them
 (<~) :: AttributeClass a => (b -> P.Render n) -> (a -> b) -> P.Render n
 renderF <~ getF = do
@@ -196,9 +164,6 @@ clip paths r = go paths
     go []     = r
     go (p:ps) = P.scope $ P.path p >> P.clip >> go ps
 
-renderPath :: TypeableFloat n => Path V2 n -> P.Render n
-renderPath = draw
-
 -- | Escapes some common characters in a string. Note that this does not
 --   mean the string can't create an error, it mearly escapes common
 --   characters.
@@ -220,37 +185,54 @@ escapeString = concatMap escapeChar
       ']' -> "{]}"
       x   -> [x]
 
--- | Renders text. Colour is set by fill colour. Opacity is inherited from
---   scope fill opacity. Does not support full alignment. Text is not escaped.
-renderText :: (RealFloat n, Typeable n) => Text n -> P.Render n
-renderText (Text tt txtAlign str) = P.scope $ do
-  setFillTexture mempty <~ getFillTexture
-  --
-  P.applyTransform tt
-  (P.applyScale . (/8)) <~ getFontSize
-      -- (/8) was obtained from trail and error
-  --
-  P.renderText (P.setTextAlign txtAlign) $ do
-    P.setFontWeight <~ getFontWeight
-    P.setFontSlant  <~ getFontSlant
-    P.rawString str
-
-renderHbox :: RealFloat n => Hbox n -> P.Render n
-renderHbox (Hbox tt str) = P.scope $ do
-  P.applyTransform tt
-  P.renderText (P.setTextAlign BaselineText) (P.rawString str)
-
-------------------------------------------------------------------------
--- Renderable instances
+-- Renderable instances ------------------------------------------------
 
 instance TypeableFloat n => Renderable (Path V2 n) PGF where
-  render _ = R . renderPath
+  render _ path = R . P.scope $ do
+    -- lines and loops are separated when stroking so we only need to
+    -- check the first one
+    let canFill = noneOf (_head . located) isLine path
+    -- solid colours need to be filled with usePath
+    doFill <- if canFill
+      then do
+        mFillTexture <- preuse (P.style . _fillTexture)
+        case mFillTexture of
+          Nothing -> return False
+          Just t  -> do
+            setFillTexture path t
+            P.setFillRule <~ getFillRule
+            return (has _SC t)
+      else return False
+    --
+    doStroke <- shouldStroke
+    when doStroke $ do
+      setLineTexture <~ getLineTexture -- stoke opacity needs to be set
+      P.setLineJoin  <~ getLineJoin
+      P.setLineWidth <~ getLineWidth
+      P.setLineCap   <~ getLineCap
+      P.setDash      <~ getDashing
+    --
+    P.path path
+    P.usePath doFill doStroke
 
+-- | Does not support full alignment. Text is not escaped.
 instance TypeableFloat n => Renderable (Text n) PGF where
-  render _ = R . renderText
+  render _ (Text tt txtAlign str) = R . P.scope $ do
+    setFillTexture mempty <~ getFillTexture
+    --
+    P.applyTransform tt
+    (P.applyScale . (/8)) <~ getFontSize
+        -- (/8) was obtained from trail and error
+    --
+    P.renderText (P.setTextAlign txtAlign) $ do
+      P.setFontWeight <~ getFontWeight
+      P.setFontSlant  <~ getFontSlant
+      P.rawString str
 
 instance TypeableFloat n => Renderable (Hbox n) PGF where
-  render _ = R . renderHbox
+  render _ (Hbox tt str) = R . P.scope $ do
+    P.applyTransform tt
+    P.renderText (P.setTextAlign BaselineText) (P.rawString str)
 
 -- | Supported: @.pdf@, @.jpg@, @.png@.
 instance RealFloat n => Renderable (DImage n External) PGF where
