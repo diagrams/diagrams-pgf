@@ -79,14 +79,12 @@ toRender :: TypeableFloat n => RTree PGF V2 n Annotation -> Render PGF V2 n
 toRender (Node n rs) = case n of
   RPrim p                 -> render PGF p
   RStyle sty'             -> R $ do
-    sty <- P.style <<<>= sty' -- mappend old style
-    doClip <- uses (P.style . _clip) null
-    let scopeClip = if doClip then \cr -> P.scope $ (setClipPaths <~ op Clip) >> cr else id
-    scopeClip r <* (P.style .= sty)     -- render then revert to old style
+    sty <- P.style <<<>= sty'        -- mappend old style
+    clips <- use (P.style . _clip)
+    clip clips r <* (P.style .= sty) -- render then revert to old style
   RAnnot (OpacityGroup x) -> R $ P.opacityGroup x r
   _                       -> R r
-  where
-    R r = F.foldMap toRender rs
+  where R r = F.foldMap toRender rs
 
 instance Fractional n => Default (Options PGF V2 n) where
   def = PGFOptions
@@ -192,17 +190,11 @@ shouldStroke = do
   --
   return $ maybe True (> P.epsilon) mLWidth
 
-setClipPaths :: TypeableFloat n => [Path V2 n] -> P.Render n
-setClipPaths = mapM_ setClipPath
-
-setClipPath :: TypeableFloat n => Path V2 n -> P.Render n
-setClipPath (Path trs) = do
-  mapM_ renderTrail trs
-  P.clip
+clip :: TypeableFloat n => [Path V2 n] -> P.Render n -> P.Render n
+clip paths r = go paths
   where
-    renderTrail (viewLoc -> (p, tr)) = do
-      P.moveTo p
-      P.trail tr
+    go []     = r
+    go (p:ps) = P.scope $ P.path p >> P.clip >> go ps
 
 renderPath :: TypeableFloat n => Path V2 n -> P.Render n
 renderPath = draw
