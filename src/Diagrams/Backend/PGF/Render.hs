@@ -137,17 +137,6 @@ setLineTexture :: RealFloat n => Texture n -> P.Render n
 setLineTexture (SC (SomeColor c)) = fade c >>= P.setLineColor
 setLineTexture _                  = return ()
 
-getNumAttr :: AttributeClass (a n) => (a n -> t) -> Style V2 n -> Maybe t
-getNumAttr f = (f <$>) . getAttr
-
--- | Queries the current style and decides if the path should be stroked. Paths
---   are stroked when lw > 0.0001
-shouldStroke :: (OrderedField n, Typeable n) => P.RenderM n Bool
-shouldStroke = do
-  mLWidth <- getNumAttr getLineWidth <$> use P.style
-  --
-  return $ maybe True (> P.epsilon) mLWidth
-
 clip :: TypeableFloat n => [Path V2 n] -> P.Render n -> P.Render n
 clip paths r = go paths
   where
@@ -194,11 +183,12 @@ instance TypeableFloat n => Renderable (Path V2 n) PGF where
             return (has _SC t)
       else return False
     --
-    doStroke <- shouldStroke
+    w <- use (P.style . _lineWidthU . non 0)
+    let doStroke = w > 0.0001
     when doStroke $ do
+      P.setLineWidth w
       setLineTexture <~ getLineTexture -- stoke opacity needs to be set
       P.setLineJoin  <~ getLineJoin
-      P.setLineWidth <~ getLineWidth
       P.setLineCap   <~ getLineCap
       P.setDash      <~ getDashing
     --
