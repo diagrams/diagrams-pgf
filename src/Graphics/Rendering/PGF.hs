@@ -55,7 +55,6 @@ module Graphics.Rendering.PGF
   , fill
   , asBoundingBox
   -- , rectangleBoundingBox
-  , applyOpacity
   -- * Strokeing Options
   , setDash
   , setLineWidth
@@ -386,9 +385,6 @@ parensColor :: Color c => c -> Render n
 parensColor c = parens $ texColor r g b
   where (r,g,b,_) = colorToSRGBA c
 
--- | Apply the opacity from a style to a given color.
-applyOpacity :: Color c => c -> Style V2 n -> AlphaColour Double
-applyOpacity c s = dissolve (maybe 1 getOpacity (getAttr s)) (toAlphaColour c)
 
 -- paths ---------------------------------------------------------------
 
@@ -453,7 +449,7 @@ segment ::  RealFloat n => Segment Closed V2 n -> Render n
 segment (Linear (OffsetClosed v))       = lineTo v
 segment (Cubic v1 v2 (OffsetClosed v3)) = curveTo v1 v2 v3
 
--- | @usePath fill stroke clip@ combined in one function.
+-- | @usePath fill stroke@ combined in one function.
 usePath :: Bool -> Bool -> Render n
 usePath False False     = return ()
 usePath doFill doStroke = ln $ do

@@ -187,7 +187,7 @@ instance TypeableFloat n => Renderable (Path V2 n) PGF where
     let doStroke = w > 0.0001
     when doStroke $ do
       P.setLineWidth w
-      setLineTexture <~ getLineTexture -- stoke opacity needs to be set
+      setLineTexture <~ getLineTexture
       P.setLineJoin  <~ getLineJoin
       P.setLineCap   <~ getLineCap
       P.setDash      <~ getDashing
