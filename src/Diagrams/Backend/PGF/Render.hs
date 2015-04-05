@@ -122,30 +122,20 @@ renderF <~ getF = do
 
 infixr 2 <~
 
+-- | Fade a colour with the opacity from the style.
+fade :: Color c => c -> P.RenderM n (AlphaColour Double)
+fade c = flip dissolve (toAlphaColour c) <$> use (P.style . _opacity)
+
 -- The Path is necessary so we can clip/workout gradients.
 setFillTexture :: RealFloat n => Path V2 n -> Texture n -> P.Render n
 setFillTexture p t = case t of
-  SC (SomeColor c) -> setFillColor' c
+  SC (SomeColor c) -> fade c >>= P.setFillColor
   LG g             -> P.linearGradient p g
   RG g             -> P.radialGradient p g
 
-setFillColor' :: (RealFloat n, Color c) => c -> P.Render n
-setFillColor' c = do
-  s <- use P.style
-  P.setFillColor $ applyOpacity c s
-
-setLineColor' :: (RealFloat n, Color c) => c -> P.Render n
-setLineColor' c = do
-  s <- use P.style
-  P.setLineColor $ applyOpacity c s
-
 setLineTexture :: RealFloat n => Texture n -> P.Render n
-setLineTexture (SC (SomeColor c)) = setLineColor' c
+setLineTexture (SC (SomeColor c)) = fade c >>= P.setLineColor
 setLineTexture _                  = return ()
-
--- | Apply the opacity from a style to a given color.
-applyOpacity :: Color c => c -> Style v n -> AlphaColour Double
-applyOpacity c s = dissolve (maybe 1 getOpacity (getAttr s)) (toAlphaColour c)
 
 getNumAttr :: AttributeClass (a n) => (a n -> t) -> Style V2 n -> Maybe t
 getNumAttr f = (f <$>) . getAttr
