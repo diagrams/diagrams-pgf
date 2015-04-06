@@ -44,15 +44,12 @@ module Graphics.Rendering.PGF
   -- * Paths
   , path
   , trail
-  , segment
   , usePath
   , lineTo
   , curveTo
   , moveTo
   , closePath
   , clip
-  , stroke
-  , fill
   , asBoundingBox
   -- , rectangleBoundingBox
   -- * Strokeing Options
@@ -121,8 +118,7 @@ import           Diagrams.Backend.PGF.Surface
 -- | Render state, mainly to be used for convenience when build, this module
 --   only uses the indent properly.
 data RenderState n = RenderState
-  { _pos        :: P2 n -- ^ Current position
-  , _indent     :: Int  -- ^ Current indentation
+  { _indent     :: Int        -- ^ Current indentation
   , _style      :: Style V2 n
   }
 
@@ -144,8 +140,7 @@ type Render n = RenderM n ()
 -- | Starting state for running the builder.
 initialState :: (Typeable n, Floating n) => RenderState n
 initialState = RenderState
-  { _pos        = origin
-  , _indent     = 0
+  { _indent     = 0
   , _style      = lc black mempty -- Until I think of something better:
                                   -- (square 1 # opacity 0.5) doesn't work otherwise
   }
@@ -385,69 +380,65 @@ parensColor :: Color c => c -> Render n
 parensColor c = parens $ texColor r g b
   where (r,g,b,_) = colorToSRGBA c
 
-
 -- paths ---------------------------------------------------------------
+
+-- | Move path to point (pgf quick command).
+moveTo :: RealFloat n => P2 n -> Render n
+moveTo p = ln $ do
+  pgf "pathqmoveto"
+  bracerPoint p
+
+-- | Move path by vector (pgf quick command).
+lineTo :: RealFloat n => P2 n -> Render n
+lineTo p = ln $ do
+  pgf "pathqlineto"
+  bracerPoint p
+
+-- | Make curved path from vectors (pgf quick command).
+curveTo :: RealFloat n => P2 n -> P2 n -> P2 n -> Render n
+curveTo p1 p2 p3 = ln $ do
+  pgf "pathqcurveto"
+  mapM_ bracerPoint [p1, p2, p3]
 
 -- | Close the current path.
 closePath :: Render n
 closePath = ln $ pgf "pathclose"
 
--- | Move path to point.
-moveTo :: RealFloat n => P2 n -> Render n
-moveTo v = ln $ do
-  pos .= v
-  pgf "pathqmoveto"
-  bracerPoint v
+line :: RealFloat n => P2 n -> Trail' Line V2 n -> Render n
+line p0 l = moveTo p0 >> go p0 (lineSegments l)
+  where
+    go :: RealFloat n => P2 n -> [Segment Closed V2 n] -> Render n
+    go _ []     = return ()
+    go p (s:ss) = case s of
+       Linear (OffsetClosed v) ->
+         let p' = p .+^ v
+         in  lineTo p' >> go p' ss
+       Cubic v1 v2 (OffsetClosed v3) ->
+         let p' = p .+^ v3
+         in  curveTo (p .+^ v1) (p .+^ v2) p' >> go p' ss
 
--- | Move path by vector.
-lineTo :: RealFloat n => V2 n -> Render n
-lineTo v = ln $ do
-  p <- use pos
-  let v' = p .+^ v
-  pos .= v'
-  pgf "pathqlineto"
-  bracerPoint v'
+-- loop :: RealFloat n => P2 n -> Trail' Loop V2 n -> Render
+-- loop p0 (Loop st o) = line p0 (Line st) >> close
+--   where
+--     p = st ^. _last . non 0
+--     close = case o of
+--       Linear _    -> closePath
+--       Cubic v1 v2 -> curveTo (p .+^ v1) (p .+^ v2) p0
 
--- | Make curved path from vectors.
-curveTo :: RealFloat n => V2 n -> V2 n -> V2 n -> Render n
-curveTo v2 v3 v4 = ln $ do
-  p <- use pos
-  let [v2',v3',v4'] = map (p .+^) [v2,v3,v4]
-  pos .= v4'
-  pgf "pathqcurveto"
-  mapM_ bracerPoint [v2', v3', v4']
+-- | Render a located trail (with pgf's quick commands).
+trail :: RealFloat n => Located (Trail V2 n) -> Render n
+trail (viewLoc -> (p,t)) = do
+  withLine (line p) t
+  when (isLoop t) closePath
 
--- | Stroke the defined path using parameters from current scope.
-stroke :: Render n
-stroke = ln $ pgf "usepathqstroke"
-
--- | Fill the defined path using parameters from current scope.
-fill :: Render n
-fill = ln $ pgf "usepathqfill"
+-- | Render a path (with pgf's quick commands).
+path :: RealFloat n => Path V2 n -> Render n
+path (Path trs) = mapM_ trail trs
 
 -- | Use the defined path a clip for everything that follows in the current
 --   scope. Stacks.
 clip :: Render n
 clip = ln $ pgf "usepathqclip"
-
-path :: RealFloat n => Path V2 n -> Render n
-path (Path trs) = do
-  mapM_ renderTrail trs
-  where
-    renderTrail (viewLoc -> (p, tr)) = do
-      moveTo p
-      trail tr
-
-trail :: RealFloat n => Trail V2 n -> Render n
-trail t = withLine (render' . lineSegments) t
-  where
-    render' segs = do
-      mapM_ segment segs
-      when (isLoop t) closePath
-
-segment ::  RealFloat n => Segment Closed V2 n -> Render n
-segment (Linear (OffsetClosed v))       = lineTo v
-segment (Cubic v1 v2 (OffsetClosed v3)) = curveTo v1 v2 v3
 
 -- | @usePath fill stroke@ combined in one function.
 usePath :: Bool -> Bool -> Render n
