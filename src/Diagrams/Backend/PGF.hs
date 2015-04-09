@@ -35,6 +35,7 @@ module Diagrams.Backend.PGF
     -- * Rendering functions
   , renderPGF
   , renderPGF'
+  , renderPGFSurf
 
     -- * Options
     -- | Options for changing how the diagram is rendered. 'Options'
@@ -123,7 +124,20 @@ renderPGF :: (TypeableFloat n, Monoid' m)
           -> SizeSpec V2 n    -- ^ size of output
           -> QDiagram PGF V2 n m -- ^ 'Diagram' to render
           -> IO ()
-renderPGF outFile sizeSp = renderPGF' outFile (def & sizeSpec .~ sizeSp)
+renderPGF outFile sizeSp = renderPGFSurf outFile sizeSp def
+
+-- | Render a pgf diagram and write it to the given filepath. Same as
+--   'renderPGF' but takes a 'Surface'.
+renderPGFSurf :: (TypeableFloat n, Monoid' m)
+          => FilePath         -- ^ path to output
+          -> SizeSpec V2 n    -- ^ size of output
+          -> Surface          -- ^ surface to render with
+          -> QDiagram PGF V2 n m -- ^ diagram to render
+          -> IO ()
+renderPGFSurf outFile sizeSp surf =
+  renderPGF' outFile $
+    def & sizeSpec .~ sizeSp
+        & surface  .~ surf
 
 -- | Render a pgf diagram and write it to the given filepath. If the file has
 --   the extension @.pdf@, a PDF is generated in a temporary directory using
