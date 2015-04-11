@@ -14,14 +14,14 @@
 -- Surfaces are also used in 'Diagrams.Backend.PGF.Hbox' for querying
 -- envelopes of text.
 --
--- Surfaces for LaTeX, ConTeXt and plain TeX are provided and reexported by
+-- Surfaces for Latex, Context and plain Tex are provided and reexported by
 -- Diagrams.Backend.PGF. Lenses here allow these to be adjusted as required.
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.PGF.Surface
   ( -- * Surface definition
     Surface(..)
-  , TeXFormat(..)
+  , TexFormat(..)
 
     -- * Online rendering with surfaces
   , surfOnlineTex
@@ -47,19 +47,21 @@ import           Data.ByteString.Builder
 import           Data.Hashable           (Hashable (..))
 import           Data.Typeable           (Typeable)
 import           System.IO.Unsafe
-import           System.TeXRunner.Online
+import           System.Texrunner.Online
 
 
 import           Diagrams.Prelude
 import           Prelude
 
--- | The 'TeXFormat' is used to choose the different PGF commands nessesary for
+-- | The 'TexFormat' is used to choose the different PGF commands nessesary for
 --   that format.
-data TeXFormat = LaTeX | ConTeXt | PlainTeX
+data TexFormat = LaTeX | ConTeXt | PlainTeX
   deriving (Show, Read, Eq, Typeable)
+  -- These names are only captialised so Context doesn't conflict with
+  -- lens's Context.
 
 data Surface = Surface
-  { _texFormat :: TeXFormat -- ^ Format for the PGF commands
+  { _texFormat :: TexFormat -- ^ Format for the PGF commands
   , _command   :: String    -- ^ System command to be called.
   , _arguments :: [String]  -- ^ Auguments for command.
   , _pageSize  :: Maybe (V2 Int -> String)
@@ -73,9 +75,9 @@ data Surface = Surface
 makeLensesWith (lensRules & generateSignatures .~ False) ''Surface
 
 -- | Format for the PGF commands.
-texFormat :: Lens' Surface TeXFormat
+texFormat :: Lens' Surface TexFormat
 
--- | System command to call for rendering PDFs for 'OnlineTeX'.
+-- | System command to call for rendering PDFs for 'OnlineTex'.
 command :: Lens' Surface String
 
 -- | List of arguments for the 'command'.
@@ -120,7 +122,7 @@ endDoc :: Lens' Surface String
 -- % 'beginDoc'
 -- \begin{document}
 --
--- \<LaTeX pgf code\>
+-- \<Latex pgf code\>
 --
 -- % 'endDoc'
 -- \end{document}
@@ -170,7 +172,7 @@ latexSurface = Surface
 -- % 'beginDoc'
 -- \starttext
 --
--- \<ConTeXt pgf code\>
+-- \<Context pgf code\>
 --
 -- % 'endDoc'
 -- \stoptext
@@ -222,7 +224,7 @@ contextSurface = Surface
 -- % 'beginDoc'
 --
 --
--- <PlainTeX pgf code>
+-- <PlainTex pgf code>
 --
 -- % 'endDoc'
 -- \bye
@@ -247,7 +249,7 @@ plaintexSurface = Surface
   , _endDoc    = "\\bye"
   }
 
--- | LaTeX is the default surface.
+-- | Latex is the default surface.
 instance Default Surface where
   def = latexSurface
 
@@ -265,15 +267,15 @@ sampleSurfaceOutput surf = unlines
   , surf ^. endDoc
   ]
 
--- OnlineTeX functions -------------------------------------------------
+-- OnlineTex functions -------------------------------------------------
 
--- | Get the result of an OnlineTeX using the given surface.
-surfOnlineTex :: Surface -> OnlineTeX a -> a
+-- | Get the result of an OnlineTex using the given surface.
+surfOnlineTex :: Surface -> OnlineTex a -> a
 surfOnlineTex surf a = unsafePerformIO (surfOnlineTexIO surf a)
 {-# NOINLINE surfOnlineTex #-}
 
--- | Get the result of an OnlineTeX using the given surface.
-surfOnlineTexIO :: Surface -> OnlineTeX a -> IO a
+-- | Get the result of an OnlineTex using the given surface.
+surfOnlineTexIO :: Surface -> OnlineTex a -> IO a
 surfOnlineTexIO surf = runOnlineTex (surf^.command) (surf^.arguments) begin
   where
     begin = view strict . toLazyByteString . stringUtf8
@@ -281,7 +283,7 @@ surfOnlineTexIO surf = runOnlineTex (surf^.command) (surf^.arguments) begin
 
 -- Hashable instances --------------------------------------------------
 
-instance Hashable TeXFormat where
+instance Hashable TexFormat where
   hashWithSalt s LaTeX    = s `hashWithSalt` (1::Int)
   hashWithSalt s ConTeXt  = s `hashWithSalt` (2::Int)
   hashWithSalt s PlainTeX = s `hashWithSalt` (3::Int)

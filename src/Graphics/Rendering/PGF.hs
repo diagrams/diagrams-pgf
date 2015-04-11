@@ -129,7 +129,7 @@ data RenderState n = RenderState
 makeLenses ''RenderState
 
 data RenderInfo = RenderInfo
-  { _format :: TeXFormat
+  { _format :: TexFormat
   , _pprint :: Bool
   }
 
@@ -366,7 +366,7 @@ contextColor r g b = do
   rawChar ','
   raw "b=" >> n b
 
--- | Defines an RGB colour with the given name, using the TeX format.
+-- | Defines an RGB colour with the given name, using the Tex format.
 defineColour :: RealFloat a => ByteString -> a -> a -> a -> Render n
 defineColour name r g b = do
   f <- view format

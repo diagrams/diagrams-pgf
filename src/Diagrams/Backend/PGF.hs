@@ -85,7 +85,7 @@ module Diagrams.Backend.PGF
     --   See
     --   <https://github.com/diagrams/diagrams-pgf/tree/master/examples>
     --   for examples.
-  , OnlineTeX
+  , OnlineTex
   , renderOnlinePGF
   , renderOnlinePGF'
 
@@ -100,8 +100,8 @@ import           Data.ByteString.Builder
 import           System.Directory             hiding (readable)
 import           System.FilePath
 import           System.IO
-import           System.TeXRunner
-import           System.TeXRunner.Online      hiding (hbox)
+import           System.Texrunner
+import           System.Texrunner.Online      hiding (hbox)
 
 import qualified Data.ByteString.Char8        as B
 import qualified Data.ByteString.Lazy.Char8   as LB
@@ -142,7 +142,7 @@ renderPGFSurf outFile sizeSp surf =
 -- | Render a pgf diagram and write it to the given filepath. If the file has
 --   the extension @.pdf@, a PDF is generated in a temporary directory using
 --   options from the given surface, otherwise, the tex output is saved
---   using the surface's 'TeXFormat'.
+--   using the surface's 'TexFormat'.
 renderPGF' :: (TypeableFloat n, Monoid' m)
            => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n m -> IO ()
 renderPGF' outFile opts d = case takeExtension outFile of
@@ -172,7 +172,7 @@ renderPGF' outFile opts d = case takeExtension outFile of
 renderOnlinePGF :: (TypeableFloat n, Monoid' m)
                 => FilePath
                 -> SizeSpec V2 n
-                -> OnlineTeX (QDiagram PGF V2 n m)
+                -> OnlineTex (QDiagram PGF V2 n m)
                 -> IO ()
 renderOnlinePGF outFile sizeSp = renderOnlinePGF' outFile  (def & sizeSpec .~ sizeSp)
 
@@ -180,7 +180,7 @@ renderOnlinePGF outFile sizeSp = renderOnlinePGF' outFile  (def & sizeSpec .~ si
 renderOnlinePGF' :: (TypeableFloat n, Monoid' m)
                  => FilePath
                  -> Options PGF V2 n
-                 -> OnlineTeX (QDiagram PGF V2 n m)
+                 -> OnlineTex (QDiagram PGF V2 n m)
                  -> IO ()
 renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
   ".pdf" -> do

@@ -9,7 +9,7 @@
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  diagrams-discuss@googlegroups.com
 --
--- A hbox a primitive TeX box, typically used for holding text and
+-- A hbox a primitive Tex box, typically used for holding text and
 -- formulas but can hold anything. This module provides functions for
 -- retrieving the dimensions of these boxes to give diagrams the correct
 -- envelopes.
@@ -18,7 +18,7 @@ module Diagrams.Backend.PGF.Hbox
   ( Hbox (..)
 
     -- * Enveloped diagrams
-    -- | The dimensions of a hbox can be recovered by calling TeX. The
+    -- | The dimensions of a hbox can be recovered by calling Tex. The
     --   resulting envelope has its origin at the baseline of the text.
     --
     --   <<diagrams/hbox.svg#width=200 hbox>>
@@ -41,16 +41,16 @@ import           Data.ByteString.Char8        (pack)
 import           Data.Monoid
 import           Data.Typeable
 import           System.IO.Unsafe
-import           System.TeXRunner.Online      hiding (hbox)
-import qualified System.TeXRunner.Online      as Online
-import           System.TeXRunner.Parse
+import           System.Texrunner.Online      hiding (hbox)
+import qualified System.Texrunner.Online      as Online
+import           System.Texrunner.Parse
 
 import           Diagrams.Core.Envelope       (pointEnvelope)
 import           Diagrams.Prelude             hiding (Box, (<>))
 
 import           Diagrams.Backend.PGF.Surface
 
--- | Primitive for placing raw TeX commands in a hbox.
+-- | Primitive for placing raw Tex commands in a hbox.
 data Hbox n = Hbox (Transformation V2 n) String
   deriving Typeable
 
@@ -63,7 +63,7 @@ instance Fractional n => Transformable (Hbox n) where
 instance Fractional n => Renderable (Hbox n) NullBackend where
   render _ _ = mempty
 
--- | Raw TeX commands in a hbox with no envelope. Transformations are
+-- | Raw Tex commands in a hbox with no envelope. Transformations are
 -- applied normally. This primitive ignores
 -- 'Diagrams.TwoD.Text.FontSize'.
 hboxPoint :: (OrderedField n, Typeable n, Renderable (Hbox n) b)
@@ -75,7 +75,7 @@ hboxPoint raw = mkQD (Prim (Hbox mempty raw))
                 mempty
 
 -- | Hbox with bounding box envelope. Note that each box requires a call to
---   TeX. For multiple boxes consider using 'onlineHbox' to get multiple boxes
+--   Tex. For multiple boxes consider using 'onlineHbox' to get multiple boxes
 --   from a single call. (uses unsafePerformIO)
 hboxSurf :: (TypeableFloat n, Renderable (Hbox n) b)
             => Surface -> String -> QDiagram b V2 n Any
@@ -83,7 +83,7 @@ hboxSurf surf txt = unsafePerformIO (hboxSurfIO surf txt)
 {-# NOINLINE hboxSurf #-}
 
 -- | Hbox with bounding box envelope. Note that each box requires a call to
---   TeX. For multiple boxes consider using 'onlineHbox' to get multiple boxes
+--   Tex. For multiple boxes consider using 'onlineHbox' to get multiple boxes
 --   from a single call.
 hboxSurfIO :: (TypeableFloat n, Renderable (Hbox n) b)
        => Surface -> String -> IO (QDiagram b V2 n Any)
@@ -91,7 +91,7 @@ hboxSurfIO surf txt = surfOnlineTexIO surf (hboxOnline txt)
 
 -- | Hbox with bounding box envelope.
 hboxOnline :: (TypeableFloat n, Renderable (Hbox n) b)
-           => String -> OnlineTeX (QDiagram b V2 n Any)
+           => String -> OnlineTex (QDiagram b V2 n Any)
 hboxOnline txt = do
   Box h d w <- Online.hbox (pack txt)
 

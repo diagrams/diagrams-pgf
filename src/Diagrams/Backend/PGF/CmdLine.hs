@@ -68,9 +68,9 @@ instance Parseable PGFCmdLineOpts where
             )
 
 -- not sure if this is of any use
-instance ToResult d => ToResult (OnlineTeX d) where
-  type Args (OnlineTeX d) = (Surface, Args d)
-  type ResultOf (OnlineTeX d) = IO (ResultOf d)
+instance ToResult d => ToResult (OnlineTex d) where
+  type Args (OnlineTex d) = (Surface, Args d)
+  type ResultOf (OnlineTex d) = IO (ResultOf d)
 
   toResult d (surf, args) = flip toResult args <$> surfOnlineTexIO surf d
 
@@ -83,7 +83,7 @@ instance ToResult d => ToResult (OnlineTeX d) where
 -- will produce a program that looks for additional number and color arguments.
 --
 -- > ... definitions ...
--- > f :: Int -> Colour Double -> QDiagram PGF V2 n Any
+-- > f :: Int -> Colour Double -> Diagram PGF
 -- > f i c = ...
 -- >
 -- > main = mainWith f
@@ -148,24 +148,25 @@ defaultMain :: Diagram PGF -> IO ()
 defaultMain = mainWith
 
 -- | Allows you to pick a surface the diagram will be rendered with.
-mainWithSurf :: TypeableFloat n => Surface -> QDiagram PGF V2 n Any -> IO ()
+-- (This
+mainWithSurf :: TypeableFloat n => Surface -> Diagram PGF -> IO ()
 mainWithSurf = curry mainWith
 
 -- For online diagrams.
 
 -- | Same as @defaultMain@ but takes an online pgf diagram.
-onlineMain :: TypeableFloat n => OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
+onlineMain :: OnlineTex (QDiagram PGF) -> IO ()
 onlineMain = mainWith
 
 -- | Same as @mainWithSurf@ but takes an online pgf diagram.
-onlineMainWithSurf :: TypeableFloat n => Surface -> OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
+onlineMainWithSurf :: Surface -> OnlineTex (QDiagram PGF) -> IO ()
 onlineMainWithSurf = curry mainWith
 
 -- Mainable instances
 
 instance TypeableFloat n => Mainable (QDiagram PGF V2 n Any) where
   type MainOpts (QDiagram PGF V2 n Any) =
-    (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TeXFormat)
+    (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TexFormat)
   mainRender (diaOpts, loopOpts, pgfOpts, format) d = do
     chooseRender diaOpts pgfOpts (formatToSurf format) d
     defaultLoopRender loopOpts
@@ -178,21 +179,21 @@ instance TypeableFloat n => Mainable (Surface, QDiagram PGF V2 n Any) where
     defaultLoopRender loopOpts
 
 -- Online diagrams
-instance TypeableFloat n => Mainable (OnlineTeX (QDiagram PGF V2 n Any)) where
-  type MainOpts (OnlineTeX (QDiagram PGF V2 n Any))
-    = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TeXFormat)
+instance TypeableFloat n => Mainable (OnlineTex (QDiagram PGF V2 n Any)) where
+  type MainOpts (OnlineTex (QDiagram PGF V2 n Any))
+    = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TexFormat)
   mainRender (diaOpts, loopOpts, pgfOpts, format) d = do
     chooseOnlineRender diaOpts pgfOpts (formatToSurf format) d
     defaultLoopRender loopOpts
 
-instance TypeableFloat n => Mainable (Surface, OnlineTeX (QDiagram PGF V2 n Any)) where
-  type MainOpts (Surface, OnlineTeX (QDiagram PGF V2 n Any))
+instance TypeableFloat n => Mainable (Surface, OnlineTex (QDiagram PGF V2 n Any)) where
+  type MainOpts (Surface, OnlineTex (QDiagram PGF V2 n Any))
     = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts)
   mainRender (diaOpts, loopOpts, pgfOpts) (surf, d) = do
     chooseOnlineRender diaOpts pgfOpts surf d
     defaultLoopRender loopOpts
 
-formatToSurf :: TeXFormat -> Surface
+formatToSurf :: TexFormat -> Surface
 formatToSurf format = case format of
   LaTeX    -> latexSurface
   ConTeXt  -> contextSurface
@@ -218,7 +219,7 @@ chooseRender diaOpts pgfOpts surf d =
     opts = cmdLineOpts diaOpts surf pgfOpts
 
 chooseOnlineRender :: TypeableFloat n
-  => DiagramOpts -> PGFCmdLineOpts -> Surface -> OnlineTeX (QDiagram PGF V2 n Any) -> IO ()
+  => DiagramOpts -> PGFCmdLineOpts -> Surface -> OnlineTex (QDiagram PGF V2 n Any) -> IO ()
 chooseOnlineRender diaOpts pgfOpts surf d =
     case diaOpts^.output of
       ""  -> surfOnlineTexIO surf d >>= hPutBuilder stdout . renderDia PGF opts
@@ -246,7 +247,7 @@ chooseOnlineRender diaOpts pgfOpts surf d =
 -- $ ./MultiTest --selection bar -o Bar.eps -w 200
 -- @
 
-multiMain :: TypeableFloat n => [(String, QDiagram PGF V2 n Any)] -> IO ()
+multiMain :: TypeableFloat n => [(String, Diagram PGF)] -> IO ()
 multiMain = mainWith
 
 instance TypeableFloat n => Mainable [(String,QDiagram PGF V2 n Any)] where
@@ -255,7 +256,7 @@ instance TypeableFloat n => Mainable [(String,QDiagram PGF V2 n Any)] where
 
     mainRender = defaultMultiMainRender
 
-instance Parseable TeXFormat where
+instance Parseable TexFormat where
   parser = OP.option (eitherReader parseFormat)
                       $ short   'f'
                      <> long    "format"
@@ -264,7 +265,7 @@ instance Parseable TeXFormat where
                      <> OP.value LaTeX
                      <> showDefault
 
-parseFormat :: String -> Either String TeXFormat
+parseFormat :: String -> Either String TexFormat
 parseFormat ('l':_) = Right LaTeX
 parseFormat ('c':_) = Right ConTeXt
 parseFormat ('p':_) = Right PlainTeX
