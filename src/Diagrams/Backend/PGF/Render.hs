@@ -102,15 +102,17 @@ instance Monoid (Render PGF V2 n) where
 surface :: Lens' (Options PGF V2 n) Surface
 surface = lens _surface (\o s -> o {_surface = s})
 
--- | Lens onto whether a standalone TeX document should be produced.
+-- | Lens onto whether a standalone @.tex@ document should be produced.
+--   The 'preamble' of the standalone document is determined by the
+--   'surface.
 standalone :: Lens' (Options PGF V2 n) Bool
 standalone = lens _standalone (\o s -> o {_standalone = s})
 
--- | Lens onto the 'SizeSpec2D'.
+-- | Lens onto the size of the final output.
 sizeSpec :: Lens' (Options PGF V2 n) (SizeSpec V2 n)
 sizeSpec = lens _sizeSpec (\o s -> o {_sizeSpec = s})
 
--- | Lens onto whether the lines of the TeX output are indented.
+-- | Lens onto whether the lines of the @.tex@ document are indented.
 readable :: Lens' (Options PGF V2 n) Bool
 readable = lens _readable (\o b -> o {_readable = b})
 
