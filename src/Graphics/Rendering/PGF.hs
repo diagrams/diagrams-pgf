@@ -19,15 +19,10 @@ module Graphics.Rendering.PGF
   ( renderWith
   , RenderM
   , Render
-  , initialState
   -- * Environments
   , scope
-  -- , scopeHeader
-  -- , resetState
-  -- , scopeFooter
   , epsilon
   -- * Lenses
-  -- , fillRule
   , style
   -- * units
   , bp
@@ -106,7 +101,7 @@ import           Numeric
 import           Diagrams.Core.Transform
 import           Diagrams.Prelude             hiding (Render, image, moveTo,
                                                opacity, opacityGroup, stroke,
-                                               (<>), p2, p3)
+                                               (<>), p2, p3, local)
 import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..),
                                                TextAlignment (..))
 
@@ -115,43 +110,28 @@ import           Diagrams.Backend.PGF.Surface
 
 -- * Types, lenses & runners
 
--- | Render state, mainly to be used for convenience when build, this module
---   only uses the indent properly.
-data RenderState n = RenderState
-  { _indent     :: Int        -- ^ Current indentation
-  , _style      :: Style V2 n
-  }
-
-makeLenses ''RenderState
-
-data RenderInfo = RenderInfo
+data RenderInfo n = RenderInfo
   { _format :: TexFormat
   , _pprint :: Bool
+  , _indent :: Int        -- ^ Current indentation
+  , _style  :: Style V2 n
   }
 
 makeLenses ''RenderInfo
 
 -- | Type for render monad.
-type RenderM n m = RWS RenderInfo Builder (RenderState n) m
+type RenderM n m = RWS (RenderInfo n) Builder () m
 
 -- | Convenient type for building.
 type Render n = RenderM n ()
-
--- | Starting state for running the builder.
-initialState :: (Typeable n, Floating n) => RenderState n
-initialState = RenderState
-  { _indent     = 0
-  , _style      = lc black mempty -- Until I think of something better:
-                                  -- (square 1 # opacity 0.5) doesn't work otherwise
-  }
 
 renderWith :: (RealFloat n, Typeable n)
   => Surface -> Bool -> Bool -> V2 n -> Render n -> Builder
 renderWith s readable standalone bounds r = builder
   where
     (_,builder) = evalRWS r'
-                          (RenderInfo (s^.texFormat) readable)
-                          initialState
+                          (RenderInfo (s^.texFormat) readable 0 (lc black mempty))
+                          ()
     r' = do
       when standalone $ do
         ln . rawString $ s^.preamble
@@ -190,7 +170,7 @@ emit :: Render n
 emit = do
   pp <- view pprint
   when pp $ do
-    tab <- use indent
+    tab <- view indent
     rawByteString $ B.replicate tab ' '
 {-# INLINE emit #-}
 
@@ -237,10 +217,7 @@ commaIntersperce = sequence_ . intersperse (rawChar ',')
 
 -- | Place a Render n in an indented block
 inBlock :: Render n -> Render n
-inBlock r = do
-  indent += 2
-  r
-  indent -= 2
+inBlock r = local (indent +~ 2) r
 
 -- numbers and points --------------------------------------------------
 

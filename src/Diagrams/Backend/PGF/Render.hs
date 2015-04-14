@@ -38,19 +38,21 @@ import           Data.Functor
 import           Data.Hashable                (Hashable (..))
 import           Data.Tree                    (Tree (Node))
 
+import           Control.Monad.Reader         (local)
 import           Diagrams.Core.Types
-import           Diagrams.Prelude hiding ((<~))
+import           Diagrams.Prelude             hiding (local, (<~))
 
+import           Data.Typeable
 import           Diagrams.Backend.PGF.Hbox    (Hbox (..))
 import           Diagrams.Backend.PGF.Surface (Surface)
 import           Diagrams.TwoD.Adjust         (adjustDia2D)
 import           Diagrams.TwoD.Path
-import           Diagrams.TwoD.Text           (Text (..), TextAlignment (..), getFontSize,
-                                               getFontSlant, getFontWeight)
-import           Data.Typeable
+import           Diagrams.TwoD.Text           (Text (..), TextAlignment (..),
+                                               getFontSize, getFontSlant,
+                                               getFontWeight)
 import qualified Graphics.Rendering.PGF       as P
 
-import Prelude
+import           Prelude
 
 -- | This data declaration is simply used as a token to distinguish
 --   this rendering engine.
@@ -77,10 +79,7 @@ instance TypeableFloat n => Backend PGF V2 n where
 toRender :: TypeableFloat n => RTree PGF V2 n Annotation -> Render PGF V2 n
 toRender (Node n rs) = case n of
   RPrim p                 -> render PGF p
-  RStyle sty'             -> R $ do
-    sty <- P.style <<<>= sty'        -- mappend old style
-    clips <- use (P.style . _clip)
-    clip clips r <* (P.style .= sty) -- render then revert to old style
+  RStyle sty'             -> R $ local (P.style <>~ sty') (clip (sty'^._clip) r)
   RAnnot (OpacityGroup x) -> R $ P.opacityGroup x r
   _                       -> R r
   where R r = F.foldMap toRender rs
@@ -122,14 +121,14 @@ readable = lens _readable (\o b -> o {_readable = b})
 -- helper function to easily get options and set them
 (<~) :: AttributeClass a => (b -> P.Render n) -> (a -> b) -> P.Render n
 renderF <~ getF = do
-  s <- uses P.style (fmap getF . getAttr)
+  s <- views P.style (fmap getF . getAttr)
   maybe (return ()) renderF s
 
 infixr 2 <~
 
 -- | Fade a colour with the opacity from the style.
 fade :: Color c => c -> P.RenderM n (AlphaColour Double)
-fade c = flip dissolve (toAlphaColour c) <$> use (P.style . _opacity)
+fade c = flip dissolve (toAlphaColour c) <$> view (P.style . _opacity)
 
 -- The Path is necessary so we can clip/workout gradients.
 setFillTexture :: RealFloat n => Path V2 n -> Texture n -> P.Render n
@@ -158,7 +157,7 @@ instance TypeableFloat n => Renderable (Path V2 n) PGF where
     -- solid colours need to be filled with usePath
     doFill <- if canFill
       then do
-        mFillTexture <- preuse (P.style . _fillTexture)
+        mFillTexture <- preview (P.style . _fillTexture)
         case mFillTexture of
           Nothing -> return False
           Just t  -> do
@@ -167,7 +166,7 @@ instance TypeableFloat n => Renderable (Path V2 n) PGF where
             return (has _SC t)
       else return False
     --
-    w <- use (P.style . _lineWidthU . non 0)
+    w <- view (P.style . _lineWidthU . non 0)
     let doStroke = w > 0.0001
     when doStroke $ do
       P.setLineWidth w
