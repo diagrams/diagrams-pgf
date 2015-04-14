@@ -89,11 +89,14 @@ module Diagrams.Backend.PGF
   , renderOnlinePGF
   , renderOnlinePGF'
 
-    -- ** Hbox
+    -- * Hbox
   , Hbox
   , hboxOnline
   , hboxPoint
   , hboxSurf
+
+    -- * Utilities
+  , escapeString
   ) where
 
 import           Data.ByteString.Builder
@@ -220,4 +223,25 @@ writeTexFile outFile opts d = do
   h <- openFile outFile WriteMode
   hPutBuilder h $ renderDia PGF opts d
   hClose h
+
+-- | Escapes some common characters in a string. Note that this does not
+--   mean the string can't create an error, it mearly escapes common
+--   characters.
+escapeString :: String -> String
+escapeString = concatMap escapeChar
+  where
+    escapeChar ch = case ch of
+      '$' -> "\\$"
+      '%' -> "\\letterpercent{}"
+      '&' -> "\\&"
+      '#' -> "\\#"
+      '_' -> "\\_"
+      '{' -> "$\\{$"
+      '}' -> "$\\}$"
+      '\\'-> "$\\backslash{}$"
+      '~' -> "\\~{}"
+      '^' -> "\\^{}"
+      '[' -> "{[}"
+      ']' -> "{]}"
+      x   -> [x]
 

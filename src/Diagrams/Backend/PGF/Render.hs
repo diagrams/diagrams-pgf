@@ -17,7 +17,8 @@
 -- has enought for general use.
 --
 module Diagrams.Backend.PGF.Render
-  ( PGF (..)
+  ( -- * PGF Internals
+    PGF (..)
   , Options (..)
   , Render (..)
 
@@ -27,8 +28,6 @@ module Diagrams.Backend.PGF.Render
   , readable
   , standalone
 
-  -- * Utilities
-  , escapeString
   ) where
 
 import           Control.Monad                (when)
@@ -144,27 +143,6 @@ clip paths r = go paths
   where
     go []     = r
     go (p:ps) = P.scope $ P.path p >> P.clip >> go ps
-
--- | Escapes some common characters in a string. Note that this does not
---   mean the string can't create an error, it mearly escapes common
---   characters.
-escapeString :: String -> String
-escapeString = concatMap escapeChar
-  where
-    escapeChar ch = case ch of
-      '$' -> "\\$"
-      '%' -> "\\letterpercent{}"
-      '&' -> "\\&"
-      '#' -> "\\#"
-      '_' -> "\\_"
-      '{' -> "$\\{$"
-      '}' -> "$\\}$"
-      '\\'-> "$\\backslash{}$"
-      '~' -> "\\~{}"
-      '^' -> "\\^{}"
-      '[' -> "{[}"
-      ']' -> "{]}"
-      x   -> [x]
 
 -- Renderable instances ------------------------------------------------
 
