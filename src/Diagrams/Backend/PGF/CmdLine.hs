@@ -246,7 +246,6 @@ chooseOnlineRender diaOpts pgfOpts surf d =
 --   foo bar
 -- $ ./MultiTest --selection bar -o Bar.tex -w 200
 -- @
-
 multiMain :: [(String, Diagram PGF)] -> IO ()
 multiMain = mainWith
 
