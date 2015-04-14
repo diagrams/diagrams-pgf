@@ -149,7 +149,7 @@ defaultMain = mainWith
 
 -- | Allows you to pick a surface the diagram will be rendered with.
 -- (This
-mainWithSurf :: TypeableFloat n => Surface -> Diagram PGF -> IO ()
+mainWithSurf :: Surface -> Diagram PGF -> IO ()
 mainWithSurf = curry mainWith
 
 -- For online diagrams.
