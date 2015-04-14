@@ -97,6 +97,8 @@ instance Monoid (Render PGF V2 n) where
   mempty              = R $ return ()
   R ra `mappend` R rb = R $ ra >> rb
 
+-- Lenses --------------------------------------------------------------
+
 -- | Lens onto the surface used to render.
 surface :: Lens' (Options PGF V2 n) Surface
 surface = lens _surface (\o s -> o {_surface = s})
@@ -114,6 +116,8 @@ sizeSpec = lens _sizeSpec (\o s -> o {_sizeSpec = s})
 -- | Lens onto whether the lines of the @.tex@ document are indented.
 readable :: Lens' (Options PGF V2 n) Bool
 readable = lens _readable (\o b -> o {_readable = b})
+
+-- Render helpers ------------------------------------------------------
 
 -- helper function to easily get options and set them
 (<~) :: AttributeClass a => (b -> P.Render n) -> (a -> b) -> P.Render n
@@ -203,8 +207,7 @@ instance RealFloat n => Renderable (DImage n External) PGF where
 instance RealFloat n => Renderable (DImage n Embedded) PGF where
   render _  = R . P.embeddedImage
 
-------------------------------------------------------------------------
--- Hashable instances
+-- Hashable instances --------------------------------------------------
 
 instance Hashable n => Hashable (Options PGF V2 n) where
   hashWithSalt s (PGFOptions sf sz rd st)
