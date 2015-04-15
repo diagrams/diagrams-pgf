@@ -149,17 +149,17 @@ defaultMain = mainWith
 
 -- | Allows you to pick a surface the diagram will be rendered with.
 -- (This
-mainWithSurf :: TypeableFloat n => Surface -> Diagram PGF -> IO ()
+mainWithSurf :: Surface -> Diagram PGF -> IO ()
 mainWithSurf = curry mainWith
 
 -- For online diagrams.
 
 -- | Same as @defaultMain@ but takes an online pgf diagram.
-onlineMain :: OnlineTex (QDiagram PGF) -> IO ()
+onlineMain :: OnlineTex (Diagram PGF) -> IO ()
 onlineMain = mainWith
 
 -- | Same as @mainWithSurf@ but takes an online pgf diagram.
-onlineMainWithSurf :: Surface -> OnlineTex (QDiagram PGF) -> IO ()
+onlineMainWithSurf :: Surface -> OnlineTex (Diagram PGF) -> IO ()
 onlineMainWithSurf = curry mainWith
 
 -- Mainable instances
@@ -244,17 +244,17 @@ chooseOnlineRender diaOpts pgfOpts surf d =
 -- $ ./MultiTest --list
 -- Available diagrams:
 --   foo bar
--- $ ./MultiTest --selection bar -o Bar.eps -w 200
+-- $ ./MultiTest --selection bar -o Bar.tex -w 200
 -- @
 
-multiMain :: TypeableFloat n => [(String, Diagram PGF)] -> IO ()
+multiMain :: [(String, Diagram PGF)] -> IO ()
 multiMain = mainWith
 
 instance TypeableFloat n => Mainable [(String,QDiagram PGF V2 n Any)] where
-    type MainOpts [(String,QDiagram PGF V2 n Any)]
-        = (MainOpts (QDiagram PGF V2 n Any), DiagramMultiOpts)
+  type MainOpts [(String,QDiagram PGF V2 n Any)]
+      = (MainOpts (QDiagram PGF V2 n Any), DiagramMultiOpts)
 
-    mainRender = defaultMultiMainRender
+  mainRender = defaultMultiMainRender
 
 instance Parseable TexFormat where
   parser = OP.option (eitherReader parseFormat)
