@@ -5,6 +5,8 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.PGF
@@ -119,8 +121,79 @@ data RenderInfo n = RenderInfo
 
 makeLenses ''RenderInfo
 
+data Pair a = Pair a !Builder
+
+-- | The PutM type. A Writer monad over the efficient Builder monoid.
+newtype PutM n a = RW { runRW :: RenderInfo n -> Pair a }
+
+renderB :: RenderInfo n -> PutM n a -> Builder
+renderB i (RW r) = b
+  where Pair _ b = r i
+
+instance Functor (PutM n) where
+  fmap f (RW r) = RW $ \i ->
+    let Pair a b = r i
+    in  Pair (f a) b
+  {-# INLINE fmap #-}
+
+instance Applicative (PutM n) where
+  pure a  = RW $ \_ -> Pair a mempty
+  {-# INLINE pure #-}
+  m <*> k = RW $ \i ->
+      let Pair f w  = runRW m i
+          Pair x w' = runRW k i
+      in  Pair (f x) (w `mappend` w')
+  {-# INLINE (<*>) #-}
+
+instance Monad (PutM n) where
+  return  = pure
+  {-# INLINE return #-}
+  m >>= k = RW $ \i ->
+      let Pair a w  = runRW m i
+          Pair b w' = runRW (k a) i
+      in  Pair b (w `mappend` w')
+  {-# INLINE (>>=) #-}
+  m >> k  = RW $ \i ->
+      let Pair _ w  = runRW m i
+          Pair b w' = runRW k i
+      in  Pair b (w `mappend` w')
+  {-# INLINE (>>) #-}
+
+instance MonadReader (RenderInfo n) (PutM n) where
+  ask            = RW $ \i -> Pair i mempty
+  local f (RW r) = RW $ \i ->
+    let !i' = f i
+    in  r i'
+  reader f       = RW $ \i ->
+    let !j = f i
+    in  Pair j mempty
+
+instance MonadWriter Builder (PutM n) where
+  writer (a,w)  = RW $ \_ -> Pair a w
+  tell w        = RW $ \_ -> Pair () w
+  listen (RW r) = RW $ \i ->
+    let Pair a b = r i
+    in  Pair (a,b) b
+  pass (RW r)   = RW $ \i ->
+    let Pair (a,f) b = r i
+    in  Pair a (f b)
+
+{-# RULES
+
+"raw >>" forall b1 b2.
+  raw b1 >> raw b2 = raw (b1 <> b2)
+
+"raw >> assoc_r" forall b1 b2 (p :: PutM n a).
+  raw b1 >> raw b2 >> p = raw (b1 <> b2) >> p
+
+"raw >> assoc_l" forall (p :: PutM n a) b1 b2.
+  p >> raw b1 >> raw b2 = p >> raw (b1 <> b2)
+
+ #-}
+
 -- | Type for render monad.
-type RenderM n m = RWS (RenderInfo n) Builder () m
+-- type RenderM n m = RWS (RenderInfo n) Builder () m
+type RenderM n = PutM n
 
 -- | Convenient type for building.
 type Render n = RenderM n ()
@@ -129,9 +202,7 @@ renderWith :: (RealFloat n, Typeable n)
   => Surface -> Bool -> Bool -> V2 n -> Render n -> Builder
 renderWith s readable standalone bounds r = builder
   where
-    (_,builder) = evalRWS r'
-                          (RenderInfo (s^.texFormat) readable 0 (lc black mempty))
-                          ()
+    builder = renderB (RenderInfo (s^.texFormat) readable 0 (lc black mempty)) r'
     r' = do
       when standalone $ do
         ln . rawString $ s^.preamble
@@ -147,14 +218,14 @@ renderWith s readable standalone bounds r = builder
 -- builder functions
 raw :: Builder -> Render n
 raw = tell
-{-# INLINE raw #-}
+{-# INLINE [1] raw #-}
 
 rawByteString :: ByteString -> Render n
-rawByteString = tell . byteString
+rawByteString = raw . byteString
 {-# INLINE rawByteString #-}
 
 rawString :: String -> Render n
-rawString = tell . stringUtf8
+rawString = raw . stringUtf8
 {-# INLINE rawString #-}
 
 pgf :: Builder -> Render n
@@ -162,7 +233,7 @@ pgf c = raw $ "\\pgf" <> c
 {-# INLINE pgf #-}
 
 rawChar :: Char -> Render n
-rawChar = tell . char8
+rawChar = raw . char8
 {-# INLINE rawChar #-}
 
 -- | Emit the indentation when 'pprint' is True.
