@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 import Diagrams.Backend.PGF.CmdLine
 import Diagrams.Prelude
 import Diagrams.TwoD.Vector         (perp)
@@ -26,20 +27,20 @@ main1 = onlineMain example
 main2 = onlineMainWithSurf (with & command .~ "lualatex") example
 
 -- Alternatively, 'renderOnlinePDF' can be used to directly generate a pdf.
-main3 = renderOnlinePGF "hbox.pdf" absolute latexSurface example
+main3 = renderOnlinePGF "hbox.pdf" absolute example
 
 -- "renderOnlinePDF'" allows choosing rendering options
 main4 = renderOnlinePGF' "hbox.tex"
-                         (with & szSpec .~ mkWidth 300 & standalone .~ True)
+                         (with & sizeSpec .~ mkWidth 300 & standalone .~ True)
                          example
 
-example :: OnlineTeX D2
+example :: OnlineTex D2
 example = frame 5 . scale 10 <$> hboxLines "\\TeX"
 
 -- Use the envelope from the hbox to label the width, height and depth.
-hboxLines :: String -> OnlineTeX D2
+hboxLines :: String -> OnlineTex D2
 hboxLines str = do
-  txt <- onlineHbox str
+  txt <- hboxOnline str
 
   let h = envelopeV unitY txt
       d = envelopeV unit_Y txt
@@ -57,8 +58,8 @@ hboxLines str = do
 --
 
 -- Draw an arrow with a horizontal label above or below.
-labeledArrow :: Bool -> String -> V2 Double -> OnlineTeX D2
-labeledArrow above label r = diaArrow <$> onlineHbox label
+labeledArrow :: Bool -> String -> V2 Double -> OnlineTex D2
+labeledArrow above label r = diaArrow <$> hboxOnline label
   where
     diaArrow txt = atDirection ((direction . rev . perp) r)
                                (arr # translate (negated $ r^/2))

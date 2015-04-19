@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies     #-}
 import Diagrams.Prelude
 import Diagrams.Backend.PGF.CmdLine
 import Diagrams.TwoD.Vector         (perp)
@@ -9,8 +11,8 @@ type D2 = Diagram PGF
 
 main = onlineMain example
 
-mytext :: OnlineTeX D2
-mytext = scale 2 . box 8 orange <$> onlineHbox (sizedVBox 18 txt)
+mytext :: OnlineTex D2
+mytext = scale 2 . box 8 orange <$> hboxOnline (sizedVBox 18 txt)
   where
     txt = "The sum of the squares of the lengths of the legs equals the square "
        ++ "of the length of the hypotenuse:"
@@ -24,11 +26,11 @@ rightTriangle
       # scale 12
       # fc dodgerblue
 
-labeledTriangle :: OnlineTeX D2
+labeledTriangle :: OnlineTex D2
 labeledTriangle = scale 5 <$> do
-  a <- onlineHbox "$a$"
-  b <- onlineHbox "$b$"
-  c <- onlineHbox "$c$"
+  a <- hboxOnline "$a$"
+  b <- hboxOnline "$b$"
+  c <- hboxOnline "$c$"
 
   pure $ rightTriangle
            # label a unit_X
