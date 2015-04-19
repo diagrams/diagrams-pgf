@@ -154,6 +154,7 @@ renderWith :: (RealFloat n, Typeable n)
   => Surface -> Bool -> Bool -> V2 n -> Render n -> Builder
 renderWith s readable standalone bounds r = builder
   where
+    bounds' = fmap (fromInteger . floor) bounds
     (_,builder) = evalRWS r'
                           (RenderInfo (s^.texFormat) readable)
                           initialState
@@ -161,10 +162,10 @@ renderWith s readable standalone bounds r = builder
       when standalone $ do
         ln . rawString $ s^.preamble
         maybe (return ())
-              (ln . rawString . ($ fmap ceiling bounds))
+              (ln . rawString . ($ fmap ceiling bounds'))
               (s^.pageSize)
         ln . rawString $ s^.beginDoc
-      picture $ rectangleBoundingBox bounds >> r
+      picture $ rectangleBoundingBox bounds' >> r
       when standalone $ rawString $ s^.endDoc
 
 -- low level utilities -------------------------------------------------
