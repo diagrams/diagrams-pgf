@@ -105,6 +105,7 @@ import           System.FilePath
 import           System.IO
 import           System.Texrunner
 import           System.Texrunner.Online      hiding (hbox)
+import Diagrams.Core.Compile
 
 import qualified Data.ByteString.Char8        as B
 import qualified Data.ByteString.Lazy.Char8   as LB

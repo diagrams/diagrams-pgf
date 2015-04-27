@@ -35,6 +35,8 @@ module Diagrams.Backend.PGF.CmdLine
 
 import           Data.ByteString.Builder
 import           Options.Applicative          as OP
+import Diagrams.Core.Compile
+
 
 import           System.IO                    (stdout)
 

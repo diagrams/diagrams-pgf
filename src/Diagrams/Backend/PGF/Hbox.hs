@@ -72,7 +72,6 @@ hboxPoint raw = mkQD (Prim (Hbox mempty raw))
                 (pointEnvelope origin)
                 mempty
                 mempty
-                mempty
 
 -- | Hbox with bounding box envelope. Note that each box requires a call to
 --   Tex. For multiple boxes consider using 'onlineHbox' to get multiple boxes
@@ -101,6 +100,5 @@ hboxOnline txt = do
   return $ mkQD (Prim (Hbox mempty txt))
                 (getEnvelope bb)
                 (getTrace bb)
-                mempty
                 (boundingBoxQuery bb)
 

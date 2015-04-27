@@ -32,6 +32,7 @@ module Diagrams.Backend.PGF.Render
 
 import           Control.Monad                (when)
 import           Data.ByteString.Builder
+import Diagrams.Core.Compile
 
 import qualified Data.Foldable                as F (foldMap)
 import           Data.Functor
@@ -69,20 +70,33 @@ instance TypeableFloat n => Backend PGF V2 n where
     , _standalone :: Bool          -- ^ Should @.tex@ output be standalone.
     }
 
-  renderRTree _ ops (toRender -> R r) =
+  renderDUAL _ ops t d =
     P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
       where
         bounds = specToSize 100 (ops^.sizeSpec)
+        R r    = toRender t d
 
   adjustDia = adjustDia2D sizeSpec
 
-toRender :: TypeableFloat n => RTree PGF V2 n Annotation -> Render PGF V2 n
-toRender (Node n rs) = case n of
-  RPrim p                 -> render PGF p
-  RStyle sty'             -> R $ local (P.style <>~ sty') (clip (sty'^._clip) r)
-  RAnnot (OpacityGroup x) -> R $ P.opacityGroup x r
-  _                       -> R r
-  where R r = F.foldMap toRender rs
+renderPrim :: TypeableFloat n => Style V2 n -> Prim PGF V2 n -> Render PGF V2 n
+renderPrim sty p = R $ local (P.style <>~ sty) r
+  where R r = render PGF p
+
+renderAnnot :: Annotation v n -> Render PGF V2 n -> Render PGF V2 n
+renderAnnot (OpacityGroup x) (R r) = R $ P.opacityGroup x r
+renderAnnot _ r                    = r
+
+toRender :: (TypeableFloat n, Monoid' m)
+         => T2 n -> QDiagram PGF V2 n m -> Render PGF V2 n
+toRender = foldDia renderPrim renderAnnot
+
+-- toRender :: TypeableFloat n => RTree PGF V2 n Annotation -> Render PGF V2 n
+-- toRender (Node n rs) = case n of
+--   RPrim p                 -> render PGF p
+--   RStyle sty'             -> R $ local (P.style <>~ sty') (clip (sty'^._clip) r)
+--   RAnnot (OpacityGroup x) -> R $ P.opacityGroup x r
+--   _                       -> R r
+--   where R r = F.foldMap toRender rs
 
 instance Fractional n => Default (Options PGF V2 n) where
   def = PGFOptions
