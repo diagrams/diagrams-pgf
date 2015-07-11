@@ -34,10 +34,8 @@ import           Control.Monad                (when)
 import           Data.ByteString.Builder
 import Diagrams.Core.Compile
 
-import qualified Data.Foldable                as F (foldMap)
 import           Data.Functor
 import           Data.Hashable                (Hashable (..))
-import           Data.Tree                    (Tree (Node))
 
 import           Control.Monad.Reader         (local)
 import           Diagrams.Core.Types
@@ -78,33 +76,25 @@ instance TypeableFloat n => Backend PGF V2 n where
 
   adjustDia = adjustDia2D sizeSpec
 
-renderPrim :: TypeableFloat n => Style V2 n -> Prim PGF V2 n -> Render PGF V2 n
-renderPrim sty p = R $ local (P.style <>~ sty) r
-  where R r = render PGF p
-
-renderAnnot :: Annotation v n -> Render PGF V2 n -> Render PGF V2 n
-renderAnnot (OpacityGroup x) (R r) = R $ P.opacityGroup x r
-renderAnnot _ r                    = r
-
 toRender :: (TypeableFloat n, Monoid' m)
          => T2 n -> QDiagram PGF V2 n m -> Render PGF V2 n
-toRender = foldDia renderPrim renderAnnot
+toRender = foldDia' renderPrim renderAnnot renderSty
+  where
+    renderPrim sty p = R $ local (P.style .~ sty) r
+      where R r = render PGF p
 
--- toRender :: TypeableFloat n => RTree PGF V2 n Annotation -> Render PGF V2 n
--- toRender (Node n rs) = case n of
---   RPrim p                 -> render PGF p
---   RStyle sty'             -> R $ local (P.style <>~ sty') (clip (sty'^._clip) r)
---   RAnnot (OpacityGroup x) -> R $ P.opacityGroup x r
---   _                       -> R r
---   where R r = F.foldMap toRender rs
+    renderAnnot (OpacityGroup x) (R r) = R $ P.opacityGroup x r
+    renderAnnot _ r                    = r
+
+    renderSty sty (R r) = R $ clip (view _clip sty) r
 
 instance Fractional n => Default (Options PGF V2 n) where
   def = PGFOptions
-          { _surface    = def
-          , _sizeSpec   = absolute
-          , _readable   = True
-          , _standalone = False
-          }
+    { _surface    = def
+    , _sizeSpec   = absolute
+    , _readable   = True
+    , _standalone = False
+    }
 
 instance Monoid (Render PGF V2 n) where
   mempty              = R $ return ()

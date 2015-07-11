@@ -69,9 +69,10 @@ instance Fractional n => Renderable (Hbox n) NullBackend where
 hboxPoint :: (OrderedField n, Typeable n, Renderable (Hbox n) b)
      => String -> QDiagram b V2 n Any
 hboxPoint raw = mkQD (Prim (Hbox mempty raw))
-                (pointEnvelope origin)
-                mempty
-                mempty
+                     (pointEnvelope origin)
+                     mempty
+                     mempty
+                     mempty
 
 -- | Hbox with bounding box envelope. Note that each box requires a call to
 --   Tex. For multiple boxes consider using 'onlineHbox' to get multiple boxes
@@ -100,5 +101,6 @@ hboxOnline txt = do
   return $ mkQD (Prim (Hbox mempty txt))
                 (getEnvelope bb)
                 (getTrace bb)
+                mempty
                 (boundingBoxQuery bb)
 
