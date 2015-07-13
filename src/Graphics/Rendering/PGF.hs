@@ -180,7 +180,7 @@ rawByteString = tell . byteString
 {-# INLINE rawByteString #-}
 
 rawString :: String -> Render n
-rawString = tell . string8
+rawString = tell . stringUtf8
 {-# INLINE rawString #-}
 
 pgf :: Builder -> Render n
