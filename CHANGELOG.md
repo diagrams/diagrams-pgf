@@ -1,3 +1,7 @@
+* 0.1.0.3 (29 September 2015)
+
+  - allow `optparse-applicative-0.12`
+
 * 0.1.0.2 (13 July 2015)
 
   - Use utf8 encoding for text.
