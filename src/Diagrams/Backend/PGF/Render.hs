@@ -123,18 +123,19 @@ renderF <~ getF = do
 infixr 2 <~
 
 -- | Fade a colour with the opacity from the style.
-fade :: Color c => c -> P.RenderM n (AlphaColour Double)
-fade c = flip dissolve (toAlphaColour c) <$> use (P.style . _opacity)
+fade :: Color c => Getting (Endo (Endo Double)) (Style V2 n) Double -> c -> P.RenderM n (AlphaColour Double)
+fade g c = use P.style <&> \s ->
+  dissolve (productOf (_opacity <> g) s) (toAlphaColour c)
 
 -- The Path is necessary so we can clip/workout gradients.
 setFillTexture :: RealFloat n => Path V2 n -> Texture n -> P.Render n
 setFillTexture p t = case t of
-  SC (SomeColor c) -> fade c >>= P.setFillColor
+  SC (SomeColor c) -> fade _fillOpacity c >>= P.setFillColor
   LG g             -> P.linearGradient p g
   RG g             -> P.radialGradient p g
 
 setLineTexture :: RealFloat n => Texture n -> P.Render n
-setLineTexture (SC (SomeColor c)) = fade c >>= P.setLineColor
+setLineTexture (SC (SomeColor c)) = fade _strokeOpacity c >>= P.setLineColor
 setLineTexture _                  = return ()
 
 clip :: TypeableFloat n => [Path V2 n] -> P.Render n -> P.Render n
