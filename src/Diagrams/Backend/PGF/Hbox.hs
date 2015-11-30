@@ -102,5 +102,5 @@ hboxOnline txt = do
                 (getEnvelope bb)
                 (getTrace bb)
                 mempty
-                (boundingBoxQuery bb)
+                (getQuery bb)
 
