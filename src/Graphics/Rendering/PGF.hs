@@ -543,7 +543,7 @@ setFillRule rule = ln $ case rule of
 
 -- | Sets the fill colour for current scope. If an alpha colour is used, the
 --   fill opacity is set accordingly. Must be done before filling.
-setFillColor :: (RealFloat n, Color c) => c -> Render n
+setFillColor :: Color c => c -> Render n
 setFillColor (colorToSRGBA -> (r,g,b,a)) = do
   defineColour "fc" r g b
   ln $ pgf "setfillcolor{fc}"
