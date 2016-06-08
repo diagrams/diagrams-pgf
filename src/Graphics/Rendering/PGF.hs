@@ -917,8 +917,8 @@ setTextRotation a = case a^.deg of
 -- | Set the font weight by rendering @\bf @. Nothing is done for normal
 --   weight.
 setFontWeight :: FontWeight -> Render n
-setFontWeight FontWeightNormal = return ()
-setFontWeight FontWeightBold   = raw "\\bf "
+setFontWeight FontWeightBold = raw "\\bf "
+setFontWeight _              = return ()
 
 -- | Set the font slant by rendering @\bf @. Nothing is done for normal weight.
 setFontSlant :: FontSlant -> Render n
