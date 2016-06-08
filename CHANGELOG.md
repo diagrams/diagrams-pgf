@@ -1,3 +1,7 @@
+* 0.1.0.4 (8 June 2016)
+
+  - bump upper bounds: allow `base-4.9`, `process-1.4`, `time-1.6`
+
 * 0.1.0.3 (29 September 2015)
 
   - allow `optparse-applicative-0.12`
