@@ -114,9 +114,6 @@ import           Diagrams.Prelude             hiding (r2)
 
 type B = PGF
 
-type instance V PGF = V2
-type instance N PGF = Double
-
 -- | Render a pgf diagram and write it to the given filepath. Same as
 --   'renderPGF'' but uses the default options.
 renderPGF :: (TypeableFloat n, Monoid' m)

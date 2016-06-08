@@ -58,6 +58,9 @@ import Prelude
 data PGF = PGF
   deriving (Show, Typeable)
 
+type instance V PGF = V2
+type instance N PGF = Double
+
 instance TypeableFloat n => Backend PGF V2 n where
   newtype Render  PGF V2 n = R (P.Render n)
   type    Result  PGF V2 n = Builder
