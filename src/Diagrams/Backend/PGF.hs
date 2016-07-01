@@ -214,7 +214,11 @@ renderOnlinePGF' outFile opts dOL = case takeExtension outFile of
 writeTexFile :: (TypeableFloat n, Monoid' m)
              => FilePath -> Options PGF V2 n -> QDiagram PGF V2 n m -> IO ()
 writeTexFile outFile opts d = do
-  h <- openFile outFile WriteMode
-  hPutBuilder h $ renderDia PGF opts d
-  hClose h
+  let bs = toLazyByteString $ renderDia PGF opts d
+  LB.writeFile outFile bs
+  -- h <- openFile outFile WriteMode
+  -- hSetBinaryMode h True
+  -- hSetBuffering h (BlockBuffering (Just 80000))
+  -- hPutBuilder h $ renderDia PGF opts d
+  -- hClose h
 
