@@ -1,5 +1,11 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies       #-}
+{-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE TemplateHaskell    #-}
+
+-- orphans for OnlineTex Mainable instances
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF.Surface
@@ -49,9 +55,17 @@ import           Data.Typeable           (Typeable)
 import           System.IO.Unsafe
 import           System.Texrunner.Online
 
+import Control.Lens
+import Data.Default.Class
+import qualified Options.Applicative          as OP
+import           Options.Applicative (eitherReader, short, long, showDefault, help, metavar, strOption)
+import Control.Applicative
+import Data.Semigroup
 
-import           Diagrams.Prelude
-import           Prelude
+import Geometry.TwoD.Types (V2(..))
+-- import           Diagrams.Types
+import           Diagrams.Backend.CmdLine
+-- import           Prelude
 
 -- | The 'TexFormat' is used to choose the different PGF commands nessesary for
 --   that format.
@@ -60,6 +74,21 @@ data TexFormat = LaTeX | ConTeXt | PlainTeX
   -- These names are only captialised so Context doesn't conflict with
   -- lens's Context.
 
+instance Parseable TexFormat where
+  parser = OP.option (eitherReader parseFormat) $ mconcat
+      [ short 'f', long "format", OP.value LaTeX, showDefault
+      , help "l for LaTeX, c for ConTeXt, p for plain TeX"
+      , metavar "FORMAT"]
+
+parseFormat :: String -> Either String TexFormat
+parseFormat ('l':_) = Right LaTeX
+parseFormat ('c':_) = Right ConTeXt
+parseFormat ('p':_) = Right PlainTeX
+parseFormat ('t':_) = Right PlainTeX
+parseFormat x       = Left $ "Unknown format" ++ x
+
+-- | The surface defines how a tex file (latex, context or plain tex) is
+--   generated.
 data Surface = Surface
   { _texFormat :: TexFormat -- ^ Format for the PGF commands
   , _command   :: String    -- ^ System command to be called.
@@ -73,6 +102,17 @@ data Surface = Surface
   }
 
 makeLensesWith (lensRules & generateSignatures .~ False) ''Surface
+
+instance Parseable Surface where
+  parser = modCommand <*> surf where
+    surf = parser <&> \case
+      LaTeX    -> latexSurface
+      ConTeXt  -> contextSurface
+      PlainTeX -> plaintexSurface
+    modCommand = maybe id (set command) <$> commandP
+    commandP = optional . strOption $ mconcat
+      [ short 'c', long "command", metavar "PATH"
+      , help "tex command to use" ]
 
 -- | Format for the PGF commands.
 texFormat :: Lens' Surface TexFormat
@@ -268,6 +308,17 @@ sampleSurfaceOutput surf = unlines
   ]
 
 -- OnlineTex functions -------------------------------------------------
+
+instance ToResult d => ToResult (OnlineTex d) where
+  type Args (OnlineTex d) = (Surface, Args d)
+  type ResultOf (OnlineTex d) = IO (ResultOf d)
+
+  toResult d (surf, args) = flip toResult args <$> surfOnlineTexIO surf d
+
+instance Mainable d => Mainable (OnlineTex d) where
+  type MainOpts (OnlineTex d) = (Surface, MainOpts d)
+
+  mainRender (surf, args) d = mainRender args =<< surfOnlineTexIO surf d
 
 -- | Get the result of an OnlineTex using the given surface.
 surfOnlineTex :: Surface -> OnlineTex a -> a

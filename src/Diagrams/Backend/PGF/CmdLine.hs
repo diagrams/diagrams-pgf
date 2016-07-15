@@ -34,7 +34,7 @@ module Diagrams.Backend.PGF.CmdLine
   ) where
 
 import           Data.ByteString.Builder
-import           Options.Applicative          as OP
+import qualified Options.Applicative          as OP
 
 import           System.IO                    (stdout)
 
@@ -47,32 +47,25 @@ import           Diagrams.Backend.PGF.Surface
 
 -- pgf specific stuff
 
-data PGFCmdLineOpts = PGFCmdLineOpts
-  { _cmdStandalone :: Bool
-  , _cmdReadable   :: Bool
-  }
+-- data PGFCmdLineOpts = PGFCmdLineOpts
+--   { _cmdStandalone :: Bool
+--   , _cmdReadable   :: Bool
+--   }
 
-makeLenses ''PGFCmdLineOpts
+-- makeLenses ''PGFCmdLineOpts
 
-instance Parseable PGFCmdLineOpts where
-  parser = PGFCmdLineOpts
-        <$> switch
-            ( long "standalone"
-           <> short 'a'
-           <> help "Produce standalone .tex output"
-            )
-        <*> switch
-            ( long "readable"
-           <> short 'r'
-           <> help "Indent lines"
-            )
-
--- not sure if this is of any use
-instance ToResult d => ToResult (OnlineTex d) where
-  type Args (OnlineTex d) = (Surface, Args d)
-  type ResultOf (OnlineTex d) = IO (ResultOf d)
-
-  toResult d (surf, args) = flip toResult args <$> surfOnlineTexIO surf d
+-- instance Parseable PGFCmdLineOpts where
+--   parser = PGFCmdLineOpts
+--         <$> switch
+--             ( long "standalone"
+--            <> short 'a'
+--            <> help "Produce standalone .tex output"
+--             )
+--         <*> switch
+--             ( long "readable"
+--            <> short 'r'
+--            <> help "Indent lines"
+--             )
 
 -- $mainwith
 -- The 'mainWith' method unifies all of the other forms of @main@ and is
@@ -164,68 +157,68 @@ onlineMainWithSurf = curry mainWith
 
 -- Mainable instances
 
-instance TypeableFloat n => Mainable (QDiagram PGF V2 n Any) where
-  type MainOpts (QDiagram PGF V2 n Any) =
-    (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TexFormat)
-  mainRender (diaOpts, loopOpts, pgfOpts, format) d = do
-    chooseRender diaOpts pgfOpts (formatToSurf format) d
-    defaultLoopRender loopOpts
+-- instance TypeableFloat n => Mainable (QDiagram PGF V2 n Any) where
+--   type MainOpts (QDiagram PGF V2 n Any) =
+--     (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TexFormat)
+--   mainRender (diaOpts, loopOpts, pgfOpts, format) d = do
+--     chooseRender diaOpts pgfOpts (formatToSurf format) d
+--     defaultLoopRender loopOpts
 
-instance TypeableFloat n => Mainable (Surface, QDiagram PGF V2 n Any) where
-  type MainOpts (Surface, QDiagram PGF V2 n Any) =
-    (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts)
-  mainRender (diaOpts, loopOpts, pgfOpts) (surf,d) = do
-    chooseRender diaOpts pgfOpts surf d
-    defaultLoopRender loopOpts
+-- instance TypeableFloat n => Mainable (Surface, QDiagram PGF V2 n Any) where
+--   type MainOpts (Surface, QDiagram PGF V2 n Any) =
+--     (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts)
+--   mainRender (diaOpts, loopOpts, pgfOpts) (surf,d) = do
+--     chooseRender diaOpts pgfOpts surf d
+--     defaultLoopRender loopOpts
 
--- Online diagrams
-instance TypeableFloat n => Mainable (OnlineTex (QDiagram PGF V2 n Any)) where
-  type MainOpts (OnlineTex (QDiagram PGF V2 n Any))
-    = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TexFormat)
-  mainRender (diaOpts, loopOpts, pgfOpts, format) d = do
-    chooseOnlineRender diaOpts pgfOpts (formatToSurf format) d
-    defaultLoopRender loopOpts
+-- -- Online diagrams
+-- instance TypeableFloat n => Mainable (OnlineTex (QDiagram PGF V2 n Any)) where
+--   type MainOpts (OnlineTex (QDiagram PGF V2 n Any))
+--     = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TexFormat)
+--   mainRender (diaOpts, loopOpts, pgfOpts, format) d = do
+--     chooseOnlineRender diaOpts pgfOpts (formatToSurf format) d
+--     defaultLoopRender loopOpts
 
-instance TypeableFloat n => Mainable (Surface, OnlineTex (QDiagram PGF V2 n Any)) where
-  type MainOpts (Surface, OnlineTex (QDiagram PGF V2 n Any))
-    = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts)
-  mainRender (diaOpts, loopOpts, pgfOpts) (surf, d) = do
-    chooseOnlineRender diaOpts pgfOpts surf d
-    defaultLoopRender loopOpts
+-- instance TypeableFloat n => Mainable (Surface, OnlineTex (QDiagram PGF V2 n Any)) where
+--   type MainOpts (Surface, OnlineTex (QDiagram PGF V2 n Any))
+--     = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts)
+--   mainRender (diaOpts, loopOpts, pgfOpts) (surf, d) = do
+--     chooseOnlineRender diaOpts pgfOpts surf d
+--     defaultLoopRender loopOpts
 
-formatToSurf :: TexFormat -> Surface
-formatToSurf format = case format of
-  LaTeX    -> latexSurface
-  ConTeXt  -> contextSurface
-  PlainTeX -> plaintexSurface
+-- formatToSurf :: TexFormat -> Surface
+-- formatToSurf format = case format of
+--   LaTeX    -> latexSurface
+--   ConTeXt  -> contextSurface
+--   PlainTeX -> plaintexSurface
 
-cmdLineOpts :: TypeableFloat n
-   => DiagramOpts -> Surface -> PGFCmdLineOpts -> Options PGF V2 n
-cmdLineOpts opts surf pgf
-  = def & surface    .~ surf
-        & sizeSpec   .~ sz
-        & readable   .~ pgf^.cmdReadable
-        & standalone .~ pgf^.cmdStandalone
-  where
-    sz = fromIntegral <$> mkSizeSpec2D (opts^.width) (opts^.height)
+-- cmdLineOpts :: TypeableFloat n
+--    => DiagramOpts -> Surface -> PGFCmdLineOpts -> Options PGF V2 n
+-- cmdLineOpts opts surf pgf
+--   = def & surface    .~ surf
+--         & sizeSpec   .~ sz
+--         & readable   .~ pgf^.cmdReadable
+--         & standalone .~ pgf^.cmdStandalone
+--   where
+--     sz = fromIntegral <$> mkSizeSpec2D (opts^.width) (opts^.height)
 
-chooseRender :: TypeableFloat n
-  => DiagramOpts -> PGFCmdLineOpts -> Surface -> QDiagram PGF V2 n Any -> IO ()
-chooseRender diaOpts pgfOpts surf d =
-  case diaOpts^.output of
-    ""  -> hPutBuilder stdout $ renderDia PGF opts d
-    out -> renderPGF' out opts d
-  where
-    opts = cmdLineOpts diaOpts surf pgfOpts
+-- chooseRender :: TypeableFloat n
+--   => DiagramOpts -> PGFCmdLineOpts -> Surface -> QDiagram PGF V2 n Any -> IO ()
+-- chooseRender diaOpts pgfOpts surf d =
+--   case diaOpts^.output of
+--     ""  -> hPutBuilder stdout $ renderDia PGF opts d
+--     out -> renderPGF' out opts d
+--   where
+--     opts = cmdLineOpts diaOpts surf pgfOpts
 
-chooseOnlineRender :: TypeableFloat n
-  => DiagramOpts -> PGFCmdLineOpts -> Surface -> OnlineTex (QDiagram PGF V2 n Any) -> IO ()
-chooseOnlineRender diaOpts pgfOpts surf d =
-    case diaOpts^.output of
-      ""  -> surfOnlineTexIO surf d >>= hPutBuilder stdout . renderDia PGF opts
-      out -> renderOnlinePGF' out opts d
-  where
-    opts = cmdLineOpts diaOpts surf pgfOpts
+-- chooseOnlineRender :: TypeableFloat n
+--   => DiagramOpts -> PGFCmdLineOpts -> Surface -> OnlineTex (QDiagram PGF V2 n Any) -> IO ()
+-- chooseOnlineRender diaOpts pgfOpts surf d =
+--     case diaOpts^.output of
+--       ""  -> surfOnlineTexIO surf d >>= hPutBuilder stdout . renderDia PGF opts
+--       out -> renderOnlinePGF' out opts d
+--   where
+--     opts = cmdLineOpts diaOpts surf pgfOpts
 
 
 -- | @multiMain@ is like 'defaultMain', except instead of a single

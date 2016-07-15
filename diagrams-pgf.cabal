@@ -25,9 +25,7 @@ source-repository head
 library
   exposed-modules:
     Diagrams.Backend.PGF
-    Diagrams.Backend.PGF.CmdLine
     Diagrams.Backend.PGF.Surface
-    Diagrams.Backend.PGF.Render
     Diagrams.Backend.PGF.Hbox
     Graphics.Rendering.PGF
   hs-source-dirs:      src
@@ -37,8 +35,8 @@ library
     bytestring-builder               < 1.1,
     containers           >= 0.3   && < 0.6,
     colour,
-    diagrams-core        >= 1.3   && < 1.4,
-    diagrams-lib         >= 1.3   && < 1.4,
+    diagrams,
+    geometry,
     directory            >= 1.0   && < 1.4,
     filepath             >= 1.2   && < 1.5,
     hashable             >= 1.1   && < 1.3,
@@ -50,6 +48,10 @@ library
     time                 >= 1.2   && < 1.7,
     JuicyPixels,
     vector,
+    double-conversion,
+    lens,
+    data-default-class >=0.1 && <0.2,
+    data-default-class,
     zlib
 
   ghc-options:        -Wall
