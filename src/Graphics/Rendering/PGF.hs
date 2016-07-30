@@ -49,8 +49,8 @@ module Graphics.Rendering.PGF
   , bracers
   , brackets
   -- * Paths
-  , path
-  , trail
+  -- , path
+  -- , trail
   , segment
   , usePath
   , lineTo
@@ -82,8 +82,8 @@ module Graphics.Rendering.PGF
   , applyScale
   , resetNonTranslations
   -- * Shading
-  , linearGradient
-  , radialGradient
+  -- , linearGradient
+  -- , radialGradient
   , colorSpec
   , shadePath
   , opacityGroup
@@ -121,16 +121,16 @@ import qualified Data.Vector.Storable         as S
 import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..),
                                                TextAlignment (..))
 
-import Diagrams.Prelude hiding (moveTo)
-import Diagrams.Style hiding (style)
-import Diagrams.TwoD.Attributes
+import Diagrams.Prelude hiding (moveTo, clip)
+import Diagrams.Types.Style hiding (style)
+-- import Diagrams.TwoD.Attributes hiding (clip)
 import Diagrams.TwoD.Image hiding (image)
-import Diagrams.TwoD.Path hiding (stroke)
+-- import Diagrams.TwoD.Path hiding (stroke)
 import Geometry.Path.Unboxed
 import Geometry.Trail.Unboxed
 
 -- import Geometry.TwoD.Path
-import Geometry.TwoD.Size
+-- import Geometry.TwoD.Size
 -- import Diagrams.TwoD.Image
 -- import Geometry.Trail
 -- import Geometry.Trail.Unboxed
@@ -492,20 +492,20 @@ fill = ln $ pgf "usepathqfill"
 clip :: Render n
 clip = ln $ pgf "usepathqclip"
 
-path :: RealFloat n => Path V2 n -> Render n
-path (Path trs) = do
-  mapM_ renderTrail trs
-  where
-    renderTrail (viewLoc -> (p, tr)) = do
-      moveTo p
-      trail tr
+-- path :: RealFloat n => Path V2 n -> Render n
+-- path (Path trs) = do
+--   mapM_ renderTrail trs
+--   where
+--     renderTrail (viewLoc -> (p, tr)) = do
+--       moveTo p
+--       trail tr
 
-trail :: RealFloat n => Trail V2 n -> Render n
-trail t = withLine (render' . lineSegments) t
-  where
-    render' segs = do
-      mapM_ segment segs
-      when (isLoop t) closePath
+-- trail :: RealFloat n => Trail V2 n -> Render n
+-- trail t = withLine (render' . lineSegments) t
+--   where
+--     render' segs = do
+--       mapM_ segment segs
+--       when (isLoop t) closePath
 
 segment :: RealFloat n => Segment Closed V2 n -> Render n
 segment (Linear (OffsetClosed v))       = lineTo v
@@ -694,18 +694,18 @@ baseTransform t = ln $ do
 
 -- shading -------------------------------------------------------------
 
-linearGradient :: Path V2 Double -> LGradient -> Render Double
-linearGradient p lg = scope $ do
-  path p
-  let (stops', t) = calcLinearStops (getEnvelope p) lg
-  ln $ do
-    pgf "declarehorizontalshading"
-    bracers $ raw "ft"    -- fill texture
-    bracers $ raw "100bp" -- gradient is always 100 x 100 square
-    bracersBlock $ colorSpec 1 stops'
-  clip
-  baseTransform t
-  useShading $ raw "ft"
+-- linearGradient :: Path V2 Double -> LGradient -> Render Double
+-- linearGradient p lg = scope $ do
+--   path p
+--   let (stops', t) = calcLinearStops (getEnvelope p) lg
+--   ln $ do
+--     pgf "declarehorizontalshading"
+--     bracers $ raw "ft"    -- fill texture
+--     bracers $ raw "100bp" -- gradient is always 100 x 100 square
+--     bracersBlock $ colorSpec 1 stops'
+--   clip
+--   baseTransform t
+--   useShading $ raw "ft"
 
 -- | Calculate the correct linear stops such that the path is completely
 --   filled. PGF doesn't have spread methods so this has to be done
@@ -789,18 +789,18 @@ colourInterp cs0 x = go cs0
     go [GradientStop c2 _] = toAlphaColour c2
     go _ = transparent
 
-radialGradient :: Path V2 Double -> RGradient -> Render Double
-radialGradient p rg = scope $ do
-  path p
-  let (stops', t, p0) = calcRadialStops (getEnvelope p) rg
-  ln $ do
-    pgf "declareradialshading"
-    bracers $ raw "ft"
-    bracers $ point p0
-    bracersBlock $ colorSpec 1 stops'
-  clip
-  baseTransform t
-  useShading $ raw "ft"
+-- radialGradient :: Path V2 Double -> RGradient -> Render Double
+-- radialGradient p rg = scope $ do
+--   path p
+--   let (stops', t, p0) = calcRadialStops (getEnvelope p) rg
+--   ln $ do
+--     pgf "declareradialshading"
+--     bracers $ raw "ft"
+--     bracers $ point p0
+--     bracersBlock $ colorSpec 1 stops'
+--   clip
+--   baseTransform t
+--   useShading $ raw "ft"
 
 -- | Calculate the correct linear stops such that the path is completely
 --   filled. PGF doesn't have spread methods so this has to be done

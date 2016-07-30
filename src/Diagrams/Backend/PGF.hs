@@ -1,11 +1,10 @@
-{-# LANGUAGE DeriveDataTypeable    #-}
-{-# LANGUAGE NoMonomorphismRestriction    #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE DeriveDataTypeable        #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE TypeFamilies              #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF
@@ -37,39 +36,44 @@ module Diagrams.Backend.PGF
   ) where
 
 import           Control.Monad                (when)
-import Control.Monad.Reader (local)
+import           Control.Monad.Reader         (local)
 import           Data.ByteString.Builder
+import qualified Data.ByteString.Char8        as B
+import qualified Data.ByteString.Lazy         as LB
 import           Data.Hashable                (Hashable (..))
-import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Lazy as LB
-import System.FilePath (FilePath, takeExtension, takeDirectory)
-import System.Directory (getCurrentDirectory, canonicalizePath)
-import Data.Maybe (fromMaybe)
-import qualified Options.Applicative          as OP
+import           Data.Maybe                   (fromMaybe)
 import           Data.Typeable
+import qualified Options.Applicative          as OP
+import           System.Directory             (canonicalizePath,
+                                               getCurrentDirectory)
+import           System.FilePath              (FilePath, takeDirectory,
+                                               takeExtension)
 
-import           Diagrams.TwoD.Path
+-- import           Diagrams.TwoD.Path hiding (_Clip)
 import           Diagrams.Backend
-import           Diagrams.Attributes
-import           Diagrams.Prelude hiding ((<~))
-import           Diagrams.Style
-import           Diagrams.TwoD.Attributes
-import Diagrams.Backend.Compile
-import Diagrams.TwoD.Text
+-- import           Diagrams.Attributes
+import           Diagrams.Prelude             hiding (clip, local, (<~))
+-- import           Diagrams.TwoD.Attributes hiding (clip)
+-- import           Diagrams.TwoD.Path hiding (_Clip, clip)
+import qualified Data.Foldable                as F
+import           Diagrams.Backend.Compile
+import           Diagrams.TwoD.Text
 
-import Diagrams.Types
-import Geometry.Space
+import           Diagrams.Types               hiding (local)
+-- import           Geometry.Path.Unboxed        hiding (_Clip)
+import           Geometry.Space
 import Geometry.TwoD.Types
 import Geometry.Path.Unboxed
+-- import           Geometry.TwoD.Types
 -- import Geometry.Trail.Unboxed
 
+import           System.Texrunner             (prettyPrintLog, runTex)
 import           System.Texrunner.Online      hiding (hbox)
-import           System.Texrunner (runTex, prettyPrintLog)
 
-import           Diagrams.Backend.PGF.Surface
 import           Diagrams.Backend.PGF.Hbox
-import qualified Graphics.Rendering.PGF       as P
+import           Diagrams.Backend.PGF.Surface
 import           Graphics.Rendering.PGF       (Render)
+import qualified Graphics.Rendering.PGF       as P
 
 ------------------------------------------------------------------------
 -- The PGF backend
@@ -182,26 +186,29 @@ readable = lens _readable (\o b -> o {_readable = b})
 ------------------------------------------------------------------------
 
 toRender :: T2 Double -> Diagram V2 -> Render Double
-toRender = foldDia' renderPrim renderAnnot renderSty
+toRender = foldDia renderPrim renderAnnot
   where
     renderPrim t2 attrs prim = case renderPrimitive t2 attrs prim of
       Just r  -> local (P.attributes .~ attrs) r
       Nothing -> error $ "Unknown primitive"
 
-    renderAnnot (OpacityGroup x) r = P.opacityGroup x r
-    renderAnnot _ r                = r
-
     -- To avoid repetition, we apply the clip higher up in the
-    renderSty attrs r = clip (getAttr _Clip attrs ^. non' _Empty) r
+    -- renderSty attrs r = clip (getAttr _Clip attrs ^. non' _Empty) r
 
 renderPrimitive
   :: T2 Double -> Attributes -> Prim V2 Double -> Maybe (Render Double)
 renderPrimitive t2 attrs prim -- (Prim p) = case pr
   | Just p <- preview _UPath prim = Just $ renderUPath t2 attrs p
-  | Just p <- preview _Path  prim = Just $ renderPath t2 attrs p
+  -- | Just p <- preview _Path  prim = Just $ renderPath t2 attrs p
   | Just p <- preview _Text  prim = Just $ renderText t2 attrs p
   | Just p <- preview _Hbox  prim = Just $ renderHbox t2 attrs p
   | otherwise                     = Nothing
+
+renderAnnot :: Annotation V2 Double -> Render Double -> Render Double
+renderAnnot a
+  | Just x <- getAnnot _GroupOpacity a = P.opacityGroup x
+  | Just p <- getAnnot _Clip         a = clip (F.toList p)
+  | otherwise                          = id
 
 -- toRender :: TypeableFloat n => RTree PGF V2 n Annotation -> Render PGF V2 n
 -- toRender (Node n rs) = case n of
@@ -237,20 +244,21 @@ fade g c = view P.attributes <&> \s ->
 
 -- | The Path is necessary so we can clip/workout gradients.
 --   (Should use envelope for this)
-setFillTexture :: Path V2 Double -> Texture -> P.Render Double
-setFillTexture p t = case t of
+setFillTexture :: Envelope V2 Double -> Texture -> P.Render Double
+setFillTexture e t = case t of
   SC (SomeColor c) -> fade _FillOpacity c >>= P.setFillColor
-  LG g             -> P.linearGradient p g
-  RG g             -> P.radialGradient p g
+  _ -> error "gradients not implimented yet"
+  -- LG g             -> P.linearGradient p g
+  -- RG g             -> P.radialGradient p g
 
 setLineTexture :: Texture -> P.Render Double
 setLineTexture (SC (SomeColor c)) = fade _StrokeOpacity c >>= P.setLineColor
 setLineTexture _                  = return ()
 
-clip :: TypeableFloat n => [Path V2 n] -> P.Render n -> P.Render n
+clip :: [UPath V2 Double] -> P.Render Double -> P.Render Double
 clip paths r = go paths where
   go []     = r
-  go (p:ps) = P.scope $ P.path p >> P.clip >> go ps
+  go (p:ps) = P.scope $ P.uPath mempty p >> P.clip >> go ps
 
 -- | Escapes some common characters in a string. Note that this does not
 --   mean the string can't create an error, it mearly escapes common
@@ -275,35 +283,35 @@ escapeString = concatMap escapeChar
 
 -- Renderable instances ------------------------------------------------
 
-renderPath :: T2 Double -> Attributes -> Path V2 Double -> Render Double
-renderPath t2 attrs path = P.scope $ do
-  -- lines and loops are separated when stroking so we only need to
-  -- check the first one
-  let canFill = noneOf (_head . located) isLine path
+-- renderPath :: T2 Double -> Attributes -> Path V2 Double -> Render Double
+-- renderPath t2 attrs path = P.scope $ do
+--   -- lines and loops are separated when stroking so we only need to
+--   -- check the first one
+--   let canFill = noneOf (_head . located) isLine path
 
-  -- solid colours need to be filled with usePath
-  doFill <- if canFill
-    then do
-      mFillTexture <- views P.attributes (getAttr _FillTexture)
-      case mFillTexture of
-        Nothing -> return False
-        Just t  -> do
-          setFillTexture path t
-          P.setFillRule <~ _FillRule
-          return (has _SC t)
-    else return False
+--   -- solid colours need to be filled with usePath
+--   doFill <- if canFill
+--     then do
+--       mFillTexture <- views P.attributes (getAttr _FillTexture)
+--       case mFillTexture of
+--         Nothing -> return False
+--         Just t  -> do
+--           setFillTexture path t
+--           P.setFillRule <~ _FillRule
+--           return (has _SC t)
+--     else return False
 
-  let w = fromMaybe 0 $ getAttr _LineWidth attrs
-  let doStroke = w > 0.0001
-  when doStroke $ do
-    P.setLineWidth w
-    setLineTexture <~ _LineTexture
-    P.setLineJoin  <~ _LineJoin
-    P.setLineCap   <~ _LineCap
-    P.setDash      <~ _Dashing
-  --
-  P.path (transform t2 path)
-  P.usePath doFill doStroke
+--   let w = fromMaybe 0 $ getAttr _LineWidth attrs
+--   let doStroke = w > 0.0001
+--   when doStroke $ do
+--     P.setLineWidth w
+--     setLineTexture <~ _LineTexture
+--     P.setLineJoin  <~ _LineJoin
+--     P.setLineCap   <~ _LineCap
+--     P.setDash      <~ _Dashing
+--   --
+--   P.path (transform t2 path)
+--   P.usePath doFill doStroke
 
 renderUPath :: T2 Double -> Attributes -> UPath V2 Double -> Render Double
 renderUPath t2 attrs path = P.scope $ do
@@ -320,7 +328,7 @@ renderUPath t2 attrs path = P.scope $ do
       case getAttr _FillTexture attrs of
         Nothing -> return False
         Just t  -> do
-          setFillTexture undefined t -- path t
+          setFillTexture mempty t -- path t
           P.setFillRule <~ _FillRule
           return (has _SC t)
     else return False
