@@ -192,9 +192,6 @@ toRender = foldDia renderPrim renderAnnot
       Just r  -> local (P.attributes .~ attrs) r
       Nothing -> error $ "Unknown primitive"
 
-    -- To avoid repetition, we apply the clip higher up in the
-    -- renderSty attrs r = clip (getAttr _Clip attrs ^. non' _Empty) r
-
 renderPrimitive
   :: T2 Double -> Attributes -> Prim V2 Double -> Maybe (Render Double)
 renderPrimitive t2 attrs prim -- (Prim p) = case pr
