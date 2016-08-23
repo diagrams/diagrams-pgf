@@ -40,7 +40,7 @@ import           System.IO                    (stdout)
 
 import           Diagrams.Backend.CmdLine
 import           Diagrams.Prelude             hiding (height, interval, output,
-                                               width, (<>))
+                                               width)
 
 import           Diagrams.Backend.PGF
 import           Diagrams.Backend.PGF.Surface
