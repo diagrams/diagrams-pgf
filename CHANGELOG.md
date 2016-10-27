@@ -1,3 +1,10 @@
+* 1.4 (XXX)
+
+No significant changes; release to go with diagrams 1.4.
+
+  - Allow `diagrams-core-1.4`
+  - Allow `diagrams-lib-1.4`
+
 * 0.1.0.5 (22 August 2016)
 
   - require `optparse-applicative-0.13`
