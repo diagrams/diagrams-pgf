@@ -1,4 +1,4 @@
-* 1.4 (XXX)
+* 1.4 (26 October 2016)
 
 No significant changes; release to go with diagrams 1.4.
 
