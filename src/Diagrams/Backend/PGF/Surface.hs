@@ -1,7 +1,9 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE TypeFamilies       #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE DeriveDataTypeable  #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- orphans for OnlineTex Mainable instances
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -50,22 +52,22 @@ module Diagrams.Backend.PGF.Surface
   ) where
 
 import           Data.ByteString.Builder
-import           Data.Hashable           (Hashable (..))
-import           Data.Typeable           (Typeable)
+import           Data.Hashable            (Hashable (..))
+import           Data.Typeable            (Proxy (..), Typeable)
 import           System.IO.Unsafe
 import           System.Texrunner.Online
 
-import Control.Lens
-import Data.Default.Class
-import qualified Options.Applicative          as OP
-import           Options.Applicative (eitherReader, short, long, showDefault, help, metavar, strOption)
-import Control.Applicative
-import Data.Semigroup
+import           Control.Applicative
+import           Control.Lens
+import           Data.Default.Class
+import           Data.Semigroup
+import           Options.Applicative      (eitherReader, help, long, metavar,
+                                           short, showDefault, strOption)
+import qualified Options.Applicative      as OP
 
-import Geometry.TwoD.Types (V2(..))
--- import           Diagrams.Types
 import           Diagrams.Backend.CmdLine
--- import           Prelude
+import           Diagrams.Types (Diagram)
+import           Geometry.TwoD.Types      (V2 (..))
 
 -- | The 'TexFormat' is used to choose the different PGF commands nessesary for
 --   that format.
@@ -309,16 +311,7 @@ sampleSurfaceOutput surf = unlines
 
 -- OnlineTex functions -------------------------------------------------
 
-instance ToResult d => ToResult (OnlineTex d) where
-  type Args (OnlineTex d) = (Surface, Args d)
-  type ResultOf (OnlineTex d) = IO (ResultOf d)
-
-  toResult d (surf, args) = flip toResult args <$> surfOnlineTexIO surf d
-
-instance Mainable d => Mainable (OnlineTex d) where
-  type MainOpts (OnlineTex d) = (Surface, MainOpts d)
-
-  mainRender (surf, args) d = mainRender args =<< surfOnlineTexIO surf d
+instance WithOutcome (OnlineTex (Diagram V2))
 
 -- | Get the result of an OnlineTex using the given surface.
 surfOnlineTex :: Surface -> OnlineTex a -> a

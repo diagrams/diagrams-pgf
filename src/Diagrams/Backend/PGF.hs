@@ -2,24 +2,29 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE UndecidableInstances      #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF
--- Copyright   :  (c) 2015 Christopher Chalmers
+-- Copyright   :  (c) 2015-2016 Christopher Chalmers
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  diagrams-discuss@googlegroups.com
 --
--- This is an internal module exposeing internals for rendering a
--- diagram. This is for advanced use only. 'Diagrams.Backend.PGF'
--- has enought for general use.
+-- Render diagrams using PGF, a TeX macro package for generating
+-- graphics.
 --
 module Diagrams.Backend.PGF
   ( PGF (..)
   , Options (..)
 
+  -- * Command line
+  , mainWithPGF
+  , mainWithSurface
+
+  -- * Saving to files
   , savePGF
   , savePGFSurf
   , saveOnlinePGF
@@ -33,6 +38,10 @@ module Diagrams.Backend.PGF
 
   -- * Utilities
   , escapeString
+
+  -- * Reexports
+  , OnlineTex
+  , module Diagrams.Backend.PGF.Hbox
   ) where
 
 import           Control.Monad                (when)
@@ -49,23 +58,16 @@ import           System.Directory             (canonicalizePath,
 import           System.FilePath              (FilePath, takeDirectory,
                                                takeExtension)
 
--- import           Diagrams.TwoD.Path hiding (_Clip)
 import           Diagrams.Backend
--- import           Diagrams.Attributes
 import           Diagrams.Prelude             hiding (clip, local, (<~))
--- import           Diagrams.TwoD.Attributes hiding (clip)
--- import           Diagrams.TwoD.Path hiding (_Clip, clip)
 import qualified Data.Foldable                as F
 import           Diagrams.Backend.Compile
 import           Diagrams.TwoD.Text
 
 import           Diagrams.Types               hiding (local)
--- import           Geometry.Path.Unboxed        hiding (_Clip)
+import           Geometry.Path.Unboxed
 import           Geometry.Space
-import Geometry.TwoD.Types
-import Geometry.Path.Unboxed
--- import           Geometry.TwoD.Types
--- import Geometry.Trail.Unboxed
+import           Geometry.TwoD.Types
 
 import           System.Texrunner             (prettyPrintLog, runTex)
 import           System.Texrunner.Online      hiding (hbox)
@@ -109,6 +111,8 @@ instance Backend PGF where
     b = P.renderWith (opts^.surface) (opts^.readable) (opts^.standalone) sz r
     r = toRender t2 dia'
 
+  backendInfo _ = pgfInfo
+
   -- renderRTree _ ops (toRender -> R r) =
   --   P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
   --     where
@@ -117,7 +121,7 @@ instance Backend PGF where
   -- adjustDia = adjustDia2D sizeSpec
 
 instance Parseable (Options PGF) where
-  parser = PGFOptions <$> parser <*> parser <*> readParser <*> standaloneParser
+  parser = PGFOptions <$> parser <*> sizeParser <*> readParser <*> standaloneParser
     where
       standaloneParser = OP.switch $ mconcat
         [ OP.long "standalone", OP.short 'a'
@@ -129,7 +133,7 @@ instance Parseable (Options PGF) where
         ]
 
 instance BackendBuild PGF where
-  saveDiagram' opts outPath d =
+  saveDiagram' outPath opts d =
     case takeExtension outPath of
       ".pdf" -> do
         let opts'    = opts & standalone .~ True
@@ -156,6 +160,66 @@ instance BackendBuild PGF where
 
   mkOptions sz = def & sizeSpec .~ sz
   sizeSpec     = pgfSizeSpec
+
+-- It's an ugly type signature but it seems to get the job done. Is
+-- there a nicer way to this?
+-- I could have a PGFMainOpts data type instead of (FilePath, Options
+-- PGF). This would make it slightly better
+--
+-- This could be a bit nicer if MainOpts was separate type family only
+-- on the backend. Are there any backends where this could be a problem?
+
+-- | Class of things whose 'Outcome' can be rendered by the PGF backend.
+--   This includes
+--
+-- @
+-- MainableWithPGF (Diagram V2)
+-- MainableWithPGF (OnlineTex (Diagram V2))
+-- @
+--
+--   But also includes all the other 'Mainable' magic
+--
+-- @
+-- MainableWithPGF (FilePath -> Colour Double -> IO ([String, Diagram V2]))
+-- @
+class (MainWith PGF a, MainOpts PGF (Outcome a) ~ (FilePath, Options PGF)) => MainableWithPGF a
+instance (MainWith PGF a, MainOpts PGF (Outcome a) ~ (FilePath, Options PGF)) => MainableWithPGF a
+
+-- | 'mainWith' 'PGF'
+mainWithPGF :: MainableWithPGF a => a -> IO ()
+mainWithPGF = mainWith PGF
+
+-- @
+-- mainWithSurface :: Surface -> Diagram V2             -> IO ()
+-- mainWithSurface :: Surface -> OnlineTex (Diagram V2) -> IO ()
+-- @
+mainWithSurface :: MainableWithPGF a => Surface -> a -> IO ()
+mainWithSurface surf a = do
+  let parse = (,,,) <$> argsParser (Identity a) <*> outputParser <*> standaloneParser <*> readParser
+      standaloneParser = OP.switch $ mconcat
+        [ OP.long "standalone", OP.short 'a'
+        , OP.help "Produce standalone .tex output (no effect on .pdf output)"
+        ]
+      readParser = OP.switch $ mconcat
+        [ OP.long "readable", OP.short 'r'
+        , OP.help "Indent lines for .tex (no effect on .pdf output)"
+        ]
+  (args, path, isStandalone, isReadable) <- defaultExecParser parse
+  let opts = def & surface    .~ surf
+                 & standalone .~ isStandalone
+                 & readable   .~ isReadable
+  withOutcome (renderOutcome PGF (path, opts)) args a
+
+instance RenderOutcome PGF (Diagram V2) where
+  type MainOpts PGF (Diagram V2) = (FilePath, Options PGF)
+
+  resultParser _ _ = (,) <$> outputParser <*> parser
+  renderOutcome _ (path, opts) = saveDiagram' path opts
+
+instance RenderOutcome PGF (OnlineTex (Diagram V2)) where
+  type MainOpts PGF (OnlineTex (Diagram V2)) = (FilePath, Options PGF)
+  resultParser _ _ = (,) <$> outputParser <*> parser
+  renderOutcome _ (path, opts) = saveOnlinePGF' path opts
 
 instance Default (Options PGF) where
   def = PGFOptions
@@ -194,12 +258,11 @@ toRender = foldDia renderPrim renderAnnot
 
 renderPrimitive
   :: T2 Double -> Attributes -> Prim V2 Double -> Maybe (Render Double)
-renderPrimitive t2 attrs prim -- (Prim p) = case pr
-  | Just p <- preview _UPath prim = Just $ renderUPath t2 attrs p
-  -- | Just p <- preview _Path  prim = Just $ renderPath t2 attrs p
-  | Just p <- preview _Text  prim = Just $ renderText t2 attrs p
-  | Just p <- preview _Hbox  prim = Just $ renderHbox t2 attrs p
-  | otherwise                     = Nothing
+renderPrimitive t2 attrs = \case
+  UPath_ path -> Just $ renderUPath t2 attrs path
+  Text_ t     -> Just $ renderText t2 attrs t
+  Hbox_ str   -> Just $ renderHbox t2 attrs str
+  Prim _      -> Nothing
 
 renderAnnot :: Annotation V2 Double -> Render Double -> Render Double
 renderAnnot a
@@ -242,7 +305,7 @@ fade g c = view P.attributes <&> \s ->
 -- | The Path is necessary so we can clip/workout gradients.
 --   (Should use envelope for this)
 setFillTexture :: Envelope V2 Double -> Texture -> P.Render Double
-setFillTexture e t = case t of
+setFillTexture _e t = case t of
   SC (SomeColor c) -> fade _FillOpacity c >>= P.setFillColor
   _ -> error "gradients not implimented yet"
   -- LG g             -> P.linearGradient p g
@@ -335,7 +398,7 @@ renderUPath t2 attrs path = P.scope $ do
   let doStroke = w > 0.0001
   when doStroke $ do
     P.setLineWidth w
-    -- setLineTexture <~ _LineTexture
+    setLineTexture <~ _LineTexture
     P.setLineJoin  <~ _LineJoin
     P.setLineCap   <~ _LineCap
     P.setDash      <~ _Dashing
@@ -388,8 +451,8 @@ renderText t2 _attrs (Text txtAlign str) = P.scope $ do
     P.setFontSlant  <~ _FontSlant
     P.rawString str
 
-renderHbox :: T2 Double -> Attributes -> Hbox Double -> Render Double
-renderHbox t2 _attrs (Hbox str) = P.scope $ do
+renderHbox :: T2 Double -> Attributes -> String -> Render Double
+renderHbox t2 _attrs str = P.scope $ do
   setFillTexture mempty <~ _FillTexture
   P.applyTransform t2
   P.renderText (P.setTextAlign BaselineText) (P.rawString str)
@@ -421,8 +484,8 @@ instance Hashable (Options PGF) where
 -- | Render a pgf diagram and write it to the given filepath. Same as
 --   'renderPGF'' but uses the default options.
 savePGF
-  :: SizeSpec V2 Int  -- ^ size of output
-  -> FilePath         -- ^ path to output
+  :: FilePath         -- ^ path to output
+  -> SizeSpec V2 Int  -- ^ size of output
   -> Diagram V2       -- ^ 'Diagram' to render
   -> IO ()
 savePGF = saveDiagram PGF
@@ -430,13 +493,13 @@ savePGF = saveDiagram PGF
 -- | Render a pgf diagram and write it to the given filepath. Same as
 --   'renderPGF' but takes a 'Surface'.
 savePGFSurf
-  :: SizeSpec V2 Int    -- ^ size of output
+  :: FilePath         -- ^ path to output
+  -> SizeSpec V2 Int    -- ^ size of output
   -> Surface          -- ^ surface to render with
-  -> FilePath         -- ^ path to output
   -> Diagram V2 -- ^ diagram to render
   -> IO ()
-savePGFSurf sz surf =
-  saveDiagram' $ mkOptions sz & surface .~ surf
+savePGFSurf path sz surf =
+  saveDiagram' path $ mkOptions sz & surface .~ surf
 
 -- | Render a pgf diagram and write it to the given filepath. If the file has
 --   the extension @.pdf@, a PDF is generated in a temporary directory using
@@ -446,19 +509,19 @@ savePGFSurf sz surf =
 -- | Render an online 'PGF' diagram and save it. Same as
 --   'renderOnlinePGF'' using default options.
 saveOnlinePGF
-  :: SizeSpec V2 Int
-  -> FilePath
+  :: FilePath
+  -> SizeSpec V2 Int
   -> OnlineTex (Diagram V2)
   -> IO ()
-saveOnlinePGF sz = saveOnlinePGF' (mkOptions sz)
+saveOnlinePGF path sz = saveOnlinePGF' path (mkOptions sz)
 
 -- | Same as 'renderOnlinePDF' but takes 'Options' 'PGF'.
 saveOnlinePGF'
-  :: Options PGF
-  -> FilePath
+  :: FilePath
+  -> Options PGF
   -> OnlineTex (Diagram V2)
   -> IO ()
-saveOnlinePGF' opts outPath dOL = case takeExtension outPath of
+saveOnlinePGF' outPath opts dOL = case takeExtension outPath of
   ".pdf" -> do
 
     ((), texLog, mPDF) <-

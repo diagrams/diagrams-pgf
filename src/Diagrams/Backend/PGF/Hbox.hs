@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE PatternSynonyms      #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE ViewPatterns           #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF
@@ -16,6 +18,7 @@
 -----------------------------------------------------------------------------
 module Diagrams.Backend.PGF.Hbox
   ( Hbox (..)
+  , pattern Hbox_
   , _Hbox
 
     -- * Enveloped diagrams
@@ -56,7 +59,7 @@ import           Geometry.BoundingBox
 import           Geometry.Space
 -- import           Diagrams.Prelude             hiding (Box, (<>))
 import Diagrams.Types
-import Control.Lens (Prism')
+import Control.Lens (Prism', preview)
 
 import           Diagrams.Backend.PGF.Surface
 
@@ -66,6 +69,10 @@ data Hbox n = Hbox String
 
 _Hbox :: (Typeable n, Num n) => Prism' (Prim V2 n) (Hbox n)
 _Hbox = _Prim
+
+pattern Hbox_ :: (Typeable n, Num n) => String -> Prim V2 n
+pattern Hbox_ str <- (preview _Hbox -> Just (Hbox str)) where
+  Hbox_ str = Prim (Hbox str)
 
 type instance V (Hbox n) = V2
 type instance N (Hbox n) = n
