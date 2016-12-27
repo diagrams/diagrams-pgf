@@ -37,7 +37,8 @@ module Diagrams.Backend.PGF.Hbox
 
   ) where
 
-import           Data.ByteString.Char8        (pack)
+import           Data.ByteString.Lazy         (toStrict)
+import           Data.ByteString.Builder      (stringUtf8, toLazyByteString)
 import           Data.Monoid
 import           Data.Typeable
 import           System.IO.Unsafe
@@ -93,7 +94,7 @@ hboxSurfIO surf txt = surfOnlineTexIO surf (hboxOnline txt)
 hboxOnline :: (TypeableFloat n, Renderable (Hbox n) b)
            => String -> OnlineTex (QDiagram b V2 n Any)
 hboxOnline txt = do
-  Box h d w <- Online.hbox (pack txt)
+  Box h d w <- Online.hbox (toStrict . toLazyByteString $ stringUtf8 txt)
 
   let bb = fromCorners (P $ V2 0 (-d))
                        (P $ V2 w h)
