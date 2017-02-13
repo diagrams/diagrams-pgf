@@ -53,7 +53,7 @@ module Diagrams.Backend.PGF.Surface
 
 import           Data.ByteString.Builder
 import           Data.Hashable            (Hashable (..))
-import           Data.Typeable            (Proxy (..), Typeable)
+import           Data.Typeable            (Typeable)
 import           System.IO.Unsafe
 import           System.Texrunner.Online
 

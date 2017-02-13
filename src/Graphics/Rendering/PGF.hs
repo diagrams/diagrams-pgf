@@ -61,7 +61,7 @@ module Graphics.Rendering.PGF
   , stroke
   , fill
   , asBoundingBox
-  , uPath
+  , path
   -- , rectangleBoundingBox
   -- * Strokeing Options
   , setDash
@@ -121,13 +121,13 @@ import qualified Data.Vector.Storable         as S
 import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..),
                                                TextAlignment (..))
 
-import Diagrams.Prelude hiding (moveTo, clip)
-import Diagrams.Types.Style hiding (style)
+import Diagrams.Prelude hiding (moveTo, clip, stroke)
+-- import Diagrams.Types.Style hiding (style)
 -- import Diagrams.TwoD.Attributes hiding (clip)
 import Diagrams.TwoD.Image hiding (image)
 -- import Diagrams.TwoD.Path hiding (stroke)
-import Geometry.Path.Unboxed
-import Geometry.Trail.Unboxed
+-- import Geometry.Path.Unboxed
+-- import Geometry.Trail.Unboxed
 
 -- import Geometry.TwoD.Path
 -- import Geometry.TwoD.Size
@@ -137,7 +137,7 @@ import Geometry.Trail.Unboxed
 -- import Geometry.Segment
 -- import Geometry.Path
 -- import Geometry.Path.Unboxed
-import Geometry.TwoD.Types hiding (p2)
+-- import Geometry.TwoD.Types hiding (p2)
 -- import Geometry.Transform hiding (moveTo)
 -- import Data.Colour
 
@@ -507,28 +507,41 @@ clip = ln $ pgf "usepathqclip"
 --       mapM_ segment segs
 --       when (isLoop t) closePath
 
-segment :: RealFloat n => Segment Closed V2 n -> Render n
-segment (Linear (OffsetClosed v))       = lineTo v
-segment (Cubic v1 v2 (OffsetClosed v3)) = curveTo v1 v2 v3
+segment :: RealFloat n => Segment V2 n -> Render n
+segment (Linear v)       = lineTo v
+segment (Cubic v1 v2 v3) = curveTo v1 v2 v3
 
-uPath :: (Unboxable V2 n, RealFloat n) => T2 n -> UPath V2 n -> Render n
-uPath t (UPath ts) = foldMap (uTrail t) ts
+path :: RealFloat n => T2 n -> Path V2 n -> Render n
+path t = foldMapOf each (trail . transform t)
 
-uTrail :: (Unboxable V2 n, RealFloat n) => T2 n -> Located (UTrail V2 n) -> Render n
-uTrail t2 (Loc (papply t2 -> p) t) = case t of
-  UTrail (ULine (SegVector v))   -> snd $ uVector t2 p v
-  UTrail (ULoop (SegVector v) o) ->
-    let (p', r) = uVector t2 p v
-    in  r >> close p' p (transform t2 o)
+trail :: RealFloat n => Located (Trail V2 n) -> Render n
+trail (Loc p0 t) = do
+  moveTo p0
+  case t of
+    ClosedTrail (Loop l c) -> do
+      line l
+      p <- use pos
+      close p p0 c
+    OpenTrail l            -> line l
 
-close :: RealFloat n =>  P2 n -> P2 n -> Segment Open V2 n -> Render n
+line :: RealFloat n => Line V2 n -> Render n
+line = traverseOf_ segments segment
+
+-- trail :: (Unboxable V2 n, RealFloat n) => T2 n -> Located (UTrail V2 n) -> Render n
+-- trail t2 (Loc (papply t2 -> p) t) = case t of
+--   UTrail (ULine (SegVector v))   -> snd $ uVector t2 p v
+--   UTrail (ULoop (SegVector v) o) ->
+--     let (p', r) = uVector t2 p v
+--     in  r >> close p' p (transform t2 o)
+
+close :: RealFloat n =>  P2 n -> P2 n -> ClosingSegment V2 n -> Render n
 close pStart pEnd = \case
-  Linear OffsetOpen      -> closePath
-  Cubic v1 v2 OffsetOpen -> curveTo' (pStart .+^ v1) (pStart .+^ v2) pEnd >> closePath
+  LinearClosing      -> closePath
+  CubicClosing v1 v2 -> curveTo' (pStart .+^ v1) (pStart .+^ v2) pEnd >> closePath
 
-uVector :: (Unboxable V2 n, RealFloat n)
-        => T2 n -> P2 n -> Vector (ClosedSegment V2 n) -> (P2 n, Render n)
-uVector t2 p v = foldSegmentsT lineTo' curveTo' t2 p v (moveTo p)
+-- uVector :: (Unboxable V2 n, RealFloat n)
+--         => T2 n -> P2 n -> Vector (ClosedSegment V2 n) -> (P2 n, Render n)
+-- uVector t2 p v = foldSegmentsT lineTo' curveTo' t2 p v (moveTo p)
 
 -- | @usePath fill stroke@ combined in one function.
 usePath :: Bool -> Bool -> Render n

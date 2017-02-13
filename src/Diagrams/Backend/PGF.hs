@@ -65,7 +65,7 @@ import           Diagrams.Backend.Compile
 import           Diagrams.TwoD.Text
 
 import           Diagrams.Types               hiding (local)
-import           Geometry.Path.Unboxed
+import           Geometry.Path
 import           Geometry.Space
 import           Geometry.TwoD.Types
 
@@ -259,7 +259,7 @@ toRender = foldDia renderPrim renderAnnot
 renderPrimitive
   :: T2 Double -> Attributes -> Prim V2 Double -> Maybe (Render Double)
 renderPrimitive t2 attrs = \case
-  UPath_ path -> Just $ renderUPath t2 attrs path
+  Path_ path -> Just $ renderPath t2 attrs path
   Text_ t     -> Just $ renderText t2 attrs t
   Hbox_ str   -> Just $ renderHbox t2 attrs str
   Prim _      -> Nothing
@@ -315,10 +315,10 @@ setLineTexture :: Texture -> P.Render Double
 setLineTexture (SC (SomeColor c)) = fade _StrokeOpacity c >>= P.setLineColor
 setLineTexture _                  = return ()
 
-clip :: [UPath V2 Double] -> P.Render Double -> P.Render Double
+clip :: [Path V2 Double] -> P.Render Double -> P.Render Double
 clip paths r = go paths where
   go []     = r
-  go (p:ps) = P.scope $ P.uPath mempty p >> P.clip >> go ps
+  go (p:ps) = P.scope $ P.path mempty p >> P.clip >> go ps
 
 -- | Escapes some common characters in a string. Note that this does not
 --   mean the string can't create an error, it mearly escapes common
@@ -373,8 +373,8 @@ escapeString = concatMap escapeChar
 --   P.path (transform t2 path)
 --   P.usePath doFill doStroke
 
-renderUPath :: T2 Double -> Attributes -> UPath V2 Double -> Render Double
-renderUPath t2 attrs path = P.scope $ do
+renderPath :: T2 Double -> Attributes -> Path V2 Double -> Render Double
+renderPath t2 attrs path = P.scope $ do
   -- lines and loops are separated when stroking so we only need to
   -- check the first one
   --
@@ -403,7 +403,7 @@ renderUPath t2 attrs path = P.scope $ do
     P.setLineCap   <~ _LineCap
     P.setDash      <~ _Dashing
   --
-  P.uPath t2 path
+  P.path t2 path
   P.usePath doFill doStroke
 
 
