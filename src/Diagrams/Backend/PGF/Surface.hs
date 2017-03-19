@@ -53,7 +53,7 @@ import           System.Texrunner.Online
 import           Diagrams.Prelude
 import           Prelude
 
--- | The 'TexFormat' is used to choose the different PGF commands nessesary for
+-- | The 'TexFormat' is used to choose the different PGF commands necessary for
 --   that format.
 data TexFormat = LaTeX | ConTeXt | PlainTeX
   deriving (Show, Read, Eq, Typeable)
