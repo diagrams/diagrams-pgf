@@ -12,9 +12,9 @@
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  diagrams-discuss@googlegroups.com
 --
--- This is an internal module exposeing internals for rendering a
+-- This is an internal module exposing internals for rendering a
 -- diagram. This is for advanced use only. 'Diagrams.Backend.PGF'
--- has enought for general use.
+-- has enough for general use.
 --
 module Diagrams.Backend.PGF.Render
   ( PGF (..)
