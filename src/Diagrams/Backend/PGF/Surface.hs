@@ -57,7 +57,7 @@ import           Prelude
 --   that format.
 data TexFormat = LaTeX | ConTeXt | PlainTeX
   deriving (Show, Read, Eq, Typeable)
-  -- These names are only captialised so Context doesn't conflict with
+  -- These names are only capitalised so Context doesn't conflict with
   -- lens's Context.
 
 data Surface = Surface
