@@ -76,7 +76,7 @@ hboxPoint raw = mkQD (Prim (Hbox mempty raw))
                 mempty
 
 -- | Hbox with bounding box envelope. Note that each box requires a call to
---   Tex. For multiple boxes consider using 'onlineHbox' to get multiple boxes
+--   Tex. For multiple boxes consider using 'hboxOnline' to get multiple boxes
 --   from a single call. (uses unsafePerformIO)
 hboxSurf :: (TypeableFloat n, Renderable (Hbox n) b)
             => Surface -> String -> QDiagram b V2 n Any
@@ -84,7 +84,7 @@ hboxSurf surf txt = unsafePerformIO (hboxSurfIO surf txt)
 {-# NOINLINE hboxSurf #-}
 
 -- | Hbox with bounding box envelope. Note that each box requires a call to
---   Tex. For multiple boxes consider using 'onlineHbox' to get multiple boxes
+--   Tex. For multiple boxes consider using 'hboxOnline' to get multiple boxes
 --   from a single call.
 hboxSurfIO :: (TypeableFloat n, Renderable (Hbox n) b)
        => Surface -> String -> IO (QDiagram b V2 n Any)
