@@ -63,7 +63,7 @@ data TexFormat = LaTeX | ConTeXt | PlainTeX
 data Surface = Surface
   { _texFormat :: TexFormat -- ^ Format for the PGF commands
   , _command   :: String    -- ^ System command to be called.
-  , _arguments :: [String]  -- ^ Auguments for command.
+  , _arguments :: [String]  -- ^ Arguments for command.
   , _pageSize  :: Maybe (V2 Int -> String)
                             -- ^ Command to change page size from dimensions of image.
                             --   (in bp)
