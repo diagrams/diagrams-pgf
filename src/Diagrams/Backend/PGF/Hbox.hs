@@ -27,7 +27,7 @@ module Diagrams.Backend.PGF.Hbox
    -- ** Non-Online version
    -- | These versions bypass 'OnlineTex' by just running a whole tex
    --   program just to get the size of a single hbox. This is not
-   --   recommended but because it is slow, but can be convientient if
+   --   recommended but because it is slow, but can be convenient if
    --   you only need one or two hbox sizes.
   , hboxSurf
   , hboxSurfIO
