@@ -148,7 +148,7 @@ clip paths r = go paths
     go (p:ps) = P.scope $ P.path p >> P.clip >> go ps
 
 -- | Escapes some common characters in a string. Note that this does not
---   mean the string can't create an error, it mearly escapes common
+--   mean the string can't create an error; it merely escapes common
 --   characters.
 escapeString :: String -> String
 escapeString = concatMap escapeChar
