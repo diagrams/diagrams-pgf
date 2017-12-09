@@ -1,11 +1,12 @@
-{-# LANGUAGE DeriveDataTypeable        #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE LambdaCase                #-}
-{-# LANGUAGE MultiParamTypeClasses     #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE UndecidableInstances      #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.PGF
@@ -58,10 +59,10 @@ import           System.Directory             (canonicalizePath,
 import           System.FilePath              (FilePath, takeDirectory,
                                                takeExtension)
 
-import           Diagrams.Backend
-import           Diagrams.Prelude             hiding (clip, local, (<~))
 import qualified Data.Foldable                as F
+import           Diagrams.Backend
 import           Diagrams.Backend.Compile
+import           Diagrams.Prelude             hiding (clip, local, (<~))
 import           Diagrams.TwoD.Text
 
 import           Diagrams.Types               hiding (local)
@@ -120,6 +121,8 @@ instance Backend PGF where
 
   -- adjustDia = adjustDia2D sizeSpec
 
+deriving instance Show (Options PGF)
+
 instance Parseable (Options PGF) where
   parser = PGFOptions <$> parser <*> sizeParser <*> readParser <*> standaloneParser
     where
@@ -160,6 +163,7 @@ instance BackendBuild PGF where
 
   mkOptions sz = def & sizeSpec .~ sz
   sizeSpec     = pgfSizeSpec
+  showOptions  = show
 
 -- It's an ugly type signature but it seems to get the job done. Is
 -- there a nicer way to this?

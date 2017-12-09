@@ -40,12 +40,13 @@ module Diagrams.Backend.PGF.Surface
   , contextSurface
   , plaintexSurface
   , sampleSurfaceOutput
+  , runPageSizeTemplate
 
     -- * Lenses
   , texFormat
   , command
   , arguments
-  , pageSize
+  , pageSizeTemplate
   , preamble
   , beginDoc
   , endDoc
@@ -95,15 +96,24 @@ data Surface = Surface
   { _texFormat :: TexFormat -- ^ Format for the PGF commands
   , _command   :: String    -- ^ System command to be called.
   , _arguments :: [String]  -- ^ Auguments for command.
-  , _pageSize  :: Maybe (V2 Int -> String)
-                            -- ^ Command to change page size from dimensions of image.
-                            --   (in bp)
+  , _pageSizeTemplate :: String
+    -- ^ Template to specify the page size. See 'pageSizeTemplate' for
+    --   details.
   , _preamble  :: String    -- ^ Preamble for document, should import pgfcore.
   , _beginDoc  :: String    -- ^ Begin document.
   , _endDoc    :: String    -- ^ End document.
-  }
+  } deriving Show
 
 makeLensesWith (lensRules & generateSignatures .~ False) ''Surface
+
+-- | Run a page size template, interpolating @${w}@ and @${h}@ with the
+--   width and height of the input vector.
+runPageSizeTemplate :: V2 Int -> String -> String
+runPageSizeTemplate (V2 w h) = go where
+  go ('$':'{':'w':'}':xs) = show w ++ go xs
+  go ('$':'{':'h':'}':xs) = show h ++ go xs
+  go (x:xs)               = x : go xs
+  go []                   = []
 
 instance Parseable Surface where
   parser = modCommand <*> surf where
@@ -129,8 +139,10 @@ arguments :: Lens' Surface [String]
 --   @pgfcore@.
 preamble :: Lens' Surface String
 
--- | Specify the page size for the tex file.
-pageSize :: Lens' Surface (Maybe (V2 Int -> String))
+-- | Specify the page size template for the tex file. The width and
+--   height of the diagram (in bp) is interpolated using @${w}@ and
+--   @${h}@. See the source of 'latexSurface' for an example.
+pageSizeTemplate :: Lens' Surface String
 
 -- | Command to begin the document. (This normally doesn't need to
 --   change)
@@ -154,10 +166,10 @@ endDoc :: Lens' Surface String
 -- \usepackage{pgfcore}
 -- \pagenumbering{gobble}
 --
--- % 'pageSize'
--- \pdfpagewidth=100bp
--- \pdfpageheight=80bp
--- \textheight=80bp
+-- % 'pageSizeTemplate'
+-- \pdfpagewidth=${w}bp
+-- \pdfpageheight=${h}bp
+-- \textheight=${h}bp
 -- \pdfhorigin=-76.6bp
 -- \pdfvorigin=-52.8bp
 --
@@ -175,12 +187,13 @@ latexSurface = Surface
   { _texFormat = LaTeX
   , _command   = "pdflatex"
   , _arguments = []
-  , _pageSize  = Just $ \(V2 w h) ->
-                 "\\pdfpagewidth=" ++ show w ++ "bp\n"
-              ++ "\\pdfpageheight=" ++ show h ++ "bp\n"
-              ++ "\\textheight=" ++ show h ++ "bp\n"
-              ++ "\\pdfhorigin=-76.6bp\n"
-              ++ "\\pdfvorigin=-52.8bp"
+  , _pageSizeTemplate  = unlines
+      [ "\\pdfpagewidth=${w}bp"
+      , "\\pdfpageheight=${h}bp"
+      , "\\textheight=${h}bp"
+      , "\\pdfhorigin=-76.6bp"
+      , "\\pdfvorigin=-52.8bp"
+      ]
   , _preamble  = "\\documentclass{article}\n"
               ++ "\\usepackage{pgfcore}\n"
               ++ "\\pagenumbering{gobble}"
@@ -199,16 +212,16 @@ latexSurface = Surface
 -- \usemodule[pgf]
 -- \setuppagenumbering[location=]
 --
--- % 'pageSize'
--- \definepapersize[diagram][width=100bp,height=80bp]
+-- % 'pageSizeTemplate'
+-- \definepapersize[diagram][width=${w}bp,height=${h}bp]
 -- \setuppapersize[diagram][diagram]
 -- \setuplayout
 --   [ topspace=0bp
 --   , backspace=0bp
 --   , header=0bp
 --   , footer=0bp
---   , width=100bp
---   , height=80bp
+--   , width=${w}bp
+--   , height=${h}bp
 --   ]
 --
 -- % 'beginDoc'
@@ -225,17 +238,18 @@ contextSurface = Surface
   { _texFormat = ConTeXt
   , _command   = "context"
   , _arguments = ["--pipe", "--once"]
-  , _pageSize  = Just $ \(V2 w h) ->
-                 "\\definepapersize[diagram][width="++ show w ++"bp,height="++ show h ++"bp]\n"
-              ++ "\\setuppapersize[diagram][diagram]\n"
-              ++ "\\setuplayout\n"
-              ++ "  [ topspace=0bp\n"
-              ++ "  , backspace=0bp\n"
-              ++ "  , header=0bp\n"
-              ++ "  , footer=0bp\n"
-              ++ "  , width=" ++ show w ++ "bp\n"
-              ++ "  , height=" ++ show h ++ "bp\n"
-              ++ "  ]"
+  , _pageSizeTemplate  = unlines
+      [ "\\definepapersize[diagram][width=${w}bp,height=${h}bp]\n"
+      , "\\setuppapersize[diagram][diagram]\n"
+      , "\\setuplayout\n"
+      , "  [ topspace=0bp\n"
+      , "  , backspace=0bp\n"
+      , "  , header=0bp\n"
+      , "  , footer=0bp\n"
+      , "  , width=${w}bp\n"
+      , "  , height=${h}bp\n"
+      , "  ]"
+      ]
   , _preamble  = "\\usemodule[pgf]\n" -- pgfcore doesn't work
               ++ "\\setuppagenumbering[location=]"
   , _beginDoc  = "\\starttext"
@@ -257,9 +271,9 @@ contextSurface = Surface
 -- \input pgfcore
 -- \def\frac#1#2{{\begingroup #1\endgroup\over #2}}\nopagenumbers
 --
--- % 'pageSize'
--- \pdfpagewidth=100bp
--- \pdfpageheight=80bp
+-- % 'pageSizeTemplate'
+-- \pdfpagewidth=${w}bp
+-- \pdfpageheight=${h}bp
 -- \pdfhorigin=-20bp
 -- \pdfvorigin=0bp
 --
@@ -277,11 +291,12 @@ plaintexSurface = Surface
   { _texFormat = PlainTeX
   , _command   = "pdftex"
   , _arguments = []
-  , _pageSize  = Just $ \(V2 w h) ->
-                 "\\pdfpagewidth=" ++ show w ++ "bp\n"
-              ++ "\\pdfpageheight=" ++ show h ++ "bp\n"
-              ++ "\\pdfhorigin=-20bp\n"
-              ++ "\\pdfvorigin=0bp"
+  , _pageSizeTemplate  = unlines
+      [ "\\pdfpagewidth=${w}bp"
+      , "\\pdfpageheight=${h}bp"
+      , "\\pdfhorigin=-20bp"
+      , "\\pdfvorigin=0bp"
+      ]
   , _preamble  = "\\input eplain\n"
               ++ "\\beginpackages\n\\usepackage{color}\n\\endpackages\n"
               ++ "\\input pgfcore\n"
@@ -300,8 +315,8 @@ sampleSurfaceOutput surf = unlines
   [ "command: " ++ surf ^. command ++ " " ++ unwords (surf ^. arguments)
   , "\n% preamble"
   , surf ^. preamble
-  , "\n% pageSize"
-  , view _Just $ surf ^. pageSize <*> Just (V2 100 80)
+  , "\n% pageSizeTemplate"
+  , surf ^. pageSizeTemplate
   , "\n% beginDoc"
   , surf ^. beginDoc
   , "\n<" ++ show (surf ^. texFormat) ++ " pgf code>"
@@ -334,12 +349,12 @@ instance Hashable TexFormat where
 
 instance Hashable Surface where
   hashWithSalt s (Surface tf cm ar ps p bd ed)
-    = s                    `hashWithSalt`
-      tf                   `hashWithSalt`
-      cm                   `hashWithSalt`
-      ar                   `hashWithSalt`
-      ps <*> Just (V2 1 2) `hashWithSalt`
-      p                    `hashWithSalt`
-      bd                   `hashWithSalt`
+    = s  `hashWithSalt`
+      tf `hashWithSalt`
+      cm `hashWithSalt`
+      ar `hashWithSalt`
+      ps `hashWithSalt`
+      p  `hashWithSalt`
+      bd `hashWithSalt`
       ed
 

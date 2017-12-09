@@ -202,15 +202,14 @@ renderWith :: (RealFloat n)
 renderWith s readable standalone bounds r = builder
   where
     bounds' = fmap (fromInteger . floor) bounds
-    (_,builder) = evalRWS r'
-                          (RenderInfo (s^.texFormat) readable mempty)
-                          initialState
+    info    = RenderInfo (s^.texFormat) readable mempty
+    builder = snd $ evalRWS r' info initialState
     r' = do
       when standalone $ do
         ln . rawString $ s^.preamble
-        maybe (return ())
-              (ln . rawString . ($ fmap ceiling bounds'))
-              (s^.pageSize)
+        let pageSize = runPageSizeTemplate (ceiling <$> bounds) (s^.pageSizeTemplate)
+        unless (null pageSize) $
+          ln (rawString pageSize)
         ln . rawString $ s^.beginDoc
       picture $ rectangleBoundingBox bounds' >> r
       when standalone $ rawString $ s^.endDoc
