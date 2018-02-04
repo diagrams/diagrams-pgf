@@ -50,6 +50,10 @@ module Diagrams.Backend.PGF.Surface
   , preamble
   , beginDoc
   , endDoc
+
+    -- * Parsers
+  , texFormatParser
+  , surfaceParser
   ) where
 
 import           Data.ByteString.Builder
@@ -77,11 +81,12 @@ data TexFormat = LaTeX | ConTeXt | PlainTeX
   -- These names are only captialised so Context doesn't conflict with
   -- lens's Context.
 
-instance Parseable TexFormat where
-  parser = OP.option (eitherReader parseFormat) $ mconcat
-      [ short 'f', long "format", OP.value LaTeX, showDefault
-      , help "l for LaTeX, c for ConTeXt, p for plain TeX"
-      , metavar "FORMAT"]
+-- instance Parseable TexFormat where
+texFormatParser :: OP.Parser TexFormat
+texFormatParser = OP.option (eitherReader parseFormat) $ mconcat
+  [ short 'f', long "format", OP.value LaTeX, showDefault
+  , help "l for LaTeX, c for ConTeXt, p for plain TeX"
+  , metavar "FORMAT"]
 
 parseFormat :: String -> Either String TexFormat
 parseFormat ('l':_) = Right LaTeX
@@ -115,16 +120,16 @@ runPageSizeTemplate (V2 w h) = go where
   go (x:xs)               = x : go xs
   go []                   = []
 
-instance Parseable Surface where
-  parser = modCommand <*> surf where
-    surf = parser <&> \case
-      LaTeX    -> latexSurface
-      ConTeXt  -> contextSurface
-      PlainTeX -> plaintexSurface
-    modCommand = maybe id (set command) <$> commandP
-    commandP = optional . strOption $ mconcat
-      [ short 'c', long "command", metavar "PATH"
-      , help "tex command to use" ]
+surfaceParser :: OP.Parser Surface
+surfaceParser = modCommand <*> surf where
+  surf = texFormatParser <&> \case
+    LaTeX    -> latexSurface
+    ConTeXt  -> contextSurface
+    PlainTeX -> plaintexSurface
+  modCommand = maybe id (set command) <$> commandP
+  commandP = optional . strOption $ mconcat
+    [ short 'c', long "command", metavar "PATH"
+    , help "tex command to use" ]
 
 -- | Format for the PGF commands.
 texFormat :: Lens' Surface TexFormat

@@ -123,8 +123,8 @@ instance Backend PGF where
 
 deriving instance Show (Options PGF)
 
-instance Parseable (Options PGF) where
-  parser = PGFOptions <$> parser <*> sizeParser <*> readParser <*> standaloneParser
+optionsParser :: OP.Parser (Options PGF)
+optionsParser = PGFOptions <$> surfaceParser <*> sizeParser <*> readParser <*> standaloneParser
     where
       standaloneParser = OP.switch $ mconcat
         [ OP.long "standalone", OP.short 'a'
@@ -217,12 +217,12 @@ mainWithSurface surf a = do
 instance RenderOutcome PGF (Diagram V2) where
   type MainOpts PGF (Diagram V2) = (FilePath, Options PGF)
 
-  resultParser _ _ = (,) <$> outputParser <*> parser
+  resultParser _ _ = (,) <$> outputParser <*> optionsParser
   renderOutcome _ (path, opts) = saveDiagram' path opts
 
 instance RenderOutcome PGF (OnlineTex (Diagram V2)) where
   type MainOpts PGF (OnlineTex (Diagram V2)) = (FilePath, Options PGF)
-  resultParser _ _ = (,) <$> outputParser <*> parser
+  resultParser _ _ = (,) <$> outputParser <*> optionsParser
   renderOutcome _ (path, opts) = saveOnlinePGF' path opts
 
 instance Default (Options PGF) where
