@@ -727,7 +727,7 @@ calcLinearStops
   -> LGradient
   -> ([GradientStop], T2 Double)
 calcLinearStops EmptyEnvelope _ = ([], mempty)
-calcLinearStops env (LGradient stops gt _ sm) = undefined
+calcLinearStops _ _ = undefined
   -- = (linearStops' x0 x1 stops sm, t <> ft)
   -- where
   --   -- Transform such that the transform t origin is start of the
@@ -765,13 +765,13 @@ linearStops' x0 x1 stops sm =
   GradientStop c1' 0 : filter (inRange . view stopFraction) stops' ++ [GradientStop c2' 100]
   where
     stops' = case sm of
-      Pad     -> over (each . stopFraction) normalise stops
-      Repeat  -> flip F.foldMap [i0 .. i1] $ \i ->
+      GradPad     -> over (each . stopFraction) normalise stops
+      GradRepeat  -> flip F.foldMap [i0 .. i1] $ \i ->
                    increaseFirst $
                      over (each . stopFraction)
                           (normalise . (+ fromIntegral i))
                           stops
-      Reflect -> flip F.foldMap [i0 .. i1] $ \i ->
+      GradReflect -> flip F.foldMap [i0 .. i1] $ \i ->
                    over (each . stopFraction)
                         (normalise . (+ fromIntegral i))
                         (reverseOdd i stops)
@@ -784,8 +784,8 @@ linearStops' x0 x1 stops sm =
       | otherwise = id
     i0 = floor x0 :: Int
     i1 = ceiling x1
-    c1' = SomeColor $ colourInterp stops' 0
-    c2' = SomeColor $ colourInterp stops' 100
+    c1' = toAlphaColour $ colourInterp stops' 0
+    c2' = toAlphaColour $ colourInterp stops' 100
     inRange x   = x > 0 && x < 100
     normalise x = 100 * (x - x0) / (x1 - x0)
 
