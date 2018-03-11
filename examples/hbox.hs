@@ -1,11 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
-import Diagrams.Backend.PGF.CmdLine
+import Diagrams.Backend.PGF
 import Diagrams.Prelude
-import Diagrams.TwoD.Vector         (perp)
+import Geometry.TwoD.Vector         (perp)
 
-import Diagrams.Size
+-- import Diagrams.Size
 
-type D2 = Diagram PGF
+type D2 = Diagram V2
 
 -- The simplest way to construct a hbox with an envelope is to use
 --

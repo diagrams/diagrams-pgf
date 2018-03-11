@@ -1,17 +1,16 @@
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE Rank2Types                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE ViewPatterns               #-}
 
-{-# LANGUAGE TypeSynonymInstances       #-}
 {-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE TypeSynonymInstances       #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.PGF
@@ -101,71 +100,39 @@ module Graphics.Rendering.PGF
 
 import           Codec.Compression.Zlib
 import           Codec.Picture
-import           Control.Monad.RWS hiding ((<>))
+import           Control.Monad.RWS                 hiding ((<>))
 import           Data.ByteString.Builder
-import           Data.ByteString.Char8        (ByteString)
-import qualified Data.ByteString.Char8        as B (replicate)
-import           Data.ByteString.Internal     (fromForeignPtr)
-import qualified Data.ByteString.Lazy         as LB
-import qualified Data.Foldable                as F (foldMap)
-import           Data.List                    (intersperse)
-import           Data.Maybe                   (catMaybes)
--- import           Data.Typeable
-import qualified Data.Vector.Storable         as S
--- import Control.Lens
+import           Data.ByteString.Char8             (ByteString)
+import qualified Data.ByteString.Char8             as B (replicate)
+import           Data.ByteString.Internal          (fromForeignPtr)
+import qualified Data.ByteString.Lazy              as LB
+import qualified Data.Foldable                     as F (foldMap)
+import           Data.List                         (intersperse)
+import           Data.Maybe                        (catMaybes)
+import qualified Data.Vector.Storable              as S
 
--- import           Diagrams.Core.Transform
--- import           Diagrams.Prelude             hiding (Render, image, moveTo,
---                                                opacity, opacityGroup, stroke,
---                                                (<>))
-import           Diagrams.TwoD.Text           (FontSlant (..), FontWeight (..),
-                                               TextAlignment (..))
-
-import Diagrams.Prelude hiding (moveTo, clip, stroke)
--- import Diagrams.Types.Style hiding (style)
--- import Diagrams.TwoD.Attributes hiding (clip)
-import Diagrams.TwoD.Image hiding (image)
--- import Diagrams.TwoD.Path hiding (stroke)
--- import Geometry.Path.Unboxed
--- import Geometry.Trail.Unboxed
-
--- import Geometry.TwoD.Path
--- import Geometry.TwoD.Size
--- import Diagrams.TwoD.Image
--- import Geometry.Trail
--- import Geometry.Trail.Unboxed
--- import Geometry.Segment
--- import Geometry.Path
--- import Geometry.Path.Unboxed
--- import Geometry.TwoD.Types hiding (p2)
--- import Geometry.Transform hiding (moveTo)
--- import Data.Colour
-
--- import Diagrams.Attributes
--- import Diagrams.TwoD.Attributes
--- import Diagrams.Types
--- import Diagrams.Style
-
--- import Geometry.Points
-
+import           Data.Double.Conversion.ByteString as DC (toFixed)
 import           Diagrams.Backend.PGF.Surface
-
-import Data.Double.Conversion.ByteString as DC (toFixed)
+import           Diagrams.Prelude                  hiding (clip, moveTo, stroke)
+import           Diagrams.TwoD.Image               hiding (image)
+import           Diagrams.TwoD.Text                (FontSlant (..),
+                                                    FontWeight (..),
+                                                    TextAlignment (..))
 
 -- * Types, lenses & runners
 
 -- | Render state, mainly to be used for convenience when build, this module
 --   only uses the indent properly.
 data RenderState n = RenderState
-  { _pos        :: Point V2 n -- ^ Current position
-  , _indent     :: Int  -- ^ Current indentation
+  { _pos    :: Point V2 n -- ^ Current position
+  , _indent :: Int  -- ^ Current indentation
   }
 
 makeLenses ''RenderState
 
 data RenderInfo = RenderInfo
-  { _format :: TexFormat
-  , _pprint :: Bool
+  { _format     :: TexFormat
+  , _pprint     :: Bool
   , _attributes :: Attributes
   }
 
@@ -176,16 +143,6 @@ type RenderM n m = RWS RenderInfo Builder (RenderState n) m
 
 -- | Convenient type for building.
 type Render n = RenderM n ()
-
-instance Semigroup (Render n) where
-  (<>) = (>>)
-  {-# INLINE (<>) #-}
-
-instance Monoid (Render n) where
-  mempty = return ()
-  {-# INLINE mempty #-}
-  mappend = (>>)
-  {-# INLINE mappend #-}
 
 -- | Starting state for running the builder.
 initialState :: (Floating n) => RenderState n
@@ -511,7 +468,7 @@ segment (Linear v)       = lineTo v
 segment (Cubic v1 v2 v3) = curveTo v1 v2 v3
 
 path :: RealFloat n => T2 n -> Path V2 n -> Render n
-path t = foldMapOf each (trail . transform t)
+path t = mapMOf_ each (trail . transform t)
 
 trail :: RealFloat n => Located (Trail V2 n) -> Render n
 trail (Loc p0 t) = do
@@ -726,7 +683,7 @@ calcLinearStops
   :: Envelope V2 Double  -- ^ envelope of object being covered
   -> LGradient
   -> ([GradientStop], T2 Double)
-calcLinearStops EmptyEnvelope _ = ([], mempty)
+-- calcLinearStops Empty _ = ([], mempty)
 calcLinearStops _ _ = undefined
   -- = (linearStops' x0 x1 stops sm, t <> ft)
   -- where
@@ -818,7 +775,7 @@ colourInterp cs0 x = go cs0
 --   filled. PGF doesn't have spread methods so this has to be done
 --   manually.
 calcRadialStops :: Envelope V2 Double -> RGradient -> ([GradientStop], T2 Double, P2 Double)
-calcRadialStops EmptyEnvelope _ = ([], mempty, origin)
+-- calcRadialStops EmptyEnvelope _ = ([], mempty, origin)
 calcRadialStops env _ = undefined -- (RGradient stops p0 r0 p1 r1 gt _sm)
   -- = (stops', t <> ft, P cv)
   -- where

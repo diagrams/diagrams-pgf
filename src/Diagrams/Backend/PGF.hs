@@ -50,6 +50,7 @@ import           Control.Monad.Reader         (local)
 import           Data.ByteString.Builder
 import qualified Data.ByteString.Char8        as B
 import qualified Data.ByteString.Lazy         as LB
+import qualified Data.Foldable                as F
 import           Data.Hashable                (Hashable (..))
 import           Data.Maybe                   (fromMaybe)
 import           Data.Typeable
@@ -59,16 +60,10 @@ import           System.Directory             (canonicalizePath,
 import           System.FilePath              (FilePath, takeDirectory,
                                                takeExtension)
 
-import qualified Data.Foldable                as F
-import           Diagrams.Backend
 import           Diagrams.Backend.Compile
 import           Diagrams.Prelude             hiding (clip, local, (<~))
 import           Diagrams.TwoD.Text
-
 import           Diagrams.Types               hiding (local)
-import           Geometry.Path
-import           Geometry.Space
-import           Geometry.TwoD.Types
 
 import           System.Texrunner             (prettyPrintLog, runTex)
 import           System.Texrunner.Online      hiding (hbox)
@@ -107,7 +102,7 @@ instance Backend PGF where
     , _standalone  :: Bool            -- ^ Should @.tex@ output be standalone.
     }
 
-  renderDiaT opts dia = (b, t2) where
+  renderDiaT opts dia = (sz, t2, b) where
     (sz, t2, dia') = adjustSize2D (opts^.sizeSpec) (default2DAttrs dia)
     b = P.renderWith (opts^.surface) (opts^.readable) (opts^.standalone) sz r
     r = toRender t2 dia'
@@ -141,7 +136,7 @@ instance BackendBuild PGF where
       ".pdf" -> do
         let opts'    = opts & standalone .~ True
                             & readable   .~ False
-        let rendered = fst $ renderDiaT opts' d
+        let rendered = view _3 $ renderDiaT opts' d
 
         currentDir <- getCurrentDirectory
         targetDir  <- canonicalizePath (takeDirectory outPath)
@@ -254,7 +249,7 @@ readable = lens _readable (\o b -> o {_readable = b})
 ------------------------------------------------------------------------
 
 toRender :: T2 Double -> Diagram V2 -> Render Double
-toRender = foldDia renderPrim renderAnnot
+toRender = foldDiaA renderPrim renderAnnot
   where
     renderPrim t2 attrs prim = case renderPrimitive t2 attrs prim of
       Just r  -> local (P.attributes .~ attrs) r
@@ -541,7 +536,7 @@ saveOnlinePGF' outPath opts dOL = case takeExtension outPath of
                            & readable   .~ False
                            & standalone .~ True
 
-              rendered = fst $ renderDiaT opts' d
+              rendered = view _3 $ renderDiaT opts' d
 
           texPutStrLn $ toByteString rendered
 
@@ -563,7 +558,7 @@ writeTexFile
   -> Diagram V2
   -> IO ()
 writeTexFile opts outPath d = do
-  let bs = toLazyByteString . fst $ renderDiaT opts d
+  let bs = toLazyByteString . view _3 $ renderDiaT opts d
   LB.writeFile outPath bs
   -- h <- openFile outPath WriteMode
   -- hSetBinaryMode h True

@@ -1,9 +1,9 @@
 import Control.Lens ((<&>))
 
 import Diagrams.Prelude
-import Diagrams.Backend.PGF.CmdLine
+import Diagrams.Backend.PGF
 
-type D2 = Diagram PGF
+type D2 = Diagram V2
 
 maxSum = 6 :: Int
 

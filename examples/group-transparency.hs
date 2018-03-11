@@ -2,16 +2,19 @@
 module GroupTransparency where
 
 import Diagrams.Prelude
-import Diagrams.Backend.PGF.CmdLine
+import Diagrams.Backend.CmdLine
+import Diagrams.Backend.PGF
 
 -- Example of group opacity.
 
-type D2 = Diagram PGF
+-- type D2 = Diagram PGF
 
-main = defaultMain (frame 10 xs)
+main = mainWith PGF (frame 10 xs)
 
-xs :: D2
-xs = x # opacity 0.3 ||| strutX 10 ||| x # opacityGroup 0.3
+a ~~ b = fromVertices [a,b]
+
+xs :: Diagram V2
+xs = x # opacity 0.3 ||| strutX 10 ||| x # groupOpacity 0.3
   where
     x = lw 10 $ (origin ~~ pure 40) <> (mkP2 40 0 ~~ mkP2 0 40)
 
