@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -40,18 +41,19 @@ import           Data.Hashable                (Hashable (..))
 import           Data.Tree                    (Tree (Node))
 
 import           Diagrams.Core.Types
-import           Diagrams.Prelude hiding ((<~))
+import           Diagrams.Prelude             hiding ((<~))
 
+import           Data.Typeable
 import           Diagrams.Backend.PGF.Hbox    (Hbox (..))
 import           Diagrams.Backend.PGF.Surface (Surface)
 import           Diagrams.TwoD.Adjust         (adjustDia2D)
 import           Diagrams.TwoD.Path
-import           Diagrams.TwoD.Text           (Text (..), TextAlignment (..), getFontSize,
-                                               getFontSlant, getFontWeight)
-import           Data.Typeable
+import           Diagrams.TwoD.Text           (Text (..), TextAlignment (..),
+                                               getFontSize, getFontSlant,
+                                               getFontWeight)
 import qualified Graphics.Rendering.PGF       as P
 
-import Prelude
+import           Prelude
 
 -- | This data declaration is simply used as a token to distinguish
 --   this rendering engine.
@@ -97,9 +99,14 @@ instance Fractional n => Default (Options PGF V2 n) where
           , _standalone = False
           }
 
+instance Semigroup (Render PGF V2 n) where
+  R ra <> R rb = R $ ra >> rb
+
 instance Monoid (Render PGF V2 n) where
-  mempty              = R $ return ()
-  R ra `mappend` R rb = R $ ra >> rb
+  mempty  = R $ return ()
+#if !MIN_VERSION_base(4,11,0)
+  mappend = (<>)
+#endif
 
 -- | Lens onto the surface used to render.
 surface :: Lens' (Options PGF V2 n) Surface
