@@ -99,7 +99,6 @@ module Diagrams.Backend.PGF
 import           Data.ByteString.Builder
 import           System.Directory             hiding (readable)
 import           System.FilePath
-import           System.IO
 import           System.Texrunner
 import           System.Texrunner.Online      hiding (hbox)
 
