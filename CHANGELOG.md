@@ -1,3 +1,7 @@
+* 1.4.1 (17 Nov 2018)
+
+  - Add `Semigroup` instance for `Render`
+
 * 1.4 (26 October 2016)
 
 No significant changes; release to go with diagrams 1.4.
