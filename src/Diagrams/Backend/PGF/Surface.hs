@@ -169,19 +169,23 @@ endDoc :: Lens' Surface String
 -- % 'preamble'
 -- \documentclass{article}
 -- \usepackage{pgfcore}
+-- \usepackage{iftex}
 -- \pagenumbering{gobble}
 --
 -- % 'pageSizeTemplate'
--- \pdfpagewidth=${w}bp
--- \pdfpageheight=${h}bp
--- \textheight=${h}bp
--- \pdfhorigin=-76.6bp
--- \pdfvorigin=-52.8bp
+-- \ifLuaTeX
+--   \edef\pdfhorigin{\pdfvariable horigin}
+--   \edef\pdfvorigin{\pdfvariable vorigin}
+-- \fi
+-- \usepackage[paperwidth=${w}bp,paperheight=${h}bp,margin=0bp]{geometry}
+-- \pdfhorigin=57.0bp
+-- \pdfvorigin=73.0bp
+--
 --
 -- % 'beginDoc'
 -- \begin{document}
 --
--- \<Latex pgf code\>
+-- \<LaTeX pgf code\>
 --
 -- % 'endDoc'
 -- \end{document}
@@ -193,14 +197,17 @@ latexSurface = Surface
   , _command   = "pdflatex"
   , _arguments = []
   , _pageSizeTemplate  = unlines
-      [ "\\pdfpagewidth=${w}bp"
-      , "\\pdfpageheight=${h}bp"
-      , "\\textheight=${h}bp"
-      , "\\pdfhorigin=-76.6bp"
-      , "\\pdfvorigin=-52.8bp"
+      [ "\\ifLuaTeX"
+      , "  \\edef\\pdfhorigin{\\pdfvariable horigin}"
+      , "  \\edef\\pdfvorigin{\\pdfvariable vorigin}"
+      , "\\fi"
+      , "\\usepackage[paperwidth=${w}bp,paperheight=${h}bp,margin=0bp]{geometry}"
+      , "\\pdfhorigin=57.0bp"
+      , "\\pdfvorigin=72.0bp"
       ]
   , _preamble  = "\\documentclass{article}\n"
               ++ "\\usepackage{pgfcore}\n"
+              ++ "\\usepackage{iftex}\n"
               ++ "\\pagenumbering{gobble}"
   , _beginDoc  = "\\begin{document}"
   , _endDoc    = "\\end{document}"
