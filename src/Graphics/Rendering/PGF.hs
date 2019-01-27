@@ -855,8 +855,8 @@ shadePath (view deg -> θ) name = ln $ do
 -- \pgfimage[⟨options ⟩]{⟨filename ⟩}
 
 -- | Images are wraped in a \pgftext.
-image :: RealFloat n => T2 n -> DImage n External -> Render n
-image t2 (DImage w h (ImageRef ref)) = scope $ do
+image :: RealFloat n => T2 n -> DImage External -> Render n
+image t2 (ImageExternal (V2 w h) ref) = scope $ do
   applyTransform t2
   ln $ do
     pgf "text"
@@ -870,9 +870,10 @@ image t2 (DImage w h (ImageRef ref)) = scope $ do
 
 -- embedded images -----------------------------------------------------
 
-embeddedImage :: RealFloat n => T2 n -> DImage n Embedded -> Render n
-embeddedImage t (DImage w h (ImageRaster (ImageRGB8 img))) =
+embeddedImage :: RealFloat n => T2 n -> DImage Embedded -> Render n
+embeddedImage t dimg@(ImageEmbedded (ImageRGB8 img)) =
   embeddedImage' (hexImage img) w h t
+    where V2 w h = dimageSize dimg
   -- TODO: Support more formats (like grey scale and alpha channels)
 embeddedImage _ _ = error "Unsupported embedded image. Only ImageRGB8 is currently supported."
 
