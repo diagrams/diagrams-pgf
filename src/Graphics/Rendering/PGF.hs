@@ -114,7 +114,7 @@ import qualified Data.Vector.Storable              as S
 import           Data.Double.Conversion.ByteString as DC (toFixed)
 import           Diagrams.Backend.PGF.Surface
 import           Diagrams.Prelude                  hiding (clip, moveTo, stroke)
-import           Diagrams.TwoD.Image               hiding (image)
+import           Diagrams.TwoD.Image
 import           Diagrams.TwoD.Text                (FontSlant (..),
                                                     FontWeight (..),
                                                     TextAlignment (..))
