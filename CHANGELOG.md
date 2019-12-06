@@ -1,3 +1,8 @@
+* 1.4.1.1 (6 Dec 2019)
+
+  - Test with GHC 8.8
+  - Allow `optparse-applicative-0.15`, `hashable-1.3`, `base-4.13`
+
 * 1.4.1 (17 Nov 2018)
 
   - Add `Semigroup` instance for `Render`
