@@ -8,6 +8,7 @@ cabal-dev
 *~
 .hsenv_*
 dist_*
+dist-*
 history
 TAGS
 .diagrams-cache
