@@ -3,6 +3,10 @@
   - Test with GHC 8.8
   - Allow `optparse-applicative-0.15`, `hashable-1.3`, `base-4.13`
 
+  - r1 (26 June 2021):
+      - Test with GHC 9.0
+      - Allow `base-4.15`, `diagrams-core-1.5`, `optparse-applicative-0.16`, `time-1.12`
+
 * 1.4.1 (17 Nov 2018)
 
   - Add `Semigroup` instance for `Render`
