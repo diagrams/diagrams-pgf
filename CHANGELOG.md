@@ -1,3 +1,9 @@
+* 1.4.2 (30 Dec 2021)
+
+  - Test with GHC 9.2
+  - Allow `base-4.15`, `hashable-1.4`, `time-1.13`
+  - Add `Eq` instances for `Options PGF` and `Surface`
+
 * 1.4.1.1 (6 Dec 2019)
 
   - Test with GHC 8.8
