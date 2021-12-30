@@ -72,6 +72,7 @@ instance TypeableFloat n => Backend PGF V2 n where
     , _readable   :: Bool          -- ^ Indented lines for @.tex@ output.
     , _standalone :: Bool          -- ^ Should @.tex@ output be standalone.
     }
+    deriving Eq
 
   renderRTree _ ops (toRender -> R r) =
     P.renderWith (ops^.surface) (ops^.readable) (ops^.standalone) bounds r
