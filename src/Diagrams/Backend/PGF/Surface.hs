@@ -288,6 +288,18 @@ instance Hashable TexFormat where
   hashWithSalt s ConTeXt  = s `hashWithSalt` (2::Int)
   hashWithSalt s PlainTeX = s `hashWithSalt` (3::Int)
 
+instance Eq Surface where
+  Surface tf1 cm1 ar1 ps1 p1 bd1 ed1 == Surface tf2 cm2 ar2 ps2 p2 bd2 ed2
+    = and
+      [ tf1 == tf2
+      , cm1 == cm2
+      , ar1 == ar2
+      , (ps1 <*> Just (V2 1 2)) == (ps2 <*> Just (V2 1 2))
+      , p1 == p2
+      , bd1 == bd2
+      , ed1 == ed2
+      ]
+
 instance Hashable Surface where
   hashWithSalt s (Surface tf cm ar ps p bd ed)
     = s                    `hashWithSalt`
