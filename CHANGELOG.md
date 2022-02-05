@@ -4,6 +4,8 @@
   - Allow `base-4.15`, `hashable-1.4`, `time-1.13`
   - Add `Eq` instances for `Options PGF` and `Surface`
 
+  - r1 (4 Feb 2022): allow `optparse-applicative-0.17`
+
 * 1.4.1.1 (6 Dec 2019)
 
   - Test with GHC 8.8
