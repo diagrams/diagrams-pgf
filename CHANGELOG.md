@@ -5,6 +5,7 @@
   - Add `Eq` instances for `Options PGF` and `Surface`
 
   - r1 (4 Feb 2022): allow `optparse-applicative-0.17`
+  - r2 (7 Sep 2022): allow `base-4.17` and test on GHC 9.4
 
 * 1.4.1.1 (6 Dec 2019)
 
