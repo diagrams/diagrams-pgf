@@ -1,3 +1,7 @@
+* 1.4.2.1 (10 July 2023)
+
+  - Allow `base-4.18`, `optparse-applicative-0.18`, and test on GHC 9.6
+
 * 1.4.2 (30 Dec 2021)
 
   - Test with GHC 9.2
