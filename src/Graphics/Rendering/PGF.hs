@@ -93,6 +93,7 @@ module Graphics.Rendering.PGF
 
 import           Codec.Compression.Zlib
 import           Codec.Picture
+import           Control.Monad                (when)
 import           Control.Monad.RWS
 import           Data.ByteString.Builder
 import           Data.ByteString.Char8        (ByteString)
