@@ -2,6 +2,8 @@
 
   - Allow `base-4.18`, `optparse-applicative-0.18`, and test on GHC 9.6
 
+  - r1 (29 Jan 2024): allow `base-4.19` and test on GHC 9.8
+
 * 1.4.2 (30 Dec 2021)
 
   - Test with GHC 9.2
