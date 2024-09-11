@@ -3,6 +3,12 @@
   - Allow `base-4.18`, `optparse-applicative-0.18`, and test on GHC 9.6
 
   - r1 (29 Jan 2024): allow `base-4.19` and test on GHC 9.8
+  - r2 (11 Sep 2024): bump upper bounds and test on GHC 9.10. Allow:
+      - `base-4.20`
+      - `containers-0.7`
+      - `filepath-1.5`
+      - `hashable-1.5`
+      - `time-1.15`
 
 * 1.4.2 (30 Dec 2021)
 
