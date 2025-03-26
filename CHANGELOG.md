@@ -1,3 +1,8 @@
+* 1.5 (26 March 2025)
+
+  - Allow `base-4.21` and test on GHC 9.12
+  - Allow `diagrams-lib-1.5` and remove unsupported `DiagramLoopOpts`
+
 * 1.4.2.1 (10 July 2023)
 
   - Allow `base-4.18`, `optparse-applicative-0.18`, and test on GHC 9.6
