@@ -166,32 +166,28 @@ onlineMainWithSurf = curry mainWith
 
 instance TypeableFloat n => Mainable (QDiagram PGF V2 n Any) where
   type MainOpts (QDiagram PGF V2 n Any) =
-    (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TexFormat)
-  mainRender (diaOpts, loopOpts, pgfOpts, format) d = do
+    (DiagramOpts, PGFCmdLineOpts, TexFormat)
+  mainRender (diaOpts, pgfOpts, format) d = do
     chooseRender diaOpts pgfOpts (formatToSurf format) d
-    defaultLoopRender loopOpts
 
 instance TypeableFloat n => Mainable (Surface, QDiagram PGF V2 n Any) where
   type MainOpts (Surface, QDiagram PGF V2 n Any) =
-    (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts)
-  mainRender (diaOpts, loopOpts, pgfOpts) (surf,d) = do
+    (DiagramOpts, PGFCmdLineOpts)
+  mainRender (diaOpts, pgfOpts) (surf,d) = do
     chooseRender diaOpts pgfOpts surf d
-    defaultLoopRender loopOpts
 
 -- Online diagrams
 instance TypeableFloat n => Mainable (OnlineTex (QDiagram PGF V2 n Any)) where
   type MainOpts (OnlineTex (QDiagram PGF V2 n Any))
-    = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts, TexFormat)
-  mainRender (diaOpts, loopOpts, pgfOpts, format) d = do
+    = (DiagramOpts, PGFCmdLineOpts, TexFormat)
+  mainRender (diaOpts, pgfOpts, format) d = do
     chooseOnlineRender diaOpts pgfOpts (formatToSurf format) d
-    defaultLoopRender loopOpts
 
 instance TypeableFloat n => Mainable (Surface, OnlineTex (QDiagram PGF V2 n Any)) where
   type MainOpts (Surface, OnlineTex (QDiagram PGF V2 n Any))
-    = (DiagramOpts, DiagramLoopOpts, PGFCmdLineOpts)
-  mainRender (diaOpts, loopOpts, pgfOpts) (surf, d) = do
+    = (DiagramOpts, PGFCmdLineOpts)
+  mainRender (diaOpts, pgfOpts) (surf, d) = do
     chooseOnlineRender diaOpts pgfOpts surf d
-    defaultLoopRender loopOpts
 
 formatToSurf :: TexFormat -> Surface
 formatToSurf format = case format of
