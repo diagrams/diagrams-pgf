@@ -1,4 +1,4 @@
-* 1.5 (26 March 2025)
+* 1.5 (28 March 2025)
 
   - Allow `base-4.21` and test on GHC 9.12
   - Allow `diagrams-lib-1.5` and remove unsupported `DiagramLoopOpts`
