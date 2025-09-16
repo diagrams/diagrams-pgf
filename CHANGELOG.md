@@ -4,7 +4,7 @@
   - Allow `diagrams-lib-1.5` and remove unsupported `DiagramLoopOpts`
 
   - r1 (13 June 2025): allow `optparse-applicative-0.19`
-  - r2 (20 Aug 2025): remove `time` dependency
+  - r2 (16 Sep 2025): remove `time` dependency
 
 * 1.4.2.1 (10 July 2023)
 
