@@ -1,10 +1,13 @@
+* 1.5.0.1 (16 Sep 2025)
+
+  - remove `time` dependency
+
 * 1.5 (28 March 2025)
 
   - Allow `base-4.21` and test on GHC 9.12
   - Allow `diagrams-lib-1.5` and remove unsupported `DiagramLoopOpts`
 
   - r1 (13 June 2025): allow `optparse-applicative-0.19`
-  - r2 (16 Sep 2025): remove `time` dependency
 
 * 1.4.2.1 (10 July 2023)
 
